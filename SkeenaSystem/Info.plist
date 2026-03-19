@@ -112,8 +112,8 @@
 	<string>$(TACTICS_RECOMMENDATIONS_URL)</string>
 	<key>TRIP_ROSTER_URL</key>
 	<string>$(TRIP_ROSTER_URL)</string>
-	<key>UPLOAD_CATCH_V3_URL</key>
-	<string>$(UPLOAD_CATCH_V3_URL)</string>
+	<key>UPLOAD_CATCH_URL</key>
+	<string>$(UPLOAD_CATCH_URL)</string>
 	<key>SPLASH_VIDEO_FREQUENCY</key>
 	<string>$(SPLASH_VIDEO_FREQUENCY)</string>
 	<key>SPLASH_VIDEO_MAX_DURATION</key>

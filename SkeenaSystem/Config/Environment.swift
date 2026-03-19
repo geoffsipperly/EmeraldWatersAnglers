@@ -34,7 +34,7 @@ public final class AppEnvironment {
     public var overrideLogLevel: LogLevel?
 
     // New overrides for individual function endpoints
-    public var overrideUploadCatchV3URL: URL?
+    public var overrideUploadCatchURL: URL?
     public var overrideManageTripURL: URL?
     public var overrideRiverConditionsURL: URL?
     public var overrideTacticsRecommendationsURL: URL?
@@ -60,6 +60,7 @@ public final class AppEnvironment {
     public var overrideFishMaxLengthInches: Double?
     public var overrideFishEstimateLowFactor: Double?
     public var overrideFishEstimateHighFactor: Double?
+    public var overrideUseLengthRegressor: Bool?
     public var overrideLodgeRivers: [String]?
     public var overrideBuzzCategoryId: String?
     public var overrideCommunityName: String?
@@ -209,11 +210,11 @@ public final class AppEnvironment {
 
     // MARK: - Computed endpoints for individual functions
 
-    /// V3 upload endpoint (functions/v1/upload-catch-reports-v3).
-    public var uploadCatchV3URL: URL {
-        if let v = overrideUploadCatchV3URL { return v }
-        if let url = urlFromInfo("UPLOAD_CATCH_V3_URL") { return url }
-        return projectURL.appendingPathComponent("/functions/v1/upload-catch-reports-v3")
+    /// Upload catch reports endpoint (version set in xcconfig).
+    public var uploadCatchURL: URL {
+        if let v = overrideUploadCatchURL { return v }
+        if let url = urlFromInfo("UPLOAD_CATCH_URL") { return url }
+        return projectURL.appendingPathComponent("/functions/v1/upload-catch-reports-v4")
     }
 
     /// Manage-trip endpoint (functions/v1/manage-trip).
@@ -413,6 +414,14 @@ public final class AppEnvironment {
         if let v = overrideFishEstimateHighFactor { return v }
         if let s = stringFromInfo("FISH_ESTIMATE_HIGH_FACTOR"), let v = Double(s) { return v }
         return 1.07
+    }
+
+    /// Whether to use the ML length regressor instead of the heuristic.
+    /// Defaults to true. Set to false to fall back to pixel-based heuristic.
+    public var useLengthRegressor: Bool {
+        if let v = overrideUseLengthRegressor { return v }
+        if let s = stringFromInfo("USE_LENGTH_REGRESSOR") { return s.lowercased() == "true" }
+        return true
     }
 
     // MARK: - The Buzz configuration

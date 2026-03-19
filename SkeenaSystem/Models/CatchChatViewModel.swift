@@ -470,7 +470,9 @@ final class CatchChatViewModel: ObservableObject {
         riverName: river,
         species: analysis.species,
         sex: analysis.sex,
-        estimatedLength: analysis.estimatedLength
+        estimatedLength: analysis.estimatedLength,
+        featureVector: analysis.featureVector,
+        lengthSource: analysis.lengthSource
       )
     }
 
@@ -480,18 +482,14 @@ final class CatchChatViewModel: ObservableObject {
         riverName: analysis.riverName,
         species: species,
         sex: analysis.sex,
-        estimatedLength: analysis.estimatedLength
+        estimatedLength: analysis.estimatedLength,
+        featureVector: analysis.featureVector,
+        lengthSource: analysis.lengthSource
       )
     }
 
     // Lifecycle stage corrections (explicit or inferred)
     if let stage = value(after: "lifecycle stage") ?? value(after: "stage") {
-      analysis = CatchPhotoAnalysis(
-        riverName: analysis.riverName,
-        species: analysis.species,
-        sex: analysis.sex,
-        estimatedLength: analysis.estimatedLength
-      )
       // Store lifecycle stage by appending to species field as per splitSpecies format
       // If species already includes a stage, replace it with the corrected one.
       let currentSpecies = stripLeadingLabel(analysis.species, label: "species")
@@ -501,7 +499,9 @@ final class CatchChatViewModel: ObservableObject {
         riverName: analysis.riverName,
         species: baseSpecies.isEmpty ? cleanedStage : baseSpecies + " " + cleanedStage,
         sex: analysis.sex,
-        estimatedLength: analysis.estimatedLength
+        estimatedLength: analysis.estimatedLength,
+        featureVector: analysis.featureVector,
+        lengthSource: analysis.lengthSource
       )
     } else {
       // If the user typed a single token that looks like a lifecycle stage, accept it.
@@ -522,7 +522,9 @@ final class CatchChatViewModel: ObservableObject {
             riverName: analysis.riverName,
             species: baseSpecies.isEmpty ? cleanedStage : baseSpecies + " " + cleanedStage,
             sex: analysis.sex,
-            estimatedLength: analysis.estimatedLength
+            estimatedLength: analysis.estimatedLength,
+            featureVector: analysis.featureVector,
+            lengthSource: analysis.lengthSource
           )
         }
       }
@@ -534,14 +536,18 @@ final class CatchChatViewModel: ObservableObject {
         riverName: analysis.riverName,
         species: analysis.species,
         sex: sexExplicit,
-        estimatedLength: analysis.estimatedLength
+        estimatedLength: analysis.estimatedLength,
+        featureVector: analysis.featureVector,
+        lengthSource: analysis.lengthSource
       )
     } else if let inferredSex = inferSex(from: text) {
       analysis = CatchPhotoAnalysis(
         riverName: analysis.riverName,
         species: analysis.species,
         sex: inferredSex,
-        estimatedLength: analysis.estimatedLength
+        estimatedLength: analysis.estimatedLength,
+        featureVector: analysis.featureVector,
+        lengthSource: analysis.lengthSource
       )
     }
 
@@ -551,7 +557,9 @@ final class CatchChatViewModel: ObservableObject {
         riverName: analysis.riverName,
         species: analysis.species,
         sex: analysis.sex,
-        estimatedLength: length
+        estimatedLength: length,
+        featureVector: analysis.featureVector,
+        lengthSource: .manual
       )
     } else {
       // Pure number input ("32", "32.5") → treat as new length in inches
@@ -563,7 +571,9 @@ final class CatchChatViewModel: ObservableObject {
                   riverName: analysis.riverName,
                   species: analysis.species,
                   sex: analysis.sex,
-                  estimatedLength: "\(numberString) inches"
+                  estimatedLength: "\(numberString) inches",
+                  featureVector: analysis.featureVector,
+                  lengthSource: .manual
         )
       }
     }
@@ -704,6 +714,11 @@ final class CatchChatViewModel: ObservableObject {
     var initialLifecycleStage: String?
     var initialSex: String?
     var initialLengthInches: Int?
+
+    /// JSON-encoded ML feature vector from initial analysis (26 features).
+    var mlFeatureVector: Data?
+    /// How the length was estimated: "regressor", "heuristic", or "manual".
+    var lengthSource: String?
   }
 
   func makePicMemoSnapshot() -> CatchPicMemoSnapshot? {
@@ -744,7 +759,9 @@ final class CatchChatViewModel: ObservableObject {
       initialSpecies: initSpecies.isEmpty || initSpecies == "-" ? nil : initSpecies,
       initialLifecycleStage: initStage,
       initialSex: initPrettySex.isEmpty ? nil : initPrettySex,
-      initialLengthInches: initLengthInches
+      initialLengthInches: initLengthInches,
+      mlFeatureVector: initialAnalysis?.featureVector.flatMap { try? JSONEncoder().encode($0) },
+      lengthSource: (currentAnalysis?.lengthSource ?? initialAnalysis?.lengthSource)?.rawValue
     )
   }
 

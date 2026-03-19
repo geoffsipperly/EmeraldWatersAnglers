@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		38EDEA0E445EEB4344D033F7 /* Pods_SkeenaSystemTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AC7E7FFA1A12F48BFB4A85A7 /* Pods_SkeenaSystemTests.framework */; };
 		47E678982EBD1CEB009190EF /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 47E678972EBD1CEB009190EF /* Auth */; };
 		47E6789A2EBD1CEB009190EF /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 47E678992EBD1CEB009190EF /* Functions */; };
 		47E6789C2EBD1CEB009190EF /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = 47E6789B2EBD1CEB009190EF /* PostgREST */; };
@@ -16,7 +17,10 @@
 		47E67A9C2ED0DCA3009190EF /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 47E67A9B2ED0DCA3009190EF /* AVFoundation.framework */; };
 		47E67A9E2ED0DCB9009190EF /* Speech.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 47E67A9D2ED0DCB9009190EF /* Speech.framework */; };
 		47E67AA02ED0DCC8009190EF /* CoreLocation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 47E67A9F2ED0DCC8009190EF /* CoreLocation.framework */; };
+		4FF82B702E4BA5B2706E2C61 /* Pods_SkeenaSystem.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD754802CE27E7BB0EA190A5 /* Pods_SkeenaSystem.framework */; };
 		FD0A00012F3A000100000001 /* MapboxMaps in Frameworks */ = {isa = PBXBuildFile; productRef = FD0A00002F3A000100000001 /* MapboxMaps */; };
+		FD616A952F6C2E60009F1B3F /* hand_landmarker.task in Resources */ = {isa = PBXBuildFile; fileRef = FD616A942F6C2E60009F1B3F /* hand_landmarker.task */; };
+		FD616D252F6C3043009F1B3F /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = FD616D242F6C3043009F1B3F /* libz.tbd */; };
 		FDFCA4462F31951200CD5E46 /* Media in Resources */ = {isa = PBXBuildFile; fileRef = FDFCA4452F31951200CD5E46 /* Media */; };
 /* End PBXBuildFile section */
 
@@ -38,11 +42,24 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0CD00DC8E234D6B30F1E9D85 /* Pods-SkeenaSystemTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SkeenaSystemTests.debug.xcconfig"; path = "Target Support Files/Pods-SkeenaSystemTests/Pods-SkeenaSystemTests.debug.xcconfig"; sourceTree = "<group>"; };
+		218166E765B091E7A7A18223 /* Pods-SkeenaSystemTests.devtest.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SkeenaSystemTests.devtest.xcconfig"; path = "Target Support Files/Pods-SkeenaSystemTests/Pods-SkeenaSystemTests.devtest.xcconfig"; sourceTree = "<group>"; };
 		47E678582E8F368B009190EF /* SkeenaSystem.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SkeenaSystem.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		47E67A9B2ED0DCA3009190EF /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		47E67A9D2ED0DCB9009190EF /* Speech.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Speech.framework; path = System/Library/Frameworks/Speech.framework; sourceTree = SDKROOT; };
 		47E67A9F2ED0DCC8009190EF /* CoreLocation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreLocation.framework; path = System/Library/Frameworks/CoreLocation.framework; sourceTree = SDKROOT; };
+		49293C4028407ECA0C74500D /* Pods-SkeenaSystem.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SkeenaSystem.release.xcconfig"; path = "Target Support Files/Pods-SkeenaSystem/Pods-SkeenaSystem.release.xcconfig"; sourceTree = "<group>"; };
+		81B535F0FA0D82BF50A4C3BC /* Pods-SkeenaSystem.devtest.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SkeenaSystem.devtest.xcconfig"; path = "Target Support Files/Pods-SkeenaSystem/Pods-SkeenaSystem.devtest.xcconfig"; sourceTree = "<group>"; };
+		AC5FDDAF3AB76A18D8D77E85 /* Pods-SkeenaSystem.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SkeenaSystem.debug.xcconfig"; path = "Target Support Files/Pods-SkeenaSystem/Pods-SkeenaSystem.debug.xcconfig"; sourceTree = "<group>"; };
+		AC7E7FFA1A12F48BFB4A85A7 /* Pods_SkeenaSystemTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SkeenaSystemTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		D307475FF5C6ED0EEA51FA79 /* Pods-SkeenaSystem.prod.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SkeenaSystem.prod.xcconfig"; path = "Target Support Files/Pods-SkeenaSystem/Pods-SkeenaSystem.prod.xcconfig"; sourceTree = "<group>"; };
+		DD754802CE27E7BB0EA190A5 /* Pods_SkeenaSystem.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SkeenaSystem.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		DE07E9E9161FF082FE6F1555 /* Pods-SkeenaSystemTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SkeenaSystemTests.release.xcconfig"; path = "Target Support Files/Pods-SkeenaSystemTests/Pods-SkeenaSystemTests.release.xcconfig"; sourceTree = "<group>"; };
+		ECEA4DB6C96E0C70C7FB0AB9 /* Pods-SkeenaSystemTests.prod.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SkeenaSystemTests.prod.xcconfig"; path = "Target Support Files/Pods-SkeenaSystemTests/Pods-SkeenaSystemTests.prod.xcconfig"; sourceTree = "<group>"; };
 		FD2182F72EF9C1E2001E905A /* SkeenaSystemTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SkeenaSystemTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FD616A942F6C2E60009F1B3F /* hand_landmarker.task */ = {isa = PBXFileReference; lastKnownFileType = file; path = hand_landmarker.task; sourceTree = "<group>"; };
+		FD616D242F6C3043009F1B3F /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
+		FD616D262F6C30C2009F1B3F /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk/usr/lib/libz.tbd; sourceTree = DEVELOPER_DIR; };
 		FD6334CA2EFF0B4900CF49C7 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		FD6A18CF2F18487A0067DBFD /* SkeenaSystemUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SkeenaSystemUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDFCA4452F31951200CD5E46 /* Media */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Media; path = SkeenaSystem/Media; sourceTree = "<group>"; };
@@ -84,6 +101,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FD616D252F6C3043009F1B3F /* libz.tbd in Frameworks */,
 				47E6789C2EBD1CEB009190EF /* PostgREST in Frameworks */,
 				47E6789A2EBD1CEB009190EF /* Functions in Frameworks */,
 				47E678B42EBD405B009190EF /* Supabase in Frameworks */,
@@ -94,6 +112,7 @@
 				47E67A9C2ED0DCA3009190EF /* AVFoundation.framework in Frameworks */,
 				47E6789E2EBD1CEB009190EF /* Realtime in Frameworks */,
 				FD0A00012F3A000100000001 /* MapboxMaps in Frameworks */,
+				4FF82B702E4BA5B2706E2C61 /* Pods_SkeenaSystem.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -101,6 +120,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				38EDEA0E445EEB4344D033F7 /* Pods_SkeenaSystemTests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -126,17 +146,38 @@
 				47E678B22EBD405B009190EF /* Frameworks */,
 				FD2182F72EF9C1E2001E905A /* SkeenaSystemTests.xctest */,
 				FD6A18CF2F18487A0067DBFD /* SkeenaSystemUITests.xctest */,
+				9CA04A48103A2A32B08393CF /* Pods */,
+				FD616A942F6C2E60009F1B3F /* hand_landmarker.task */,
 			);
 			sourceTree = "<group>";
 		};
 		47E678B22EBD405B009190EF /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				FD616D242F6C3043009F1B3F /* libz.tbd */,
+				FD616D262F6C30C2009F1B3F /* libz.tbd */,
 				47E67A9F2ED0DCC8009190EF /* CoreLocation.framework */,
 				47E67A9D2ED0DCB9009190EF /* Speech.framework */,
 				47E67A9B2ED0DCA3009190EF /* AVFoundation.framework */,
+				DD754802CE27E7BB0EA190A5 /* Pods_SkeenaSystem.framework */,
+				AC7E7FFA1A12F48BFB4A85A7 /* Pods_SkeenaSystemTests.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		9CA04A48103A2A32B08393CF /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				AC5FDDAF3AB76A18D8D77E85 /* Pods-SkeenaSystem.debug.xcconfig */,
+				81B535F0FA0D82BF50A4C3BC /* Pods-SkeenaSystem.devtest.xcconfig */,
+				D307475FF5C6ED0EEA51FA79 /* Pods-SkeenaSystem.prod.xcconfig */,
+				49293C4028407ECA0C74500D /* Pods-SkeenaSystem.release.xcconfig */,
+				0CD00DC8E234D6B30F1E9D85 /* Pods-SkeenaSystemTests.debug.xcconfig */,
+				218166E765B091E7A7A18223 /* Pods-SkeenaSystemTests.devtest.xcconfig */,
+				ECEA4DB6C96E0C70C7FB0AB9 /* Pods-SkeenaSystemTests.prod.xcconfig */,
+				DE07E9E9161FF082FE6F1555 /* Pods-SkeenaSystemTests.release.xcconfig */,
+			);
+			path = Pods;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -146,6 +187,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 4759B4892E8EE1FA005E27BB /* Build configuration list for PBXNativeTarget "SkeenaSystem" */;
 			buildPhases = (
+				711EF812A89E8AF2BA09CD6C /* [CP] Check Pods Manifest.lock */,
 				4759B4752E8EE1F9005E27BB /* Sources */,
 				4759B4762E8EE1F9005E27BB /* Frameworks */,
 				4759B4772E8EE1F9005E27BB /* Resources */,
@@ -175,6 +217,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = FD2182FF2EF9C1E2001E905A /* Build configuration list for PBXNativeTarget "SkeenaSystemTests" */;
 			buildPhases = (
+				C741A8BDA33CC8D7D3189CA1 /* [CP] Check Pods Manifest.lock */,
 				FD2182F32EF9C1E2001E905A /* Sources */,
 				FD2182F42EF9C1E2001E905A /* Frameworks */,
 				FD2182F52EF9C1E2001E905A /* Resources */,
@@ -188,8 +231,6 @@
 				FD2182F82EF9C1E2001E905A /* SkeenaSystemTests */,
 			);
 			name = SkeenaSystemTests;
-			packageProductDependencies = (
-			);
 			productName = SkeenaSystemTests;
 			productReference = FD2182F72EF9C1E2001E905A /* SkeenaSystemTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -211,8 +252,6 @@
 				FD6A18D02F18487A0067DBFD /* SkeenaSystemUITests */,
 			);
 			name = SkeenaSystemUITests;
-			packageProductDependencies = (
-			);
 			productName = SkeenaSystemUITests;
 			productReference = FD6A18CF2F18487A0067DBFD /* SkeenaSystemUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
@@ -271,6 +310,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FDFCA4462F31951200CD5E46 /* Media in Resources */,
+				FD616A952F6C2E60009F1B3F /* hand_landmarker.task in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -289,6 +329,53 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		711EF812A89E8AF2BA09CD6C /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-SkeenaSystem-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		C741A8BDA33CC8D7D3189CA1 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-SkeenaSystemTests-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		4759B4752E8EE1F9005E27BB /* Sources */ = {
@@ -456,6 +543,7 @@
 		};
 		4759B48A2E8EE1FA005E27BB /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC5FDDAF3AB76A18D8D77E85 /* Pods-SkeenaSystem.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -504,6 +592,7 @@
 		};
 		4759B48B2E8EE1FA005E27BB /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 49293C4028407ECA0C74500D /* Pods-SkeenaSystem.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -552,6 +641,7 @@
 		};
 		FD2182FD2EF9C1E2001E905A /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0CD00DC8E234D6B30F1E9D85 /* Pods-SkeenaSystemTests.debug.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
@@ -574,6 +664,7 @@
 		};
 		FD2182FE2EF9C1E2001E905A /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = DE07E9E9161FF082FE6F1555 /* Pods-SkeenaSystemTests.release.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
@@ -748,8 +839,7 @@
 		};
 		FDCA994E2F13111700B28F5D /* DevTEST */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReferenceAnchor = 4759B47B2E8EE1F9005E27BB /* SkeenaSystem */;
-			baseConfigurationReferenceRelativePath = Config/DevTEST.xcconfig;
+			baseConfigurationReference = 81B535F0FA0D82BF50A4C3BC /* Pods-SkeenaSystem.devtest.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -799,8 +889,7 @@
 		};
 		FDCA994F2F13111700B28F5D /* DevTEST */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReferenceAnchor = 4759B47B2E8EE1F9005E27BB /* SkeenaSystem */;
-			baseConfigurationReferenceRelativePath = Config/DevTEST.xcconfig;
+			baseConfigurationReference = 218166E765B091E7A7A18223 /* Pods-SkeenaSystemTests.devtest.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
@@ -891,8 +980,7 @@
 		};
 		FDCA99512F13112400B28F5D /* PROD */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReferenceAnchor = 4759B47B2E8EE1F9005E27BB /* SkeenaSystem */;
-			baseConfigurationReferenceRelativePath = Config/PROD.xcconfig;
+			baseConfigurationReference = D307475FF5C6ED0EEA51FA79 /* Pods-SkeenaSystem.prod.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -941,8 +1029,7 @@
 		};
 		FDCA99522F13112400B28F5D /* PROD */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReferenceAnchor = 4759B47B2E8EE1F9005E27BB /* SkeenaSystem */;
-			baseConfigurationReferenceRelativePath = Config/PROD.xcconfig;
+			baseConfigurationReference = ECEA4DB6C96E0C70C7FB0AB9 /* Pods-SkeenaSystemTests.prod.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;

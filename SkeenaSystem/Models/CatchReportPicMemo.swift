@@ -70,6 +70,12 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
   public var initialSex: String?
   public var initialLengthInches: Int?
 
+  // ML features (Phase 2 length regressor)
+  /// JSON-encoded 26-feature vector from initial ML analysis, for retraining.
+  public var mlFeatureVector: Data?
+  /// How the length was estimated: "regressor", "heuristic", or "manual".
+  public var lengthSource: String?
+
   // Meta
   public var appVersion: String?
   public var deviceDescription: String?
@@ -110,6 +116,8 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
     initialLifecycleStage: String? = nil,
     initialSex: String? = nil,
     initialLengthInches: Int? = nil,
+    mlFeatureVector: Data? = nil,
+    lengthSource: String? = nil,
     appVersion: String? = nil,
     deviceDescription: String? = nil,
     platform: String? = nil
@@ -148,6 +156,8 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
     self.initialLifecycleStage = initialLifecycleStage
     self.initialSex = initialSex
     self.initialLengthInches = initialLengthInches
+    self.mlFeatureVector = mlFeatureVector
+    self.lengthSource = lengthSource
     self.appVersion = appVersion
     self.deviceDescription = deviceDescription
     self.platform = platform

@@ -119,6 +119,8 @@ final class UploadCatchPicMemo {
     let lifecycleStage: String?
     let sex: String?
     let lengthInches: Int?
+    let mlFeatures: [String: Double]?
+    let lengthSource: String?
   }
 
   private struct MetaDTO: Codable {
@@ -397,19 +399,29 @@ final class UploadCatchPicMemo {
     // Voice memo (with real transcript + metadata)
     let voiceMemo = try loadVoiceMemo(from: r)
 
-    // Initial analysis
+    // Initial analysis + ML features
+    let mlFeatures: [String: Double]? = r.mlFeatureVector.flatMap { data in
+      guard let fv = try? JSONDecoder().decode(CatchPhotoAnalyzer.LengthFeatureVector.self, from: data) else {
+        return nil
+      }
+      // Zip feature names with values to create a keyed dictionary
+      return Dictionary(uniqueKeysWithValues: zip(CatchPhotoAnalyzer.featureCols, fv.asArray))
+    }
+
     let initial = InitialAnalysisDTO(
       riverName: r.initialRiverName,
       species: r.initialSpecies,
       lifecycleStage: r.initialLifecycleStage,
       sex: r.initialSex,
-      lengthInches: r.initialLengthInches
+      lengthInches: r.initialLengthInches,
+      mlFeatures: mlFeatures,
+      lengthSource: r.lengthSource
     )
 
     #if DEBUG
     let tripIdDebug = r.tripId ?? "(nil)"
     let tripNameDebug = r.tripName ?? "(nil)"
-    AppLogging.log({ "[UploadCatchPicMemo] Mapping V3 for report=\(r.id): tripId=\(tripIdDebug), tripName=\(tripNameDebug)" }, level: .debug, category: .network)
+    AppLogging.log({ "[UploadCatchPicMemo] Mapping for report=\(r.id): tripId=\(tripIdDebug), tripName=\(tripNameDebug)" }, level: .debug, category: .network)
     #endif
 
     let tripIdToSend = r.tripId

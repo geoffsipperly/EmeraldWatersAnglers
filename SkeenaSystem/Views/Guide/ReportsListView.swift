@@ -25,10 +25,10 @@ private enum PicMemoUploadAPI {
     return s
   }()
 
-  private static let rawUploadV3String: String = {
-    (Bundle.main.object(forInfoDictionaryKey: "UPLOAD_CATCH_V3_URL") as? String)?
+  private static let rawUploadString: String = {
+    (Bundle.main.object(forInfoDictionaryKey: "UPLOAD_CATCH_URL") as? String)?
       .trimmingCharacters(in: .whitespacesAndNewlines)
-      ?? "/functions/v1/upload-catch-reports-v3"
+      ?? "/functions/v1/upload-catch-reports-v4"
   }()
 
   private static let supabaseAnonKey: String = {
@@ -39,12 +39,12 @@ private enum PicMemoUploadAPI {
   private static func logConfig(normalizedPath: String) {
     AppLogging.log("PicMemoUploadAPI config — API_BASE_URL (raw): '\(rawBaseURLString)'", level: .debug, category: .catch)
     AppLogging.log("PicMemoUploadAPI config — API_BASE_URL (normalized): '\(baseURLString)'", level: .debug, category: .catch)
-    AppLogging.log("PicMemoUploadAPI config — UPLOAD_CATCH_V3_URL (raw): '\(rawUploadV3String)'", level: .debug, category: .catch)
+    AppLogging.log("PicMemoUploadAPI config — UPLOAD_CATCH_URL (raw): '\(rawUploadString)'", level: .debug, category: .catch)
     AppLogging.log("PicMemoUploadAPI config — upload path (normalized): '\(normalizedPath)'", level: .debug, category: .catch)
     AppLogging.log("PicMemoUploadAPI config — SUPABASE_ANON_KEY prefix: \(supabaseAnonKey.prefix(8))…", level: .debug, category: .catch)
   }
 
-  /// Convert whatever is in UPLOAD_CATCH_V3_URL into a *path-only* string (e.g. "/functions/v1/upload-catch-reports-v3")
+  /// Convert whatever is in UPLOAD_CATCH_URL into a *path-only* string (e.g. "/functions/v1/upload-catch-reports-v4")
   /// Handles:
   /// - "/functions/v1/..."
   /// - "functions/v1/..."
@@ -80,7 +80,7 @@ private enum PicMemoUploadAPI {
     }
 
     // Otherwise treat as a relative path
-    if s.isEmpty { return "/functions/v1/upload-catch-reports-v3" }
+    if s.isEmpty { return "/functions/v1/upload-catch-reports-v4" }
     return s.hasPrefix("/") ? s : ("/" + s)
   }
 
@@ -131,7 +131,7 @@ private enum PicMemoUploadAPI {
   }
 
   static func endpointURL() -> URL? {
-    let normalizedPath = normalizePath(rawUploadV3String)
+    let normalizedPath = normalizePath(rawUploadString)
     logConfig(normalizedPath: normalizedPath)
 
     do {
@@ -186,7 +186,7 @@ struct ReportsListViewPicMemo: View {
         }
       }()
 
-      let rawPath = ((Bundle.main.object(forInfoDictionaryKey: "UPLOAD_CATCH_V3_URL") as? String) ?? "")
+      let rawPath = ((Bundle.main.object(forInfoDictionaryKey: "UPLOAD_CATCH_URL") as? String) ?? "")
         .trimmingCharacters(in: .whitespacesAndNewlines)
 
       let apiKey = ((Bundle.main.object(forInfoDictionaryKey: "SUPABASE_ANON_KEY") as? String) ?? "")
@@ -226,7 +226,7 @@ struct ReportsListViewPicMemo: View {
       }()
 
       let endpointURL: URL? = {
-        // If UPLOAD_CATCH_V3_URL is an absolute URL (after expansion), use it as-is
+        // If UPLOAD_CATCH_URL is an absolute URL (after expansion), use it as-is
         if let u = URL(string: expandedPath), u.scheme != nil, u.host != nil {
           return u
         }
@@ -238,8 +238,8 @@ struct ReportsListViewPicMemo: View {
       // Logging (matches your style)
       AppLogging.log("PicMemo uploader config — API_BASE_URL (raw): '\(rawBase)'", level: .debug, category: .catch)
       AppLogging.log("PicMemo uploader config — API_BASE_URL (normalized): '\(baseWithScheme)'", level: .debug, category: .catch)
-      AppLogging.log("PicMemo uploader config — UPLOAD_CATCH_V3_URL (raw): '\(rawPath)'", level: .debug, category: .catch)
-      AppLogging.log("PicMemo uploader config — UPLOAD_CATCH_V3_URL (expanded): '\(expandedPath)'", level: .debug, category: .catch)
+      AppLogging.log("PicMemo uploader config — UPLOAD_CATCH_URL (raw): '\(rawPath)'", level: .debug, category: .catch)
+      AppLogging.log("PicMemo uploader config — UPLOAD_CATCH_URL (expanded): '\(expandedPath)'", level: .debug, category: .catch)
 
       if let endpointURL {
         AppLogging.log("PicMemo uploader endpoint resolved: \(endpointURL.absoluteString)", level: .debug, category: .catch)

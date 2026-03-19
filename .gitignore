@@ -11,6 +11,9 @@ xcuserdata/
 DerivedData/
 build/
 
+# CocoaPods (Podfile and Podfile.lock are committed; Pods/ is regenerated)
+Pods/
+
 # Claude Code
 .claude/
 
