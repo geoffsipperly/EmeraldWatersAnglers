@@ -153,7 +153,7 @@ public final class AppEnvironment {
     public var defaultRiver: String {
         if let v = overrideDefaultRiver { return v }
         if let v = stringFromInfo("DEFAULT_RIVER"), !v.isEmpty { return v }
-        return lodgeRivers.first ?? "Nehalem"
+        return lodgeRivers.first.map { Self.stripRiverSuffix($0) } ?? "Unknown"
     }
 
     // MARK: - Logging configuration
@@ -362,7 +362,15 @@ public final class AppEnvironment {
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .filter { !$0.isEmpty }
         }
-        return ["Nehalem River", "Wilson River", "Trask River", "Nestucca River", "Kilchis River"]
+        return [] // No hardcoded fallback — LODGE_RIVERS must be set in xcconfig
+    }
+
+    /// Strips common water-body suffixes from a river name (e.g. "Nehalem River" → "Nehalem").
+    static func stripRiverSuffix(_ name: String) -> String {
+        for suffix in [" Creek", " River", " Lake", " Stream"] where name.hasSuffix(suffix) {
+            return String(name.dropLast(suffix.count))
+        }
+        return name
     }
 
     // MARK: - Fish detection ML calibration

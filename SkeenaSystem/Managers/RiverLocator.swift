@@ -1,9 +1,9 @@
 //
 //  RiverLocator.swift
-//  River / Bend Fly Shop
+//  SkeenaSystem
 //
-//  Uses coordinate arrays defined in RiverCoordinates.swift
-//  (e.g. nehalemCoordinates, wilsonCoordinates, etc.)
+//  Dynamically builds its river dataset from RiverAtlas, filtered by
+//  the community's LODGE_RIVERS configuration. No hardcoded river lists.
 //
 
 import Foundation
@@ -32,55 +32,47 @@ struct RiverDefinition {
 }
 
 /// Main entry point for river lookup. Designed to be community- and dataset-agnostic.
+///
+/// The river dataset is built dynamically from `RiverAtlas.all`, filtered to only
+/// include rivers listed in `AppEnvironment.shared.lodgeRivers`. This means:
+/// - `RiverCoordinates.swift` is a cumulative atlas (add rivers, never remove)
+/// - `LODGE_RIVERS` in xcconfig controls which rivers are active per community
+/// - No code changes needed in this file when onboarding a new community
 final class RiverLocator {
 
   static let shared = RiverLocator()
 
-  // MARK: - Dataset
+  // MARK: - Dataset (built from atlas + config)
 
-  /// Oregon Coast / Tillamook rivers.
-  /// Coordinate arrays are defined in RiverCoordinates.swift.
-  /// Replace placeholder coordinates with real KML spine data for accuracy.
-  private let rivers: [RiverDefinition] = [
-    // Bend Fly Shop – Oregon Coast
+  /// Rivers active for this app instance, derived from LODGE_RIVERS config + RiverAtlas.
+  private let rivers: [RiverDefinition]
 
-    RiverDefinition(
-      name: "Nehalem River",
-      communityID: AppEnvironment.shared.communityName,
-      coordinates: nehalemCoordinates,
-      maxDistanceKm: 10
-    ),
+  private init() {
+    let communityName = AppEnvironment.shared.communityName
+    let configuredRivers = AppEnvironment.shared.lodgeRivers
 
-    RiverDefinition(
-      name: "Wilson River",
-      communityID: AppEnvironment.shared.communityName,
-      coordinates: wilsonCoordinates,
-      maxDistanceKm: 10
-    ),
+    rivers = configuredRivers.compactMap { riverName in
+      guard let coords = RiverAtlas.all[riverName], !coords.isEmpty else {
+        // River is in config but not in the atlas — log and skip
+        AppLogging.log(
+          "[RiverLocator] Warning: '\(riverName)' is in LODGE_RIVERS but has no atlas entry in RiverCoordinates.swift",
+          level: .warn, category: .network
+        )
+        return nil
+      }
+      return RiverDefinition(
+        name: riverName,
+        communityID: communityName,
+        coordinates: coords,
+        maxDistanceKm: RiverAtlas.defaultMaxDistanceKm
+      )
+    }
 
-    RiverDefinition(
-      name: "Trask River",
-      communityID: AppEnvironment.shared.communityName,
-      coordinates: traskCoordinates,
-      maxDistanceKm: 10
-    ),
-
-    RiverDefinition(
-      name: "Nestucca River",
-      communityID: AppEnvironment.shared.communityName,
-      coordinates: nestuccaCoordinates,
-      maxDistanceKm: 10
-    ),
-
-    RiverDefinition(
-      name: "Kilchis River",
-      communityID: AppEnvironment.shared.communityName,
-      coordinates: kilchisCoordinates,
-      maxDistanceKm: 10
+    AppLogging.log(
+      "[RiverLocator] Loaded \(rivers.count) river(s) for '\(communityName)': \(rivers.map(\.name).joined(separator: ", "))",
+      level: .info, category: .network
     )
-  ]
-
-  private init() {}
+  }
 
   // MARK: - Public API
 
