@@ -324,19 +324,42 @@ final class CatchChatViewModel: ObservableObject {
     return raw
   }
 
+  /// Maps internal model labels to user-facing species names.
+  /// Add entries here when a model class name doesn't match the display name.
+  private static let speciesDisplayNames: [String: String] = [
+    "brook": "Brook Trout",
+    "articchar": "Arctic Char",
+    "rainbow": "Rainbow Trout",
+  ]
+
   private func splitSpecies(_ raw: String?) -> (species: String, stage: String?) {
     let valueOnly = stripLeadingLabel(raw, label: "species")
     if valueOnly.isEmpty { return ("-", nil) }
 
-    let parts = valueOnly.split(separator: " ").map { String($0) }
-
-    guard parts.count > 1 else {
-      return (valueOnly.capitalized, nil)
+    // Check if the value is the "unable to detect" sentinel
+    if valueOnly.lowercased().contains("unable to") {
+      return (valueOnly, nil)
     }
 
-    let species = parts[0].capitalized
-    let stage = parts.dropFirst().joined(separator: " ").capitalized
-    return (species, stage.isEmpty ? nil : stage)
+    let parts = valueOnly.split(separator: " ").map { String($0) }
+
+    // Only "holding" and "traveler" are valid lifecycle stages.
+    // If the last word is one of these, split it off; otherwise the entire string is the species.
+    let lifecycleKeywords = ["holding", "traveler"]
+    if let lastWord = parts.last, lifecycleKeywords.contains(lastWord.lowercased()) {
+      let speciesParts = parts.dropLast()
+      let speciesRaw = speciesParts.map { $0.lowercased() }.joined(separator: " ")
+      let species = Self.speciesDisplayNames[speciesRaw]
+        ?? speciesParts.map { $0.capitalized }.joined(separator: " ")
+      let stage = lastWord.capitalized
+      return (species.isEmpty ? "-" : species, stage)
+    }
+
+    // No lifecycle stage — look up the full string as a display name
+    let speciesRaw = parts.map { $0.lowercased() }.joined(separator: " ")
+    let species = Self.speciesDisplayNames[speciesRaw]
+      ?? valueOnly.capitalized
+    return (species, nil)
   }
 
   private func averagedLength(from raw: String) -> String {
