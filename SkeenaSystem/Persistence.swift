@@ -68,7 +68,7 @@ final class PersistenceController {
       }
 
       let desired: [String] = [
-        "Bend Fly Shop"
+        AppEnvironment.shared.appDisplayName
       ]
 
       let lodgeFetch: NSFetchRequest<Lodge> = Lodge.fetchRequest()

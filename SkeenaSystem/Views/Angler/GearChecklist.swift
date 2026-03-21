@@ -432,7 +432,7 @@ struct GearChecklist: View {
 
   private func loadGear() async {
     errorText = nil
-    let lodgeName = "Bend Fly Shop"
+    let lodgeName = AppEnvironment.shared.appDisplayName
 
     let tokenOpt = await auth.currentAccessToken()
     guard let token = tokenOpt, !token.isEmpty else {
@@ -552,7 +552,7 @@ struct GearChecklist: View {
 
     let body = GearBody(
       angler_id: anglerId,
-      lodge_name: "Bend Fly Shop",
+      lodge_name: AppEnvironment.shared.appDisplayName,
       waders: hasWaders,
       boots: hasBoots,
       wading_jacket: hasWadingJacket,
@@ -576,7 +576,7 @@ struct GearChecklist: View {
         return false
       }
 
-      let key = cacheKey(anglerId: anglerId, lodgeName: "Bend Fly Shop")
+      let key = cacheKey(anglerId: anglerId, lodgeName: AppEnvironment.shared.appDisplayName)
       let payload: [String: Any] = [
         "waders": hasWaders,
         "boots": hasBoots,

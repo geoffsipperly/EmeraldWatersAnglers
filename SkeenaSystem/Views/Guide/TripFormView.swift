@@ -578,7 +578,7 @@ struct TripFormView: View {
   // MARK: - Lodges / Community helpers
 
   private func defaultLodgeId() -> UUID? {
-    if let first = lodges.first(where: { ($0.name ?? "").localizedCaseInsensitiveContains("Bend Fly Shop") }) {
+    if let first = lodges.first(where: { ($0.name ?? "").localizedCaseInsensitiveContains(AppEnvironment.shared.appDisplayName) }) {
       return first.lodgeId
     }
     return lodges.first?.lodgeId

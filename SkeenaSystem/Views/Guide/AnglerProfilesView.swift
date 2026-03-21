@@ -242,7 +242,7 @@ private final class AnglerProfilesVM: ObservableObject {
 
 struct AnglerProfilesView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var vm = AnglerProfilesVM(community: AppEnvironment.shared.communityName, lodge: "Bend Fly Shop")
+    @StateObject private var vm = AnglerProfilesVM(community: AppEnvironment.shared.communityName, lodge: AppEnvironment.shared.appDisplayName)
 
     var body: some View {
         Group {

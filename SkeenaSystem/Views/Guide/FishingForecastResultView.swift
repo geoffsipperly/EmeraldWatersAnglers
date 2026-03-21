@@ -113,7 +113,7 @@ struct FishingForecastResultView: View {
     HStack {
       Spacer()
 
-      if auth.currentUserType == .guide {
+      if auth.currentUserType == .guide, AppEnvironment.shared.tacticsEnabled {
         Button {
           showTactics = true
         } label: {

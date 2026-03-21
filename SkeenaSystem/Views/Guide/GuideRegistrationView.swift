@@ -9,10 +9,11 @@ struct GuideRegistrationView: View {
 
   // MARK: - Community
 
-  enum Community: String, CaseIterable, Identifiable {
-    case bendFlyShop = "Bend Fly Shop"
+  enum Community: CaseIterable, Identifiable {
+    case primary
 
     var id: String { rawValue }
+    var rawValue: String { AppEnvironment.shared.appDisplayName }
   }
 
   // MARK: - Constants
@@ -23,7 +24,7 @@ struct GuideRegistrationView: View {
   // MARK: - Form fields
 
   @State private var userType: AuthService.UserType = .guide
-  @State private var selectedCommunity: Community = .bendFlyShop
+  @State private var selectedCommunity: Community = .primary
 
   @State private var firstName: String = ""
   @State private var lastName: String = ""
@@ -725,6 +726,6 @@ struct GuideRegistrationView: View {
     showScanLibrary = false
 
     // Reset community to default when switching roles
-    selectedCommunity = .bendFlyShop
+    selectedCommunity = .primary
   }
 }

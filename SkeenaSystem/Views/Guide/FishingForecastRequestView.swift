@@ -139,19 +139,21 @@ struct FishingForecastRequestView: View {
               .padding(.horizontal, 24)
           }
 
-          // Extended forecast link
-          NavigationLink {
-            AnglerForecastView(location: AppEnvironment.shared.forecastLocation)
-          } label: {
-            HStack(spacing: 6) {
-              Image(systemName: "cloud.sun.rain")
-                .font(.subheadline)
-              Text("Get extended forecast")
-                .font(.subheadline.weight(.medium))
+          // Extended forecast link (gated by tacticsEnabled)
+          if AppEnvironment.shared.tacticsEnabled {
+            NavigationLink {
+              AnglerForecastView(location: AppEnvironment.shared.forecastLocation)
+            } label: {
+              HStack(spacing: 6) {
+                Image(systemName: "cloud.sun.rain")
+                  .font(.subheadline)
+                Text("Get extended forecast")
+                  .font(.subheadline.weight(.medium))
+              }
+              .foregroundColor(.blue)
             }
-            .foregroundColor(.blue)
+            .buttonStyle(.plain)
           }
-          .buttonStyle(.plain)
 
           // Error (if any)
           if let err = errorText {

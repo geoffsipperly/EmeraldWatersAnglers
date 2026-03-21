@@ -59,16 +59,27 @@ final class CatchPhotoAnalyzer {
 
   // Species labels for ViT
     private let speciesLabels: [String] = [
-      "articchar_holding",
-      "articchar_traveler",
-      "brook_holding",
-      "grayling",
-      "rainbow_holding",
-      "rainbow_lake",
-      "rainbow_traveler",
-      "steelhead_holding",
-      "steelhead_traveler"
+        "articchar_holding",
+        "articchar_traveler",
+        "atlantic_salmon",
+        "brook_holding",
+        "brook_trout",
+        "brown_trout",
+        "chinook_salmon",
+        "chum_salmon",
+        "coho_salmon",
+        "cutthroat_trout",
+        "grayling",
+        "pink_salmon",
+        "rainbow_holding",
+        "rainbow_lake",
+        "rainbow_traveler",
+        "sea_run_trout",
+        "sockeye_salmon",
+        "steelhead_holding",
+        "steelhead_traveler"
     ]
+
 
   // MARK: - Init
 
