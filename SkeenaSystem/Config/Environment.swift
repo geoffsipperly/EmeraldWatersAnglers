@@ -61,6 +61,7 @@ public final class AppEnvironment {
     public var overrideFishEstimateLowFactor: Double?
     public var overrideFishEstimateHighFactor: Double?
     public var overrideUseLengthRegressor: Bool?
+    public var overrideSpeciesDetectionThreshold: Double?
     public var overrideLodgeRivers: [String]?
     public var overrideBuzzCategoryId: String?
     public var overrideCommunityName: String?
@@ -68,6 +69,7 @@ public final class AppEnvironment {
     public var overrideDefaultRiver: String?
     public var overrideLodgeWaterBodies: [String]?
     public var overrideDefaultWaterBody: String?
+    public var overrideTacticsEnabled: Bool?
 
     private init() {}
 
@@ -127,7 +129,7 @@ public final class AppEnvironment {
     /// Display name for the app/community (used in UI).
     public var appDisplayName: String {
         if let v = overrideAppDisplayName { return v }
-        return stringFromInfo("APP_DISPLAY_NAME") ?? "Bend Fly Shop"
+        return stringFromInfo("APP_DISPLAY_NAME") ?? "Fly Shop"
     }
 
     /// Asset catalog name for the app logo image (used in headers, templates, etc.).
@@ -325,6 +327,16 @@ public final class AppEnvironment {
 
     // MARK: - Location configuration
 
+    /// Feature flag: enables "Get Tactics" button and "Get extended forecast" link.
+    /// Defaults to false. Set TACTICS_ENABLED = YES in xcconfig to enable.
+    public var tacticsEnabled: Bool {
+        if let v = overrideTacticsEnabled { return v }
+        if let raw = stringFromInfo("TACTICS_ENABLED") {
+            return ["YES", "TRUE", "1"].contains(raw.uppercased())
+        }
+        return false
+    }
+
     /// Forecast location name (e.g., "Oregon Coast"). Used by the extended forecast feature.
     public var forecastLocation: String {
         if let v = overrideForecastLocation { return v }
@@ -453,6 +465,14 @@ public final class AppEnvironment {
         if let v = overrideUseLengthRegressor { return v }
         if let s = stringFromInfo("USE_LENGTH_REGRESSOR") { return s.lowercased() == "true" }
         return true
+    }
+
+    /// Minimum ViT softmax confidence (0.0–1.0) required to report a species.
+    /// Below this threshold the analyzer returns "Species not detected".
+    public var speciesDetectionThreshold: Float {
+        if let v = overrideSpeciesDetectionThreshold { return Float(v) }
+        if let s = stringFromInfo("SPECIES_DETECTION_THRESHOLD"), let v = Float(s) { return v }
+        return 0.80
     }
 
     // MARK: - The Buzz configuration

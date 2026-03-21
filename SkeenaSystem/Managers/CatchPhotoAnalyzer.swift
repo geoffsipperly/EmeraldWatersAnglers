@@ -116,14 +116,18 @@ final class CatchPhotoAnalyzer {
     let speciesText: String?
     if let vit = vitResult,
        vit.index >= 0,
-       vit.index < speciesLabels.count {
+       vit.index < speciesLabels.count,
+       vit.confidence >= AppEnvironment.shared.speciesDetectionThreshold {
       let rawLabel = speciesLabels[vit.index]
       let prettyLabel = rawLabel.replacingOccurrences(of: "_", with: " ")
 
       speciesText = "Species (model): \(prettyLabel)"
       AppLogging.log({ "ViT species: \(prettyLabel), confidence: \(vit.confidence)" }, level: .info, category: .ml)
     } else {
-      speciesText = "Model could not confidently classify this fish"
+      let conf = vitResult?.confidence ?? 0
+      let bestLabel = vitResult.flatMap { $0.index >= 0 && $0.index < speciesLabels.count ? speciesLabels[$0.index] : nil } ?? "none"
+      AppLogging.log({ "ViT species below threshold: best=\(bestLabel), confidence=\(conf) (min \(AppEnvironment.shared.speciesDetectionThreshold))" }, level: .debug, category: .ml)
+      speciesText = "Species not detected"
     }
 
     // 3. Sex via ViTFishSex (iOS 16+), fallback to Unknown on older OS

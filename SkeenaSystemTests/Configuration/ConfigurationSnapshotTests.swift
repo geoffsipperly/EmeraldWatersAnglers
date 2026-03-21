@@ -222,6 +222,21 @@ final class ConfigurationSnapshotTests: XCTestCase {
                    "SNAPSHOT: Default species is 'Steelhead'")
   }
 
+  /// Species detection confidence threshold
+  func testSnapshot_speciesDetectionThreshold() {
+    let threshold = AppEnvironment.shared.speciesDetectionThreshold
+    XCTAssertEqual(threshold, 0.80, accuracy: 0.001,
+                   "SNAPSHOT: Species detection threshold is 0.80")
+  }
+
+  /// Species detection threshold override
+  func testSnapshot_speciesDetectionThreshold_override() {
+    AppEnvironment.shared.overrideSpeciesDetectionThreshold = 0.60
+    XCTAssertEqual(AppEnvironment.shared.speciesDetectionThreshold, 0.60, accuracy: 0.001,
+                   "Override should take precedence over xcconfig")
+    AppEnvironment.shared.overrideSpeciesDetectionThreshold = nil
+  }
+
   // ============================================================================
   // MARK: - CATCH REPORT CONFIGURATION SNAPSHOT
   // ============================================================================

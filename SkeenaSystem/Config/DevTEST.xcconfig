@@ -77,12 +77,13 @@ COMMUNITY_TAGLINE =
 // MARK: - Location & Geography
 // ──────────────────────────────────────────────
 
-DEFAULT_RIVER = Hoh
-LODGE_RIVERS = Hoh,Green
+DEFAULT_RIVER = Hoh River
+LODGE_RIVERS = Hoh River,Green River,Sauk River,Skagit River,Skykomish River,Sol Duc River
 DEFAULT_WATER_BODY = Puget Sound
 LODGE_WATER_BODIES = Hood Canal,Puget Sound
+TACTICS_ENABLED = NO
 FORECAST_LOCATION = Western Washington
-FORECAST_NOTES = River data sourced from USGS (no active gauge for the Kilchis River). Tide data provided by NOAAs CO-OPS Tides & Currents API, station 9437540 (Garibaldi, OR).
+FORECAST_NOTES =  Water height and temperatur data sourced from USGS and NOAA as available. Tide data provided by NOAAs CO-OPS Tides & Currents API
 DEFAULT_MAP_LATITUDE = 45.4562
 DEFAULT_MAP_LONGITUDE = -123.8426
 
@@ -109,9 +110,10 @@ SPLASH_VIDEO_MAX_DURATION = 2.0
 IMAGE_COMPRESSION_QUALITY = 0.85
 
 // ──────────────────────────────────────────────
-// MARK: - Fish Detection ML Calibration
+// MARK: - Fish Detection ML Calibration (Fallback)
 // ──────────────────────────────────────────────
 
+SPECIES_DETECTION_THRESHOLD = 0.80
 FISH_DETECT_MIN_CONFIDENCE = 0.08
 FISH_BOX_SCALE_FACTOR = 0.59
 FISH_PIXELS_PER_INCH = 11.7
