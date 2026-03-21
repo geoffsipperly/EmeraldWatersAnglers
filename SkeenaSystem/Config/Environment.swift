@@ -472,7 +472,7 @@ public final class AppEnvironment {
     public var speciesDetectionThreshold: Float {
         if let v = overrideSpeciesDetectionThreshold { return Float(v) }
         if let s = stringFromInfo("SPECIES_DETECTION_THRESHOLD"), let v = Float(s) { return v }
-        return 0.80
+        return 0.70
     }
 
     // MARK: - The Buzz configuration

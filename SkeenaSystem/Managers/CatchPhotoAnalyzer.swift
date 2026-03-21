@@ -61,26 +61,11 @@ final class CatchPhotoAnalyzer {
     private let speciesLabels: [String] = [
         "articchar_holding",
         "articchar_traveler",
-        "atlantic_salmon",
         "brook_holding",
-        "brook_trout",
-        "brown_trout",
-        "carp",
-        "chinook_salmon",
-        "chum_salmon",
-        "coho_salmon",
-        "cutthroat_trout",
         "grayling",
-        "largemouth_bass",
-        "muskellunge",
-        "northern_pike",
-        "pink_salmon",
         "rainbow_holding",
         "rainbow_lake",
         "rainbow_traveler",
-        "sea_run_trout",
-        "smallmouth_bass",
-        "sockeye_salmon",
         "steelhead_holding",
         "steelhead_traveler"
     ]
@@ -143,7 +128,7 @@ final class CatchPhotoAnalyzer {
       let conf = vitResult?.confidence ?? 0
       let bestLabel = vitResult.flatMap { $0.index >= 0 && $0.index < speciesLabels.count ? speciesLabels[$0.index] : nil } ?? "none"
       AppLogging.log({ "ViT species below threshold: best=\(bestLabel), confidence=\(conf) (min \(AppEnvironment.shared.speciesDetectionThreshold))" }, level: .debug, category: .ml)
-      speciesText = nil
+      speciesText = "Species: Unable to confidently detect"
     }
 
     // 3. Sex via ViTFishSex (iOS 16+), fallback to Unknown on older OS
