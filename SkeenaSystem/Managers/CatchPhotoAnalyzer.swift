@@ -61,11 +61,26 @@ final class CatchPhotoAnalyzer {
     private let speciesLabels: [String] = [
         "articchar_holding",
         "articchar_traveler",
+        "atlantic_salmon",
         "brook_holding",
+        "brook_trout",
+        "brown_trout",
+        "carp",
+        "chinook_salmon",
+        "chum_salmon",
+        "coho_salmon",
+        "cutthroat_trout",
         "grayling",
+        "largemouth_bass",
+        "muskellunge",
+        "northern_pike",
+        "pink_salmon",
         "rainbow_holding",
         "rainbow_lake",
         "rainbow_traveler",
+        "sea_run_trout",
+        "smallmouth_bass",
+        "sockeye_salmon",
         "steelhead_holding",
         "steelhead_traveler"
     ]
@@ -451,7 +466,7 @@ final class CatchPhotoAnalyzer {
       // Implied max fish length sanity
       let imgDiag = sqrtf(imgW * imgW + imgH * imgH)
       let maxFishInches = imgDiag / ppi
-      if maxFishInches < 5 || maxFishInches > 80 { continue }
+      if maxFishInches < 5 || maxFishInches > 300 { continue }
 
       if conf > bestConf {
         bestConf = conf
