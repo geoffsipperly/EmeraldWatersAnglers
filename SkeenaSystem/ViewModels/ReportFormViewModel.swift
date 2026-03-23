@@ -8,7 +8,7 @@ import SwiftUI
 final class ReportFormViewModel: ObservableObject {
   // MARK: - Required for save & upload
 
-  @Published var river: String = AppEnvironment.shared.defaultRiver
+  @Published var river: String = CommunityService.shared.activeCommunityConfig.resolvedDefaultRiver ?? ""
   @Published var species: String = ""
   @Published var sex: String = ""
   @Published var origin: String = "" // "Wild" | "Hatchery"

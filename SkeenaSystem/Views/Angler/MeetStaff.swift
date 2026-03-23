@@ -40,7 +40,7 @@ struct MeetStaff: View {
   @Environment(\.dismiss) private var dismiss
 
   // Configuration for query params
-  private let community: String = AppEnvironment.shared.communityName
+  private var community: String { CommunityService.shared.activeCommunityName }
 
   // View state
   @State private var isLoading: Bool = false
@@ -58,10 +58,7 @@ struct MeetStaff: View {
 
         // Header
         VStack(spacing: 6) {
-          Image(AppEnvironment.shared.appLogoAsset)
-            .resizable()
-            .scaledToFit()
-            .frame(width: 130, height: 130)
+          CommunityLogoView(config: CommunityService.shared.activeCommunityConfig, size: 130)
             .clipShape(RoundedRectangle(cornerRadius: 24))
             .shadow(radius: 10)
             .padding(.bottom, 2)
@@ -182,7 +179,10 @@ struct MeetStaff: View {
     isLoading = true
     defer { isLoading = false }
 
-    let q: [URLQueryItem] = [URLQueryItem(name: "community", value: community)]
+    var q: [URLQueryItem] = []
+    if let communityId = CommunityService.shared.activeCommunityId {
+      q.append(URLQueryItem(name: "community_id", value: communityId))
+    }
     guard let url = MeetStaffAPI.staffBiosURL(queryItems: q) else {
       errorText = "Invalid URL"
       return

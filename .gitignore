@@ -14,6 +14,9 @@ build/
 # CocoaPods (Podfile and Podfile.lock are committed; Pods/ is regenerated)
 Pods/
 
+# Secrets (API keys, tokens)
+SkeenaSystem/Config/Secrets.xcconfig
+
 # Claude Code
 .claude/
 

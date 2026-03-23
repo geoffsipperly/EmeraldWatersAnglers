@@ -192,7 +192,7 @@ final class AuthServiceRegressionTests: XCTestCase {
     }
 
     let auth = AuthService.shared
-    try await auth.signUp(email: "new@example.com", password: "password", firstName: "New", lastName: "User", userType: .guide, community: "Bend Fly Shop")
+    try await auth.signUp(email: "new@example.com", password: "password", firstName: "New", lastName: "User", userType: .guide, communityCode: "A3F7K2")
     XCTAssertTrue(auth.isAuthenticated, "After signUp+signIn, should be authenticated")
   }
 
@@ -479,7 +479,7 @@ final class AuthServiceRegressionTests: XCTestCase {
 
       do {
         try await auth.signUp(email: "a@b.com", password: "p",
-                              firstName: "", lastName: "L", userType: .guide, community: "C")
+                              firstName: "", lastName: "L", userType: .guide, communityCode: "ABC123")
         XCTFail("Expected signUp to throw for missing first name")
       } catch {
         XCTAssert(error is AuthService.InputValidationError)
@@ -488,7 +488,7 @@ final class AuthServiceRegressionTests: XCTestCase {
       // Angler without anglerNumber
       do {
         try await auth.signUp(email: "angler@x", password: "p",
-                              firstName: "A", lastName: "B", userType: .angler, community: "C", anglerNumber: nil)
+                              firstName: "A", lastName: "B", userType: .angler, communityCode: "ABC123", anglerNumber: nil)
         XCTFail("Expected signUp to throw for missing angler number")
       } catch {
         XCTAssert(error is AuthService.InputValidationError)
@@ -581,7 +581,7 @@ final class AuthServiceRegressionTests: XCTestCase {
       let auth = AuthService.shared
       do {
         try await auth.signUp(email: "a@b", password: "p", firstName: "F", lastName: "L",
-                              userType: .angler, community: "C", anglerNumber: nil)
+                              userType: .angler, communityCode: "ABC123", anglerNumber: nil)
         XCTFail("Expected signUp to throw for missing angler number")
       } catch {
         XCTAssert(error is AuthService.InputValidationError)

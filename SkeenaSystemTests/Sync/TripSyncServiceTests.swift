@@ -53,8 +53,8 @@ final class TripSyncServiceTests: XCTestCase {
     startDate: String? = nil,
     endDate: String? = nil,
     guideName: String? = "Test Guide",
-    lodge: String? = "Bend Fly Shop",
-    community: String? = "Bend Fly Shop",
+    lodge: String? = "Emerald Waters Angler",
+    community: String? = "Emerald Waters Angler",
     anglers: [[String: Any]]? = nil
   ) -> [String: Any] {
     var dict: [String: Any] = [
@@ -198,12 +198,12 @@ final class TripSyncServiceTests: XCTestCase {
   // MARK: - Trip-Lodge Relationship Tests
 
   func testTripCanBeLinkToLodge() {
-    // Fetch the seeded Bend Fly Shop lodge
+    // Fetch the seeded Emerald Waters Angler lodge
     let lodgeFetch: NSFetchRequest<Lodge> = Lodge.fetchRequest()
-    lodgeFetch.predicate = NSPredicate(format: "name == %@", "Bend Fly Shop")
+    lodgeFetch.predicate = NSPredicate(format: "name == %@", "Emerald Waters Angler")
 
     guard let lodge = try? context.fetch(lodgeFetch).first else {
-      XCTFail("Bend Fly Shop lodge should exist from seed data")
+      XCTFail("Emerald Waters Angler lodge should exist from seed data")
       return
     }
 
@@ -214,21 +214,21 @@ final class TripSyncServiceTests: XCTestCase {
     trip.lodge = lodge
 
     XCTAssertNoThrow(try context.save(), "Should be able to save trip with lodge")
-    XCTAssertEqual(trip.lodge?.name, "Bend Fly Shop")
+    XCTAssertEqual(trip.lodge?.name, "Emerald Waters Angler")
   }
 
   func testLodgeHasCommunityAfterTripLink() {
     let lodgeFetch: NSFetchRequest<Lodge> = Lodge.fetchRequest()
-    lodgeFetch.predicate = NSPredicate(format: "name == %@", "Bend Fly Shop")
+    lodgeFetch.predicate = NSPredicate(format: "name == %@", "Emerald Waters Angler")
 
     guard let lodge = try? context.fetch(lodgeFetch).first else {
-      XCTFail("Bend Fly Shop lodge should exist from seed data")
+      XCTFail("Emerald Waters Angler lodge should exist from seed data")
       return
     }
 
     // Lodge should already have community from seed
     XCTAssertNotNil(lodge.community, "Lodge should have community")
-    XCTAssertEqual(lodge.community?.name, "Bend Fly Shop", "Lodge should belong to Bend Fly Shop")
+    XCTAssertEqual(lodge.community?.name, "Emerald Waters Angler", "Lodge should belong to Emerald Waters Angler")
   }
 
   // MARK: - Upsert Logic Tests (Unit Tests)
@@ -377,18 +377,18 @@ final class TripSyncServiceTests: XCTestCase {
 
   func testLodgeLookup_caseInsensitive() {
     let fetch: NSFetchRequest<Lodge> = Lodge.fetchRequest()
-    fetch.predicate = NSPredicate(format: "name ==[c] %@", "bend fly shop")
+    fetch.predicate = NSPredicate(format: "name ==[c] %@", AppEnvironment.shared.communityName.lowercased())
     fetch.fetchLimit = 1
 
     let lodge = try? context.fetch(fetch).first
 
     XCTAssertNotNil(lodge, "Should find lodge with case-insensitive search")
-    XCTAssertEqual(lodge?.name, "Bend Fly Shop")
+    XCTAssertEqual(lodge?.name, AppEnvironment.shared.communityName)
   }
 
   func testLodgeLookup_allSeededLodges() {
     let expectedLodges = [
-      "Bend Fly Shop"
+      AppEnvironment.shared.communityName
     ]
 
     for lodgeName in expectedLodges {
@@ -417,7 +417,7 @@ final class TripSyncServiceTests: XCTestCase {
 
     // Simulate the ensureLodgeHasCommunity logic
     let cf: NSFetchRequest<Community> = Community.fetchRequest()
-    cf.predicate = NSPredicate(format: "name == %@", "Bend Fly Shop")
+    cf.predicate = NSPredicate(format: "name == %@", AppEnvironment.shared.communityName)
     cf.fetchLimit = 1
 
     if let community = try? context.fetch(cf).first {
@@ -427,7 +427,7 @@ final class TripSyncServiceTests: XCTestCase {
     try? context.save()
 
     XCTAssertNotNil(orphanLodge.community, "Lodge should now have community")
-    XCTAssertEqual(orphanLodge.community?.name, "Bend Fly Shop")
+    XCTAssertEqual(orphanLodge.community?.name, AppEnvironment.shared.communityName)
   }
 
   // MARK: - Concurrent Sync Prevention Tests

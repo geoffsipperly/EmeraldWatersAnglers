@@ -138,10 +138,12 @@ private enum TripRosterAPI {
 
   static func fetchRoster(community: String, lodge: String) async throws -> TripRosterResponse {
     logConfig()
-    let url = try makeURL(path: tripRosterPath, queryItems: [
-      URLQueryItem(name: "community", value: community),
-      URLQueryItem(name: "lodge", value: lodge)
-    ])
+    var items: [URLQueryItem] = []
+    if let communityId = CommunityService.shared.activeCommunityId {
+      items.append(URLQueryItem(name: "community_id", value: communityId))
+    }
+    items.append(URLQueryItem(name: "lodge", value: lodge))
+    let url = try makeURL(path: tripRosterPath, queryItems: items)
     var req = URLRequest(url: url)
     req.httpMethod = "GET"
     if !apiKey.isEmpty { req.setValue(apiKey, forHTTPHeaderField: "apikey") }
@@ -178,11 +180,12 @@ private enum TripRosterAPI {
 
   static func fetchAnglerDetails(anglerID: String, community: String, lodge: String) async throws -> AnglerDetailsResponse {
     logConfig()
-    let url = try makeURL(path: anglerDetailsPath, queryItems: [
-      URLQueryItem(name: "angler_id", value: anglerID),
-      URLQueryItem(name: "community", value: community),
-      URLQueryItem(name: "lodge", value: lodge)
-    ])
+    var items: [URLQueryItem] = [URLQueryItem(name: "angler_id", value: anglerID)]
+    if let communityId = CommunityService.shared.activeCommunityId {
+      items.append(URLQueryItem(name: "community_id", value: communityId))
+    }
+    items.append(URLQueryItem(name: "lodge", value: lodge))
+    let url = try makeURL(path: anglerDetailsPath, queryItems: items)
     var req = URLRequest(url: url)
     req.httpMethod = "GET"
     if !apiKey.isEmpty { req.setValue(apiKey, forHTTPHeaderField: "apikey") }
@@ -242,7 +245,7 @@ private final class AnglerProfilesVM: ObservableObject {
 
 struct AnglerProfilesView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var vm = AnglerProfilesVM(community: AppEnvironment.shared.communityName, lodge: AppEnvironment.shared.appDisplayName)
+    @StateObject private var vm = AnglerProfilesVM(community: CommunityService.shared.activeCommunityName, lodge: CommunityService.shared.activeCommunityName)
 
     var body: some View {
         Group {

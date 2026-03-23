@@ -42,22 +42,16 @@ final class RiverLocator {
 
   static let shared = RiverLocator()
 
-  // MARK: - Dataset (built from atlas + config)
+  // MARK: - Dataset (built dynamically from atlas + active community config)
 
-  /// Rivers active for this app instance, derived from LODGE_RIVERS config + RiverAtlas.
-  private let rivers: [RiverDefinition]
+  /// Rivers active for the current community, derived from community config + RiverAtlas.
+  /// Recomputed each access so it reacts to community switches.
+  private var rivers: [RiverDefinition] {
+    let communityName = CommunityService.shared.activeCommunityName
+    let configuredRivers = CommunityService.shared.activeCommunityConfig.resolvedLodgeRivers
 
-  private init() {
-    let communityName = AppEnvironment.shared.communityName
-    let configuredRivers = AppEnvironment.shared.lodgeRivers
-
-    rivers = configuredRivers.compactMap { riverName in
+    return configuredRivers.compactMap { riverName in
       guard let coords = RiverAtlas.all[riverName], !coords.isEmpty else {
-        // River is in config but not in the atlas — log and skip
-        AppLogging.log(
-          "[RiverLocator] Warning: '\(riverName)' is in LODGE_RIVERS but has no atlas entry in RiverCoordinates.swift",
-          level: .warn, category: .network
-        )
         return nil
       }
       return RiverDefinition(
@@ -67,12 +61,9 @@ final class RiverLocator {
         maxDistanceKm: RiverAtlas.defaultMaxDistanceKm
       )
     }
-
-    AppLogging.log(
-      "[RiverLocator] Loaded \(rivers.count) river(s) for '\(communityName)': \(rivers.map(\.name).joined(separator: ", "))",
-      level: .info, category: .network
-    )
   }
+
+  private init() {}
 
   // MARK: - Public API
 

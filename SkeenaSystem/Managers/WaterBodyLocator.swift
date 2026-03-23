@@ -29,15 +29,14 @@ final class WaterBodyLocator {
 
     static let shared = WaterBodyLocator()
 
-    /// Water bodies active for this app instance, ordered by specificity.
-    private let waterBodies: [WaterBodyDefinition]
+    /// Water bodies active for the current community, ordered by specificity.
+    /// Recomputed each access so it reacts to community switches.
+    private var waterBodies: [WaterBodyDefinition] {
+        let configured = Set(CommunityService.shared.activeCommunityConfig.resolvedLodgeWaterBodies)
 
-    private init() {
-        let configured = Set(AppEnvironment.shared.lodgeWaterBodies)
-
-        // Build list in check order (most specific first), filtered to configured bodies
         var bodies: [WaterBodyDefinition] = []
 
+        // Build list in check order (most specific first), filtered to configured bodies
         for name in WaterBodyAtlas.checkOrder {
             guard configured.contains(name),
                   let polygon = WaterBodyAtlas.all[name],
@@ -46,28 +45,17 @@ final class WaterBodyLocator {
         }
 
         // Add any configured bodies not in checkOrder (append at end)
-        for name in AppEnvironment.shared.lodgeWaterBodies {
+        for name in CommunityService.shared.activeCommunityConfig.resolvedLodgeWaterBodies {
             guard !bodies.contains(where: { $0.name == name }),
                   let polygon = WaterBodyAtlas.all[name],
-                  polygon.count >= 3 else {
-                if WaterBodyAtlas.all[name] == nil && configured.contains(name) {
-                    AppLogging.log(
-                        "[WaterBodyLocator] Warning: '\(name)' is in LODGE_WATER_BODIES but has no atlas entry",
-                        level: .warn, category: .network
-                    )
-                }
-                continue
-            }
+                  polygon.count >= 3 else { continue }
             bodies.append(WaterBodyDefinition(name: name, polygon: polygon))
         }
 
-        waterBodies = bodies
-
-        AppLogging.log(
-            "[WaterBodyLocator] Loaded \(waterBodies.count) water body/bodies: \(waterBodies.map(\.name).joined(separator: ", "))",
-            level: .info, category: .network
-        )
+        return bodies
     }
+
+    private init() {}
 
     // MARK: - Public API
 

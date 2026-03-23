@@ -120,7 +120,8 @@ final class UploadFarmedReports {
     let name = RiverLocator.shared.riverName(near: location)
     if name.isEmpty {
       return WaterBodyLocator.shared.waterBodyName(at: location)
-             ?? AppEnvironment.shared.defaultRiver
+             ?? CommunityService.shared.activeCommunityConfig.resolvedDefaultRiver
+             ?? "Unknown"
     }
     return name
   }

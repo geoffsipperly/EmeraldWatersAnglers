@@ -163,13 +163,11 @@ struct VisibleToolbarBackground: ViewModifier {
 struct AppHeader: View {
   var subtitle: String? = nil
   var onMapTapped: (() -> Void)? = nil
+  @ObservedObject private var communityService = CommunityService.shared
 
   var body: some View {
     VStack(spacing: 0) {
-      Image(AppEnvironment.shared.appLogoAsset)
-        .resizable()
-        .scaledToFit()
-        .frame(width: 160, height: 160)
+      CommunityLogoView(config: communityService.activeCommunityConfig)
 
       ZStack {
         if let onMapTapped {

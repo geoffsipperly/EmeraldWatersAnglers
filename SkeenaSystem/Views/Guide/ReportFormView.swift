@@ -290,7 +290,7 @@ struct ReportFormView: View {
 
   @ViewBuilder private func systemSection() -> some View {
     Section(header: Text("System Details").foregroundColor(.white)) {
-      HStack { Text("Community"); Spacer(); Text(AppEnvironment.shared.communityName).foregroundColor(.secondary) }
+      HStack { Text("Community"); Spacer(); Text(CommunityService.shared.activeCommunityName).foregroundColor(.secondary) }
 
       HStack(spacing: 8) {
         Image(systemName: "location.fill")

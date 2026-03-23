@@ -128,11 +128,12 @@ struct StaffDetailView: View {
     isLoading = true
     defer { isLoading = false }
 
-    let q: [URLQueryItem] = [
-      URLQueryItem(name: "community", value: community),
-      URLQueryItem(name: "first_name", value: firstName),
-      URLQueryItem(name: "last_name", value: lastName)
-    ]
+    var q: [URLQueryItem] = []
+    if let communityId = CommunityService.shared.activeCommunityId {
+      q.append(URLQueryItem(name: "community_id", value: communityId))
+    }
+    q.append(URLQueryItem(name: "first_name", value: firstName))
+    q.append(URLQueryItem(name: "last_name", value: lastName))
     guard let url = StaffDetailAPI.staffDetailURL(queryItems: q) else {
       errorText = "Invalid URL"
       return

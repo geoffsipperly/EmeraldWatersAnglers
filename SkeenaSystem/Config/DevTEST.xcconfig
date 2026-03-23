@@ -16,7 +16,7 @@ LOG_LEVEL = debug
 BETA_RELEASE = true
 
 // ──────────────────────────────────────────────
-// MARK: - Feature Flags
+// MARK: - Feature Flags (compile-time fallback — overridden by community_types.feature_flags at runtime)
 // ──────────────────────────────────────────────
 
 FF_FLIGHT_INFO = false
@@ -65,16 +65,16 @@ FORUM_API_KEY = $(SUPABASE_ANON_KEY)
 BUZZ_CATEGORY_ID = 5d33c4b7-966c-4d9e-a3ed-ed9eafae168f
 
 // ──────────────────────────────────────────────
-// MARK: - App Branding
+// MARK: - App Branding (compile-time fallback — overridden by communities table at runtime)
 // ──────────────────────────────────────────────
 
 APP_DISPLAY_NAME = Emerald Waters Angler
 APP_LOGO_ASSET = AppLogo
 COMMUNITY = Emerald Waters Angler
-COMMUNITY_TAGLINE = 
+COMMUNITY_TAGLINE =
 
 // ──────────────────────────────────────────────
-// MARK: - Location & Geography
+// MARK: - Location & Geography (compile-time fallback — overridden by communities.geography at runtime)
 // ──────────────────────────────────────────────
 
 DEFAULT_RIVER = Hoh River
@@ -83,7 +83,7 @@ DEFAULT_WATER_BODY = Puget Sound
 LODGE_WATER_BODIES = Hood Canal,Puget Sound
 TACTICS_ENABLED = NO
 FORECAST_LOCATION = Western Washington
-FORECAST_NOTES =  Water height and temperatur data sourced from USGS and NOAA as available. Tide data provided by NOAAs CO-OPS Tides & Currents API
+FORECAST_NOTES =  Water height and temperature data sourced from USGS and NOAA as available. Tide data provided by NOAAs CO-OPS Tides & Currents API
 DEFAULT_MAP_LATITUDE = 45.4562
 DEFAULT_MAP_LONGITUDE = -123.8426
 
@@ -91,7 +91,10 @@ DEFAULT_MAP_LONGITUDE = -123.8426
 // MARK: - Maps
 // ──────────────────────────────────────────────
 
-MAPBOX_ACCESS_TOKEN = YOUR_MAPBOX_TOKEN_HERE
+// Mapbox token loaded from Secrets.xcconfig (gitignored).
+// Create SkeenaSystem/Config/Secrets.xcconfig with:
+//   MAPBOX_ACCESS_TOKEN = pk.your_token_here
+#include? "Secrets.xcconfig"
 
 // ──────────────────────────────────────────────
 // MARK: - Splash Video
@@ -110,10 +113,14 @@ SPLASH_VIDEO_MAX_DURATION = 2.0
 IMAGE_COMPRESSION_QUALITY = 0.85
 
 // ──────────────────────────────────────────────
-// MARK: - Fish Detection ML Calibration (Fallback)
+// MARK: - Fish Species ML Calibration
 // ──────────────────────────────────────────────
 
-SPECIES_DETECTION_THRESHOLD = 0.80
+SPECIES_DETECTION_THRESHOLD = 0.5
+
+// ──────────────────────────────────────────────
+// MARK: - Length Detection ML Calibration (Fallback)
+// ──────────────────────────────────────────────
 FISH_DETECT_MIN_CONFIDENCE = 0.08
 FISH_BOX_SCALE_FACTOR = 0.59
 FISH_PIXELS_PER_INCH = 11.7
@@ -121,3 +128,14 @@ FISH_MIN_LENGTH_INCHES = 10.0
 FISH_MAX_LENGTH_INCHES = 47.0
 FISH_ESTIMATE_LOW_FACTOR = 0.93
 FISH_ESTIMATE_HIGH_FACTOR = 1.07
+
+// ──────────────────────────────────────────────
+// NOTE: Feature Flags, App Branding, and Location & Geography sections above
+// are compile-time fallbacks only. At runtime, these values are overridden by
+// server-driven community config:
+//   Feature flags → community_types.feature_flags JSONB
+//   Branding → communities.logo_url, logo_asset_name, display_name, tagline
+//   Geography → communities.geography JSONB
+// The xcconfig values only apply when a community has no backend config,
+// or during unit tests before TestGeographySetup injects test data.
+// ──────────────────────────────────────────────

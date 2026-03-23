@@ -41,7 +41,7 @@ struct LoginView: View {
           Spacer(minLength: 24)
 
           VStack(spacing: 8) {
-            Image(AppEnvironment.shared.appLogoAsset)
+            Image("MadThinkerLogo")
               .resizable()
               .scaledToFit()
               .frame(width: 180, height: 180)

@@ -43,10 +43,18 @@ private struct TripDTO: Codable {
   let guideName: String?
   let clientName: String?
   let community: String?
+  let communityId: String?
   let lodge: String?
   let createdAt: String?
   let updatedAt: String?
   let anglers: [AnglerDTO]?
+
+  enum CodingKeys: String, CodingKey {
+    case id, tripId, tripName, startDate, endDate, guideName, clientName
+    case community
+    case communityId = "community_id"
+    case lodge, createdAt, updatedAt, anglers
+  }
 }
 
 private struct AnglerDTO: Codable {
@@ -54,6 +62,9 @@ private struct AnglerDTO: Codable {
   let anglerNumber: String?
   let firstName: String?
   let lastName: String?
+  let licenseCountry: String?
+  let licenseStateProvince: String?
+  let licenseExpirationDate: String?
   let licenses: [LicenseDTO]?
 }
 
@@ -295,8 +306,8 @@ public final class SynchTrips {
 
   private static func fetchServerTrips(jwt: String, community: String?) async throws -> [TripDTO]? {
     var q: [URLQueryItem] = []
-    if let community = community, !community.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-      q.append(URLQueryItem(name: "community", value: community))
+    if let communityId = CommunityService.shared.activeCommunityId {
+      q.append(URLQueryItem(name: "community_id", value: communityId))
     }
 
     let url = try ManageTripAPI.url(queryItems: q)
@@ -584,7 +595,7 @@ public final class SynchTrips {
       }
     }
     if communityValue == nil || communityValue?.isEmpty == true {
-      communityValue = AppEnvironment.shared.communityName
+      communityValue = CommunityService.shared.activeCommunityName
     }
     dict["community"] = communityValue!
 

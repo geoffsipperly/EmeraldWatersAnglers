@@ -2,17 +2,21 @@
 // AnglerTripPrepView.swift
 import SwiftUI
 
-// Reads feature flags from Info.plist (populated via xcconfig)
-private let FF_FLIGHT_INFO: Bool = readFeatureFlag("FF_FLIGHT_INFO")
-private let FF_MEET_STAFF: Bool = readFeatureFlag("FF_MEET_STAFF")
-private let FF_GEAR_CHECKLIST: Bool = readFeatureFlag("FF_GEAR_CHECKLIST")
-private let FF_MANAGE_LICENSES: Bool = readFeatureFlag("FF_MANAGE_LICENSES")
-private let FF_SELF_ASSESSMENT: Bool = readFeatureFlag("FF_SELF_ASSESSMENT")
+// Feature flags are now driven by backend community config (with xcconfig fallback).
+// See CommunityConfig.flag(_:) for the resolution chain.
 
 struct AnglerTripPrepView: View {
   @Environment(\.dismiss) private var dismiss
   @Environment(\.navigateTo) private var navigateTo
+  @ObservedObject private var communityService = CommunityService.shared
   var onClose: (() -> Void)?
+
+  // Reactive feature flags — driven by backend config with xcconfig fallback
+  private var FF_FLIGHT_INFO: Bool { communityService.activeCommunityConfig.flag("FF_FLIGHT_INFO") }
+  private var FF_MEET_STAFF: Bool { communityService.activeCommunityConfig.flag("FF_MEET_STAFF") }
+  private var FF_GEAR_CHECKLIST: Bool { communityService.activeCommunityConfig.flag("FF_GEAR_CHECKLIST") }
+  private var FF_MANAGE_LICENSES: Bool { communityService.activeCommunityConfig.flag("FF_MANAGE_LICENSES") }
+  private var FF_SELF_ASSESSMENT: Bool { communityService.activeCommunityConfig.flag("FF_SELF_ASSESSMENT") }
 
   /// When in overlay mode, close the panel first then navigate centrally.
   /// When pushed (no onClose), just use navigateTo directly.

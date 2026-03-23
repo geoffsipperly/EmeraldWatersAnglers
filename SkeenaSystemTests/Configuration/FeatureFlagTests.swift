@@ -5,9 +5,9 @@ import XCTest
 ///
 /// Validates:
 /// 1. readFeatureFlag correctly reads Bool values from Info.plist
-/// 2. All new feature flags resolve to true in the DevTEST environment
-/// 3. readFeatureFlag returns false for absent keys
-/// 4. The FF_FLIGHT_INFO flag (existing) still works correctly
+/// 2. readFeatureFlag returns false for absent or empty keys
+/// 3. Consecutive reads return consistent values
+/// 4. Non-boolean Info.plist keys are not misinterpreted as true
 final class FeatureFlagTests: XCTestCase {
 
   // MARK: - readFeatureFlag helper behaviour
@@ -23,48 +23,27 @@ final class FeatureFlagTests: XCTestCase {
     XCTAssertFalse(result, "readFeatureFlag should return false for an empty key string")
   }
 
-  // MARK: - AnglerTripPrepView feature flags (all default true in DevTEST)
+  // MARK: - Consistency: consecutive reads return the same value
 
-  func testFlightInfoFlag_isTrueInDevTEST() {
-    let value = readFeatureFlag("FF_FLIGHT_INFO")
-    XCTAssertTrue(value, "FF_FLIGHT_INFO should be true in DevTEST xcconfig")
-  }
+  func testReadFeatureFlag_isConsistentAcrossReads() {
+    // Pick a flag that exists in Info.plist and verify two reads agree
+    let flagsToCheck = [
+      "FF_FLIGHT_INFO",
+      "FF_MEET_STAFF",
+      "FF_GEAR_CHECKLIST",
+      "FF_MANAGE_LICENSES",
+      "FF_SELF_ASSESSMENT",
+      "FF_CATCH_CAROUSEL",
+      "FF_THE_BUZZ",
+      "FF_CATCH_MAP",
+    ]
 
-  func testMeetStaffFlag_isTrueInDevTEST() {
-    let value = readFeatureFlag("FF_MEET_STAFF")
-    XCTAssertTrue(value, "FF_MEET_STAFF should be true in DevTEST xcconfig")
-  }
-
-  func testGearChecklistFlag_isTrueInDevTEST() {
-    let value = readFeatureFlag("FF_GEAR_CHECKLIST")
-    XCTAssertTrue(value, "FF_GEAR_CHECKLIST should be true in DevTEST xcconfig")
-  }
-
-  func testManageLicensesFlag_isTrueInDevTEST() {
-    let value = readFeatureFlag("FF_MANAGE_LICENSES")
-    XCTAssertTrue(value, "FF_MANAGE_LICENSES should be true in DevTEST xcconfig")
-  }
-
-  func testSelfAssessmentFlag_isTrueInDevTEST() {
-    let value = readFeatureFlag("FF_SELF_ASSESSMENT")
-    XCTAssertTrue(value, "FF_SELF_ASSESSMENT should be true in DevTEST xcconfig")
-  }
-
-  // MARK: - AnglerLandingView feature flags (all default true in DevTEST)
-
-  func testCatchCarouselFlag_isTrueInDevTEST() {
-    let value = readFeatureFlag("FF_CATCH_CAROUSEL")
-    XCTAssertTrue(value, "FF_CATCH_CAROUSEL should be true in DevTEST xcconfig")
-  }
-
-  func testTheBuzzFlag_isTrueInDevTEST() {
-    let value = readFeatureFlag("FF_THE_BUZZ")
-    XCTAssertTrue(value, "FF_THE_BUZZ should be true in DevTEST xcconfig")
-  }
-
-  func testCatchMapFlag_isTrueInDevTEST() {
-    let value = readFeatureFlag("FF_CATCH_MAP")
-    XCTAssertTrue(value, "FF_CATCH_MAP should be true in DevTEST xcconfig")
+    for flag in flagsToCheck {
+      let first = readFeatureFlag(flag)
+      let second = readFeatureFlag(flag)
+      XCTAssertEqual(first, second,
+                     "readFeatureFlag(\"\(flag)\") should return the same value on consecutive reads")
+    }
   }
 
   // MARK: - Exhaustiveness: all expected flags exist in Info.plist

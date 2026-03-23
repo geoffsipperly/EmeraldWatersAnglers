@@ -43,10 +43,10 @@ struct AnglerCatchMapView: View {
     if let latest = annotations.sorted(by: { $0.createdAt > $1.createdAt }).first {
       return .camera(center: latest.coordinate, zoom: 10, bearing: 0, pitch: 0)
     }
-    // Fallback: default map center from xcconfig
-    let env = AppEnvironment.shared
+    // Fallback: default map center from community config
+    let config = CommunityService.shared.activeCommunityConfig
     return .camera(
-      center: CLLocationCoordinate2D(latitude: env.defaultMapLatitude, longitude: env.defaultMapLongitude),
+      center: CLLocationCoordinate2D(latitude: config.resolvedDefaultMapLatitude ?? 45.4562, longitude: config.resolvedDefaultMapLongitude ?? -123.8426),
       zoom: 8, bearing: 0, pitch: 0
     )
   }

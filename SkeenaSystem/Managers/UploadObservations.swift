@@ -87,8 +87,15 @@ final class UploadObservations {
     let sampleRate: Int
     let format: String
     let transcript: String
+    let communityId: String?
     let location: LocationDTO?
     let audio: AudioDTO
+
+    enum CodingKeys: String, CodingKey {
+      case clientId, createdAt, language, onDevice, sampleRate, format, transcript
+      case communityId = "community_id"
+      case location, audio
+    }
 
     struct LocationDTO: Codable {
       let lat: Double
@@ -155,6 +162,7 @@ final class UploadObservations {
         sampleRate: obs.voiceSampleRate ?? 16000,
         format: obs.voiceFormat ?? "m4a",
         transcript: obs.transcript,
+        communityId: CommunityService.shared.activeCommunityId,
         location: locationDTO,
         audio: audioDTO
       )

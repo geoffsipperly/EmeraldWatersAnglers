@@ -609,13 +609,11 @@ struct VoiceNoteView: View {
 
   private var header: some View {
     VStack(spacing: 8) {
-      Image(AppEnvironment.shared.appLogoAsset)
-        .resizable().scaledToFit()
-        .frame(width: 160, height: 160)
+      CommunityLogoView(config: CommunityService.shared.activeCommunityConfig, size: 160)
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(radius: 8).padding(.bottom, 6)
 
-      Text(AppEnvironment.shared.communityName)
+      Text(CommunityService.shared.activeCommunityName)
         .font(.largeTitle)
         .fontWeight(.bold)
         .multilineTextAlignment(.center)

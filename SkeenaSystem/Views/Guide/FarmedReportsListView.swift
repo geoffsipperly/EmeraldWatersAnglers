@@ -83,9 +83,11 @@ struct FarmedReportsListView: View {
       }
       ToolbarItem(placement: .navigationBarTrailing) {
         Button(action: startUpload) {
-          HStack(spacing: 4) {
+          VStack(spacing: 2) {
             Image(systemName: "arrow.up.circle")
+              .font(.title3)
             Text("Upload")
+              .font(.caption2)
           }
         }
         .disabled(isUploading || pendingReports.isEmpty)

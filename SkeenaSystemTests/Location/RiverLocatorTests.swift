@@ -9,6 +9,18 @@ import CoreLocation
 @MainActor
 final class RiverLocatorTests: XCTestCase {
 
+  // MARK: - Setup / Teardown
+
+  override func setUp() {
+    super.setUp()
+    TestGeographySetup.injectXcconfigGeography()
+  }
+
+  override func tearDown() {
+    TestGeographySetup.clearConfig()
+    super.tearDown()
+  }
+
   // MARK: - Test Data (Known Coordinates — first spine point of each configured river)
 
   // Hoh River — mouth at Pacific Ocean

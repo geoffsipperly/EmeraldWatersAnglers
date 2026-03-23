@@ -7,6 +7,18 @@ import CoreLocation
 @MainActor
 final class WaterBodyLocatorTests: XCTestCase {
 
+  // MARK: - Setup / Teardown
+
+  override func setUp() {
+    super.setUp()
+    TestGeographySetup.injectXcconfigGeography()
+  }
+
+  override func tearDown() {
+    TestGeographySetup.clearConfig()
+    super.tearDown()
+  }
+
   // MARK: - Test Data
 
   // Interior of Puget Sound (Seattle waterfront area)

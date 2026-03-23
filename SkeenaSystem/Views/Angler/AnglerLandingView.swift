@@ -5,10 +5,8 @@
 import SwiftUI
 import Foundation
 
-// Reads feature flags from Info.plist (populated via xcconfig)
-private let FF_CATCH_CAROUSEL: Bool = readFeatureFlag("FF_CATCH_CAROUSEL")
-private let FF_THE_BUZZ: Bool = readFeatureFlag("FF_THE_BUZZ")
-private let FF_CATCH_MAP: Bool = readFeatureFlag("FF_CATCH_MAP")
+// Feature flags are now driven by backend community config (with xcconfig fallback).
+// See CommunityConfig.flag(_:) for the resolution chain.
 
 // MARK: - API config (mirrors other files' URL composition)
 
@@ -91,7 +89,13 @@ enum AnglerDestination: Hashable {
 
 struct AnglerLandingView: View {
   @StateObject private var auth = AuthService.shared
+  @ObservedObject private var communityService = CommunityService.shared
   @Environment(\.dismiss) private var dismiss
+
+  // Reactive feature flags — driven by backend config with xcconfig fallback
+  private var FF_CATCH_CAROUSEL: Bool { communityService.activeCommunityConfig.flag("FF_CATCH_CAROUSEL") }
+  private var FF_THE_BUZZ: Bool { communityService.activeCommunityConfig.flag("FF_THE_BUZZ") }
+  private var FF_CATCH_MAP: Bool { communityService.activeCommunityConfig.flag("FF_CATCH_MAP") }
 
   // Data state
   @State private var reports: [CatchReportDTO] = []
@@ -198,6 +202,9 @@ struct AnglerLandingView: View {
               .font(.title3.weight(.semibold))
               .foregroundColor(.white)
           }
+        }
+        ToolbarItem(placement: .principal) {
+          CommunityToolbarButton()
         }
         ToolbarItem(placement: .navigationBarTrailing) {
           Button(action: logoutTapped) {

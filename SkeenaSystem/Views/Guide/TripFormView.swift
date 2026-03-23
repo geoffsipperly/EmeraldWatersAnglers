@@ -21,6 +21,10 @@ struct TripClientDraft: Identifiable, Hashable {
   var sex: String? // "male", "female", "other"
   var mailingAddress: String?
   var telephoneNumber: String?
+  // License jurisdiction
+  var licenseCountry: String = ""
+  var licenseStateProvince: String = ""
+  var licenseExpirationDate: Date?
   // Lookup UI state (per-row)
   var isLookingUp: Bool = false
   var lookupError: String?
@@ -404,7 +408,7 @@ struct TripFormView: View {
       HStack {
         Text("Community").foregroundColor(.blue)
         Spacer()
-        Text(AppEnvironment.shared.communityName)
+        Text(CommunityService.shared.activeCommunityName)
           .foregroundColor(.secondary)
           .accessibilityIdentifier("communityLabel")
       }
@@ -578,7 +582,7 @@ struct TripFormView: View {
   // MARK: - Lodges / Community helpers
 
   private func defaultLodgeId() -> UUID? {
-    if let first = lodges.first(where: { ($0.name ?? "").localizedCaseInsensitiveContains(AppEnvironment.shared.appDisplayName) }) {
+    if let first = lodges.first(where: { ($0.name ?? "").localizedCaseInsensitiveContains(CommunityService.shared.activeCommunityName) }) {
       return first.lodgeId
     }
     return lodges.first?.lodgeId
@@ -680,6 +684,9 @@ struct TripFormView: View {
           sex: draft.sex,
           mailingAddress: (draft.mailingAddress?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true) ? nil : draft.mailingAddress,
           telephoneNumber: (draft.telephoneNumber?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true) ? nil : draft.telephoneNumber,
+          licenseCountry: draft.licenseCountry.isEmpty ? nil : draft.licenseCountry,
+          licenseStateProvince: draft.licenseStateProvince.isEmpty ? nil : draft.licenseStateProvince,
+          licenseExpirationDate: draft.licenseExpirationDate?.yyyyMMdd,
           classifiedWatersLicenses: licenses.isEmpty ? nil : licenses
         )
       }
@@ -691,7 +698,7 @@ struct TripFormView: View {
         endDate: vm.endDate.iso8601ZString,
         guideName: vm.guideName,
         clientName: nil,
-        community: AppEnvironment.shared.communityName,
+        community: CommunityService.shared.activeCommunityName,
         lodge: selectedLodgeName,
         anglers: anglersPayload
       )

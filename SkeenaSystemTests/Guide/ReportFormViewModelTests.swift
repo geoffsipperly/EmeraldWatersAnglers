@@ -9,6 +9,7 @@ import XCTest
 /// 2. Hatchery origin requires a tag ID
 /// 3. `reset()` clears transient fields but preserves defaults
 /// 4. `lengths` range matches expected picker values
+@MainActor
 final class ReportFormViewModelTests: XCTestCase {
 
   // MARK: - Properties
@@ -17,11 +18,13 @@ final class ReportFormViewModelTests: XCTestCase {
 
   override func setUp() {
     super.setUp()
+    TestGeographySetup.injectXcconfigGeography()
     vm = ReportFormViewModel()
   }
 
   override func tearDown() {
     vm = nil
+    TestGeographySetup.clearConfig()
     super.tearDown()
   }
 
@@ -29,7 +32,7 @@ final class ReportFormViewModelTests: XCTestCase {
 
   /// Fills all required fields with valid values so `isValid` returns true.
   private func fillAllRequiredFields() {
-    vm.river = "Nehalem"
+    vm.river = "Hoh River"
     vm.species = "Steelhead"
     vm.sex = "Male"
     vm.origin = "Wild"
@@ -208,7 +211,7 @@ final class ReportFormViewModelTests: XCTestCase {
   }
 
   func testInitialState_defaultRiver() {
-    XCTAssertEqual(vm.river, "Nehalem")
+    XCTAssertEqual(vm.river, AppEnvironment.shared.defaultRiver)
   }
 
   func testInitialState_defaultTactic() {

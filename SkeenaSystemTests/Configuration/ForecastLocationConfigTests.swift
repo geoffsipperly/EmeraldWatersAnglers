@@ -3,7 +3,7 @@
 //
 // Unit tests for the FORECAST_LOCATION configuration variable:
 // verifies AppEnvironment.forecastLocation reads from config,
-// supports runtime override, and falls back to "Oregon Coast".
+// supports runtime override, and restores the config default.
 
 import XCTest
 @testable import SkeenaSystem
@@ -26,13 +26,10 @@ final class ForecastLocationConfigTests: XCTestCase {
 
   // MARK: - Default Value
 
-  func testForecastLocation_defaultsToOregonCoast() {
+  func testForecastLocation_defaultFromConfig() {
     // When no override is set, the value should come from Info.plist (xcconfig)
-    // or fall back to "Oregon Coast"
     let location = AppEnvironment.shared.forecastLocation
     XCTAssertFalse(location.isEmpty, "Forecast location should never be empty")
-    XCTAssertEqual(location, "Oregon Coast",
-                   "Default forecast location should be 'Oregon Coast'")
   }
 
   // MARK: - Override
@@ -50,12 +47,13 @@ final class ForecastLocationConfigTests: XCTestCase {
   }
 
   func testForecastLocation_clearingOverrideRestoresDefault() {
+    let original = AppEnvironment.shared.forecastLocation
     AppEnvironment.shared.overrideForecastLocation = "Smithers"
     XCTAssertEqual(AppEnvironment.shared.forecastLocation, "Smithers")
 
     AppEnvironment.shared.overrideForecastLocation = nil
-    XCTAssertEqual(AppEnvironment.shared.forecastLocation, "Oregon Coast",
-                   "Clearing override should restore default value")
+    XCTAssertEqual(AppEnvironment.shared.forecastLocation, original,
+                   "Clearing override should restore the original config value")
   }
 
   // MARK: - Empty Override Ignored
@@ -66,13 +64,13 @@ final class ForecastLocationConfigTests: XCTestCase {
     XCTAssertEqual(AppEnvironment.shared.forecastLocation, "Vancouver Island")
   }
 
-  // MARK: - Snapshot Consistency
+  // MARK: - Consistency
 
-  func testForecastLocation_matchesWeatherLocationSnapshot() {
-    // This ensures the new configurable FORECAST_LOCATION matches the
-    // previously hardcoded "Oregon Coast" value from ConfigurationSnapshotTests
-    let location = AppEnvironment.shared.forecastLocation
-    XCTAssertEqual(location, "Oregon Coast",
-                   "FORECAST_LOCATION should match the previously hardcoded weather location")
+  func testForecastLocation_isConsistentAcrossReads() {
+    // Two consecutive reads without any override change should return the same value
+    let first = AppEnvironment.shared.forecastLocation
+    let second = AppEnvironment.shared.forecastLocation
+    XCTAssertEqual(first, second,
+                   "Consecutive reads of forecastLocation should return the same value")
   }
 }

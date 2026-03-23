@@ -73,6 +73,10 @@ struct LandingView: View {
         }
       }
       .toolbar {
+        // Leading community switcher (only visible with multiple communities)
+        ToolbarItem(placement: .navigationBarLeading) {
+          CommunityToolbarButton()
+        }
         // Trailing logout
         ToolbarItem(placement: .navigationBarTrailing) {
           Button(action: logoutTapped) {

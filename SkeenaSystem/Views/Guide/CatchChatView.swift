@@ -25,10 +25,7 @@ struct CatchChatView: View {
             // Typing / analyzing indicator
             if viewModel.isAssistantTyping {
               HStack(spacing: 8) {
-                Image(AppEnvironment.shared.appLogoAsset)
-                  .resizable()
-                  .scaledToFit()
-                  .frame(width: 24, height: 24)
+                CommunityLogoView(config: CommunityService.shared.activeCommunityConfig, size: 24)
                   .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
 
                 HStack(spacing: 6) {

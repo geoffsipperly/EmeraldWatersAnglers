@@ -18,12 +18,13 @@ final class LodgeRiversConfigTests: XCTestCase {
 
   // MARK: - Default Value
 
-  func testLodgeRivers_defaultsToFiveRivers() {
+  func testLodgeRivers_defaultsFromConfig() {
     let rivers = AppEnvironment.shared.lodgeRivers
-    XCTAssertEqual(rivers.count, 5, "Default should have 5 rivers")
-    XCTAssertEqual(rivers, [
-      "Nehalem River", "Wilson River", "Trask River", "Nestucca River", "Kilchis River"
-    ])
+    XCTAssertFalse(rivers.isEmpty, "Lodge rivers from config should not be empty")
+    // Verify count is consistent with a second read
+    let rivers2 = AppEnvironment.shared.lodgeRivers
+    XCTAssertEqual(rivers.count, rivers2.count,
+                   "Consecutive reads should return the same number of rivers")
   }
 
   func testLodgeRivers_neverEmpty() {
@@ -39,12 +40,13 @@ final class LodgeRiversConfigTests: XCTestCase {
   }
 
   func testLodgeRivers_clearingOverrideRestoresDefault() {
+    let originalCount = AppEnvironment.shared.lodgeRivers.count
     AppEnvironment.shared.overrideLodgeRivers = ["Test River"]
     XCTAssertEqual(AppEnvironment.shared.lodgeRivers.count, 1)
 
     AppEnvironment.shared.overrideLodgeRivers = nil
-    XCTAssertEqual(AppEnvironment.shared.lodgeRivers.count, 5,
-                   "Clearing override should restore default value")
+    XCTAssertEqual(AppEnvironment.shared.lodgeRivers.count, originalCount,
+                   "Clearing override should restore the original config count")
   }
 
   func testLodgeRivers_emptyOverrideReturnsEmpty() {

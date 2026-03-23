@@ -4,6 +4,7 @@ import SwiftUI
 
 struct AppRootView: View {
   @StateObject private var auth = AuthService.shared
+  @StateObject private var communityService = CommunityService.shared
 
   /// Whether the splash has played (scope depends on frequency mode).
   @State private var splashCompleted = false
@@ -23,6 +24,22 @@ struct AppRootView: View {
           SplashVideoView(videoURL: videoURL) {
             markSplashComplete()
           }
+        } else if !communityService.hasFetchedMemberships {
+          // Wait for community memberships to load before routing
+          ZStack {
+            Color.black.ignoresSafeArea()
+            VStack(spacing: 16) {
+              Image("MadThinkerLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 100, height: 100)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+              ProgressView()
+                .tint(.white)
+            }
+          }
+        } else if communityService.activeCommunityId == nil {
+          CommunityPickerView()
         } else {
           switch auth.currentUserType ?? AuthService.UserType.guide {
           case .guide:
@@ -40,6 +57,8 @@ struct AppRootView: View {
       await AuthStore.shared.refreshFromSupabase()
       // Make sure we know the role after launch/sign-in/refresh
       await auth.loadUserProfile()
+      // Fetch community memberships (sets active community + role)
+      await communityService.fetchMemberships()
 
       // After profile loads, if already authenticated (cached session)
       // prepare the splash now — onChange won't fire for the initial value.
@@ -52,8 +71,11 @@ struct AppRootView: View {
       AppLogging.log("[AppRootView] isAuthenticated -> \(new)", level: .debug, category: .auth)
 
       if new && !wasAuthenticated {
-        print("[AppRootView] onChange isAuthenticated -> true (login detected)")
+        AppLogging.log("[AppRootView] Login detected — fetching community memberships", level: .info, category: .auth)
         wasAuthenticated = true
+        Task {
+          await communityService.fetchMemberships()
+        }
         prepareSplashIfNeeded()
       } else if !new {
         wasAuthenticated = false

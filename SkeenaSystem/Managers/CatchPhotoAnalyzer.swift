@@ -61,26 +61,11 @@ final class CatchPhotoAnalyzer {
     private let speciesLabels: [String] = [
         "articchar_holding",
         "articchar_traveler",
-        "atlantic_salmon",
         "brook_holding",
-        "brook_trout",
-        "brown_trout",
-        "carp",
-        "chinook_salmon",
-        "chum_salmon",
-        "coho_salmon",
-        "cutthroat_trout",
         "grayling",
-        "largemouth_bass",
-        "muskellunge",
-        "northern_pike",
-        "pink_salmon",
         "rainbow_holding",
         "rainbow_lake",
         "rainbow_traveler",
-        "sea_run_trout",
-        "smallmouth_bass",
-        "sockeye_salmon",
         "steelhead_holding",
         "steelhead_traveler"
     ]
@@ -126,27 +111,36 @@ final class CatchPhotoAnalyzer {
       AppLogging.log("[Analyzer] No location matched", level: .debug, category: .ml)
     }
 
-    // 2. Species via ViT
+    // 2. YOLO detection (run first so we can crop for species/sex)
+    let detection = runDetector(on: image)
+
+    // 3. Species via ViT (on full image)
     let vitResult = runViT(on: image)
 
     let speciesText: String?
+    let lowConfidenceThreshold: Float = 0.3
     if let vit = vitResult,
        vit.index >= 0,
-       vit.index < speciesLabels.count,
-       vit.confidence >= AppEnvironment.shared.speciesDetectionThreshold {
+       vit.index < speciesLabels.count {
       let rawLabel = speciesLabels[vit.index]
       let prettyLabel = rawLabel.replacingOccurrences(of: "_", with: " ")
 
-      speciesText = "Species (model): \(prettyLabel)"
-      AppLogging.log({ "ViT species: \(prettyLabel), confidence: \(vit.confidence)" }, level: .info, category: .ml)
+      if vit.confidence >= AppEnvironment.shared.speciesDetectionThreshold {
+        speciesText = "Species (model): \(prettyLabel)"
+        AppLogging.log({ "ViT species: \(prettyLabel), confidence: \(vit.confidence)" }, level: .info, category: .ml)
+      } else if vit.confidence >= lowConfidenceThreshold {
+        speciesText = "Species (low confidence): \(prettyLabel)"
+        AppLogging.log({ "ViT species (low confidence): \(prettyLabel), confidence: \(vit.confidence)" }, level: .info, category: .ml)
+      } else {
+        AppLogging.log({ "ViT species below threshold: best=\(prettyLabel), confidence=\(vit.confidence) (min \(lowConfidenceThreshold))" }, level: .debug, category: .ml)
+        speciesText = "Species: Unable to confidently detect"
+      }
     } else {
-      let conf = vitResult?.confidence ?? 0
-      let bestLabel = vitResult.flatMap { $0.index >= 0 && $0.index < speciesLabels.count ? speciesLabels[$0.index] : nil } ?? "none"
-      AppLogging.log({ "ViT species below threshold: best=\(bestLabel), confidence=\(conf) (min \(AppEnvironment.shared.speciesDetectionThreshold))" }, level: .debug, category: .ml)
+      AppLogging.log("ViT species: no prediction returned", level: .debug, category: .ml)
       speciesText = "Species: Unable to confidently detect"
     }
 
-    // 3. Sex via ViTFishSex (iOS 16+), fallback to Unknown on older OS
+    // 4. Sex via ViTFishSex (on full image)
     let sexText: String? = if #available(iOS 16.0, *) {
       if let sexLabel = runSexClassifier(on: image) {
         "Sex (model): \(sexLabel)"
@@ -157,19 +151,15 @@ final class CatchPhotoAnalyzer {
       "Unknown"
     }
 
-    // 4. Hand pose detection via MediaPipe
+    // 5. Hand pose detection via MediaPipe
     let handMeasurement = detectHand(on: image)
 
-    // 5. Detection + length estimation
+    // 6. Length estimation
     var lengthText: String? = "Length estimate not available (photo estimate failed)"
     var featureVector: LengthFeatureVector?
     var lengthSource: LengthEstimateSource?
 
-    let detection = runDetector(on: image)
-
     if let fishBox = detection.fishBox {
-      AppLogging.log({ "Detector found fish box with conf \(fishBox.confidence)" }, level: .info, category: .ml)
-
       if let personBox = detection.personBox {
         AppLogging.log({ "Detector found person box with conf \(personBox.confidence)" }, level: .info, category: .ml)
       }
@@ -342,7 +332,7 @@ final class CatchPhotoAnalyzer {
   /// Runs the ViTFishSex model on a UIImage and returns "male" / "female" or nil.
   @available(iOS 16.0, *)
   private func runSexClassifier(on image: UIImage) -> String? {
-    guard let inputArray = try? makeInputArray(from: image) else {
+    guard let inputArray = try? makeInputArray(from: image, mean: [0.5, 0.5, 0.5], std: [0.5, 0.5, 0.5]) else {
       AppLogging.log("runSexClassifier: failed to create input array", level: .error, category: .ml)
       return nil
     }
@@ -491,10 +481,50 @@ final class CatchPhotoAnalyzer {
     #endif
   }
 
+  // MARK: - Fish crop from YOLO box
+
+  /// Crops a UIImage to the YOLO fish bounding box (640×640 coords → original image coords).
+  /// Adds 10% padding on each side for context.
+  private func cropToBox(image: UIImage, box: NormalizedBox) -> UIImage? {
+    guard let cgImage = image.cgImage else { return nil }
+
+    let imgW = CGFloat(cgImage.width)
+    let imgH = CGFloat(cgImage.height)
+    let yoloSize: CGFloat = 640.0
+
+    // Convert from YOLO 640×640 center coords to original image pixel coords
+    let scaleX = imgW / yoloSize
+    let scaleY = imgH / yoloSize
+
+    let centerX = box.xCenter * scaleX
+    let centerY = box.yCenter * scaleY
+    let w = box.width * scaleX
+    let h = box.height * scaleY
+
+    // Add 10% padding for context
+    let padX = w * 0.1
+    let padY = h * 0.1
+
+    let cropRect = CGRect(
+      x: max(0, centerX - w / 2 - padX),
+      y: max(0, centerY - h / 2 - padY),
+      width: min(w + 2 * padX, imgW),
+      height: min(h + 2 * padY, imgH)
+    ).integral
+
+    guard let cropped = cgImage.cropping(to: cropRect) else { return nil }
+    return UIImage(cgImage: cropped, scale: image.scale, orientation: image.imageOrientation)
+  }
+
   // MARK: - Image preprocessing for ViT / ViTFishSex
 
-  /// Converts a UIImage into a 1×3×224×224 Float32 MLMultiArray in [0, 1].
-  private func makeInputArray(from image: UIImage) throws -> MLMultiArray {
+  /// Converts a UIImage into a 1×3×224×224 Float32 MLMultiArray with configurable normalization.
+  /// Default uses ImageNet normalization (species model). Sex model passes mean/std of 0.5.
+  private func makeInputArray(
+    from image: UIImage,
+    mean: [Float] = [0.485, 0.456, 0.406],
+    std: [Float] = [0.229, 0.224, 0.225]
+  ) throws -> MLMultiArray {
     let targetSize = CGSize(width: 224, height: 224)
 
     // 1) Resize the image to 224x224
@@ -535,14 +565,17 @@ final class CatchPhotoAnalyzer {
     let array = try MLMultiArray(shape: shape, dataType: .float32)
 
     // Fill in channel-first order: [batch, channel, y, x]
+    // Apply ImageNet normalization: (pixel / 255 - mean) / std
     let channelStride = height * width
+    let mean: [Float] = [0.485, 0.456, 0.406]  // R, G, B
+    let std: [Float]  = [0.229, 0.224, 0.225]
 
     for y in 0 ..< height {
       for x in 0 ..< width {
         let pixelIndex = y * bytesPerRow + x * bytesPerPixel
-        let r = Float(rawData[pixelIndex + 0]) / 255.0
-        let g = Float(rawData[pixelIndex + 1]) / 255.0
-        let b = Float(rawData[pixelIndex + 2]) / 255.0
+        let r = (Float(rawData[pixelIndex + 0]) / 255.0 - mean[0]) / std[0]
+        let g = (Float(rawData[pixelIndex + 1]) / 255.0 - mean[1]) / std[1]
+        let b = (Float(rawData[pixelIndex + 2]) / 255.0 - mean[2]) / std[2]
 
         let hwIndex = y * width + x
 

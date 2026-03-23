@@ -163,10 +163,7 @@ struct AnglerFlights: View {
 
   private var header: some View {
     VStack(spacing: 6) {
-      Image(AppEnvironment.shared.appLogoAsset)
-        .resizable()
-        .scaledToFit()
-        .frame(width: 130, height: 130)
+      CommunityLogoView(config: CommunityService.shared.activeCommunityConfig, size: 130)
         .clipShape(RoundedRectangle(cornerRadius: 24))
         .shadow(radius: 10)
         .padding(.bottom, 2)

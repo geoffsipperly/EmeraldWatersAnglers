@@ -533,7 +533,7 @@ struct ReportsListViewPicMemo: View {
         .frame(maxHeight: .infinity)
       }
     }
-    .navigationTitle("Catch History")
+    .navigationTitle("My Catch History")
     .navigationBarBackButtonHidden(true)
     .onAppear {
       store.refresh()
@@ -1222,8 +1222,13 @@ private struct PicMemoDetailView: View {
   }
 
   private func resolvedTripName() -> String {
-    // Attempt to resolve via Core Data Trip using the stored tripId on the PicMemo report
-    // If unavailable, return "-"
+    // First check if the PicMemo has a tripName stored directly
+    if let storedName = report.tripName?.trimmingCharacters(in: .whitespacesAndNewlines),
+       !storedName.isEmpty {
+      return storedName
+    }
+
+    // Fall back to Core Data Trip lookup using the stored tripId
     let dash = "-"
 
     // Guard that CatchReportPicMemo has a tripId property; if not, bail

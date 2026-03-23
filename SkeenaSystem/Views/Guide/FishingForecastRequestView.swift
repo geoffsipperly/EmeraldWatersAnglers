@@ -96,42 +96,59 @@ struct FishingForecastRequestView: View {
             .padding(.top, 20)
 
           // Water body rows — rivers + water bodies, stacked vertically
-          let rivers = AppEnvironment.shared.lodgeRivers
-          let waterBodies = AppEnvironment.shared.lodgeWaterBodies
+          let rivers = CommunityService.shared.activeCommunityConfig.resolvedLodgeRivers
+          let waterBodies = CommunityService.shared.activeCommunityConfig.resolvedLodgeWaterBodies
           let allWaterSources = rivers + waterBodies
 
-          VStack(spacing: 8) {
-            // Column headers aligned above metrics
-            HStack(spacing: 0) {
-              Spacer()
-              HStack(spacing: 12) {
-                Text("Level")
-                  .font(.caption2)
-                  .foregroundColor(.gray)
-                  .frame(width: 70, alignment: .center)
-                Text("Temp")
-                  .font(.caption2)
-                  .foregroundColor(.gray)
-                  .frame(width: 70, alignment: .center)
-              }
-              // Match chevron + padding space
-              Color.clear.frame(width: 28)
+          if allWaterSources.isEmpty {
+            VStack(spacing: 12) {
+              Image(systemName: "mappin.slash")
+                .font(.title)
+                .foregroundColor(.gray)
+              Text("No locations configured")
+                .font(.headline)
+                .foregroundColor(.white)
+              Text("Please contact your community administrator.")
+                .font(.subheadline)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
             }
-            .padding(.horizontal, 16)
-            ForEach(allWaterSources, id: \.self) { source in
-              Button {
-                fetchConditions(for: source)
-              } label: {
-                riverRow(name: source, isLoading: loadingRiver == source)
+            .padding(.vertical, 40)
+            .padding(.horizontal, 20)
+          } else {
+            VStack(spacing: 8) {
+              // Column headers aligned above metrics
+              HStack(spacing: 0) {
+                Spacer()
+                HStack(spacing: 12) {
+                  Text("Level")
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+                    .frame(width: 70, alignment: .center)
+                  Text("Temp")
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+                    .frame(width: 70, alignment: .center)
+                }
+                // Match chevron + padding space
+                Color.clear.frame(width: 28)
               }
-              .buttonStyle(.plain)
-              .disabled(loadingRiver != nil)
+              .padding(.horizontal, 16)
+              ForEach(allWaterSources, id: \.self) { source in
+                Button {
+                  fetchConditions(for: source)
+                } label: {
+                  riverRow(name: source, isLoading: loadingRiver == source)
+                }
+                .buttonStyle(.plain)
+                .disabled(loadingRiver != nil)
+              }
             }
+            .padding(.horizontal, 20)
           }
-          .padding(.horizontal, 20)
 
-          // Station note (from xcconfig)
-          if let notes = Bundle.main.object(forInfoDictionaryKey: "FORECAST_NOTES") as? String, !notes.isEmpty {
+          // Station note (from xcconfig) — only show when locations are configured
+          if !allWaterSources.isEmpty, let notes = Bundle.main.object(forInfoDictionaryKey: "FORECAST_NOTES") as? String, !notes.isEmpty {
             Text(notes)
               .font(.caption2)
               .foregroundColor(.gray)
@@ -139,10 +156,10 @@ struct FishingForecastRequestView: View {
               .padding(.horizontal, 24)
           }
 
-          // Extended forecast link (gated by tacticsEnabled)
-          if AppEnvironment.shared.tacticsEnabled {
+          // Extended forecast link (gated by tacticsEnabled + location configured)
+          if AppEnvironment.shared.tacticsEnabled, let forecastLoc = CommunityService.shared.activeCommunityConfig.resolvedForecastLocation {
             NavigationLink {
-              AnglerForecastView(location: AppEnvironment.shared.forecastLocation)
+              AnglerForecastView(location: forecastLoc)
             } label: {
               HStack(spacing: 6) {
                 Image(systemName: "cloud.sun.rain")
@@ -277,8 +294,8 @@ struct FishingForecastRequestView: View {
   // MARK: - Fetch Batch Conditions
 
   private func fetchBatchConditions() {
-    let rivers = AppEnvironment.shared.lodgeRivers
-    let waterBodies = AppEnvironment.shared.lodgeWaterBodies
+    let rivers = CommunityService.shared.activeCommunityConfig.resolvedLodgeRivers
+    let waterBodies = CommunityService.shared.activeCommunityConfig.resolvedLodgeWaterBodies
     let allSources = rivers + waterBodies
     guard !allSources.isEmpty else { return }
 

@@ -1085,6 +1085,9 @@ private struct TripEditForm: View {
             sex: nil,
             mailingAddress: nil,
             telephoneNumber: nil,
+            licenseCountry: nil,
+            licenseStateProvince: nil,
+            licenseExpirationDate: nil,
             classifiedWatersLicenses: licenses.isEmpty ? nil : licenses
           )
         }
@@ -1108,7 +1111,7 @@ private struct TripEditForm: View {
              !c.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return c
           }
-          return AppEnvironment.shared.communityName
+          return CommunityService.shared.activeCommunityName
         }()
 
         let upsert = TripAPI.UpsertTripRequest(

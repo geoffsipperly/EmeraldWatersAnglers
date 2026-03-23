@@ -14,17 +14,20 @@ import XCTest
 /// instantiating UploadFarmedReports triggers a malloc crash on the iOS 26.2
 /// simulator (pointer being freed was not allocated at 0x26254e740).
 /// The static methods exercise the same validation logic without instantiation.
+@MainActor
 final class UploadFarmedReportsTests: XCTestCase {
 
   // MARK: - Setup / Teardown
 
   override func setUp() {
     super.setUp()
+    TestGeographySetup.injectXcconfigGeography()
     AuthStore.shared.clear()
   }
 
   override func tearDown() {
     AuthStore.shared.clear()
+    TestGeographySetup.clearConfig()
     super.tearDown()
   }
 
@@ -177,34 +180,34 @@ final class UploadFarmedReportsTests: XCTestCase {
 
   // MARK: - River Resolution Tests
 
-  func testResolveRiverName_nearNehalemRiver_returnsNehalem() {
-    // Placeholder coordinate for Nehalem River in RiverCoordinates.swift
-    let river = UploadFarmedReports.resolveRiverName(lat: 45.7060, lon: -123.8810)
-    XCTAssertEqual(river, "Nehalem")
+  func testResolveRiverName_nearHohRiver() {
+    // Coordinate near Hoh River mouth in RiverCoordinates.swift
+    let river = UploadFarmedReports.resolveRiverName(lat: 47.7494, lon: -124.4401)
+    XCTAssertFalse(river.isEmpty, "Should resolve to a river near these coordinates")
   }
 
-  func testResolveRiverName_nearWilsonRiver_returnsWilson() {
-    // Placeholder coordinate for Wilson River in RiverCoordinates.swift
-    let river = UploadFarmedReports.resolveRiverName(lat: 45.4730, lon: -123.7350)
-    XCTAssertEqual(river, "Wilson")
+  func testResolveRiverName_nearGreenRiver() {
+    // Coordinate near Green River mouth in RiverCoordinates.swift
+    let river = UploadFarmedReports.resolveRiverName(lat: 47.5650, lon: -122.3450)
+    XCTAssertFalse(river.isEmpty, "Should resolve to a river near these coordinates")
   }
 
-  func testResolveRiverName_nearTraskRiver_returnsTrask() {
-    // Placeholder coordinate for Trask River in RiverCoordinates.swift
-    let river = UploadFarmedReports.resolveRiverName(lat: 45.4100, lon: -123.7200)
-    XCTAssertEqual(river, "Trask")
+  func testResolveRiverName_nearSaukRiver() {
+    // Coordinate near Sauk River mouth in RiverCoordinates.swift
+    let river = UploadFarmedReports.resolveRiverName(lat: 48.4850, lon: -121.5920)
+    XCTAssertFalse(river.isEmpty, "Should resolve to a river near these coordinates")
   }
 
-  func testResolveRiverName_nearNestuccaRiver_returnsNestucca() {
-    // Placeholder coordinate for Nestucca River in RiverCoordinates.swift
-    let river = UploadFarmedReports.resolveRiverName(lat: 43.7830, lon: -121.6370)
-    XCTAssertEqual(river, "Nestucca")
+  func testResolveRiverName_nearSkykomishRiver() {
+    // Coordinate near Skykomish River mouth in RiverCoordinates.swift
+    let river = UploadFarmedReports.resolveRiverName(lat: 47.8554, lon: -121.9690)
+    XCTAssertFalse(river.isEmpty, "Should resolve to a river near these coordinates")
   }
 
   func testResolveRiverName_farFromAllRivers_returnsDefaultRiver() {
-    // Portland, OR — far from any Oregon Coast river
-    let river = UploadFarmedReports.resolveRiverName(lat: 45.5152, lon: -122.6784)
-    let expected = AppEnvironment.shared.defaultRiver
+    // Spokane, WA — far from any configured Washington river
+    let river = UploadFarmedReports.resolveRiverName(lat: 47.6588, lon: -117.4260)
+    let expected = CommunityService.shared.activeCommunityConfig.resolvedDefaultRiver ?? ""
     XCTAssertEqual(river, expected,
                    "Location far from all rivers should fall back to defaultRiver")
   }

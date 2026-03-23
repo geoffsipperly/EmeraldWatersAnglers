@@ -134,6 +134,9 @@ struct TripAPI {
             let sex: String? // "male", "female", or "other"
             let mailingAddress: String?
             let telephoneNumber: String?
+            let licenseCountry: String?
+            let licenseStateProvince: String?
+            let licenseExpirationDate: String? // YYYY-MM-DD
             let classifiedWatersLicenses: [UpsertLicense]?
 
             struct UpsertLicense: Encodable {
@@ -157,7 +160,9 @@ struct TripAPI {
         logConfig()
         var items: [URLQueryItem] = []
         if let tripId = tripId, !tripId.isEmpty { items.append(URLQueryItem(name: "tripId", value: tripId)) }
-        if let community = community, !community.isEmpty { items.append(URLQueryItem(name: "community", value: community)) }
+        if let communityId = CommunityService.shared.activeCommunityId {
+            items.append(URLQueryItem(name: "community_id", value: communityId))
+        }
         if let lodge = lodge, !lodge.isEmpty { items.append(URLQueryItem(name: "lodge", value: lodge)) }
         let url = try makeURL(queryItems: items)
         AppLogging.log("[TripAPI] GET trips request URL: \(url.absoluteString)", level: .debug, category: .trip)

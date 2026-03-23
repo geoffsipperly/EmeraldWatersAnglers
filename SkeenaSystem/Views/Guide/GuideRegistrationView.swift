@@ -7,14 +7,7 @@ struct GuideRegistrationView: View {
   @Environment(\.dismiss) private var dismiss
   @StateObject private var auth = AuthService.shared
 
-  // MARK: - Community
-
-  enum Community: CaseIterable, Identifiable {
-    case primary
-
-    var id: String { rawValue }
-    var rawValue: String { AppEnvironment.shared.appDisplayName }
-  }
+  // MARK: - Community Code
 
   // MARK: - Constants
 
@@ -24,7 +17,7 @@ struct GuideRegistrationView: View {
   // MARK: - Form fields
 
   @State private var userType: AuthService.UserType = .guide
-  @State private var selectedCommunity: Community = .primary
+  @State private var communityCode: String = ""
 
   @State private var firstName: String = ""
   @State private var lastName: String = ""
@@ -33,6 +26,12 @@ struct GuideRegistrationView: View {
   @State private var email: String = ""
   @State private var password: String = ""
   @State private var confirm: String = ""
+
+  // MARK: - License fields (both guides and anglers)
+
+  @State private var licenseCountry: LicenseCountry = .US
+  @State private var licenseStateProvince: String = ""
+  @State private var licenseExpirationDate: Date = Calendar.current.date(byAdding: .year, value: 1, to: Date()) ?? Date()
 
   // MARK: - Hidden fields populated by scan (sent to API if available)
 
@@ -80,10 +79,16 @@ struct GuideRegistrationView: View {
     return email.range(of: pattern, options: .regularExpression) != nil
   }
 
+  private var isCommunityCodeValid: Bool {
+    let code = communityCode.trimmingCharacters(in: .whitespacesAndNewlines)
+    return code.range(of: #"^[A-Za-z0-9]{6}$"#, options: .regularExpression) != nil
+  }
+
   private var allFieldsFilled: Bool {
     let base = !firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
       && !lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
       && isEmailValid
+      && isCommunityCodeValid
     if userType == .angler {
       return base && !anglerNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -175,6 +180,15 @@ struct GuideRegistrationView: View {
   @ViewBuilder
   private var mainContent: some View {
     VStack(spacing: 0) {
+      // Platform branding — MadThinker logo (not community-specific)
+      Image("MadThinkerLogo")
+        .resizable()
+        .scaledToFit()
+        .frame(width: 120, height: 120)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(.top, 12)
+        .padding(.bottom, 4)
+
       VStack(spacing: 10) {
         registrationForm
         errorView
@@ -187,15 +201,15 @@ struct GuideRegistrationView: View {
     }
   }
 
-  // Header removed per design — no logo/branding
-
   // Whole form stack
   @ViewBuilder
   private var registrationForm: some View {
     VStack(spacing: 10) {
       rolePicker
+      communityCodeField
       nameFields
-      anglerNumberFieldIfNeeded
+      licenseNumberField
+      licenseFields
       emailField
       passwordFields
       termsBlock
@@ -232,26 +246,27 @@ struct GuideRegistrationView: View {
   }
 
   @ViewBuilder
-  private var communityPickerRow: some View {
-    HStack(spacing: 8) {
-      Text("Select community")
-        .font(.body)
-        .foregroundColor(.gray)
-        .frame(maxWidth: .infinity, alignment: .trailing)
+  private var communityCodeField: some View {
+    fieldBackground(
+      TextField("Community Code", text: $communityCode)
+        .textInputAutocapitalization(.characters)
+        .autocorrectionDisabled()
+        .keyboardType(.asciiCapable)
+        .accessibilityIdentifier("communityCode_registration")
+    )
 
-      fieldBackground(
-        Picker("Select community", selection: $selectedCommunity) {
-          ForEach(Community.allCases) { community in
-            Text(community.rawValue).tag(community)
-          }
-        }
-        .pickerStyle(.menu)
-        .font(.body)
-        .accentColor(.white)
-      )
-      .frame(maxWidth: .infinity)
+    if !communityCode.isEmpty {
+      HStack(spacing: 4) {
+        Image(systemName: isCommunityCodeValid ? "checkmark.circle.fill" : "xmark.circle.fill")
+          .font(.caption2)
+          .foregroundColor(isCommunityCodeValid ? .green : .red)
+        Text(isCommunityCodeValid ? "Valid code format" : "Must be 6 alphanumeric characters")
+          .font(.caption2)
+          .foregroundColor(isCommunityCodeValid ? .green : .red)
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(.horizontal, 4)
     }
-    .accessibilityIdentifier("communityPicker_registration")
   }
 
   @ViewBuilder
@@ -292,14 +307,71 @@ struct GuideRegistrationView: View {
   }
 
   @ViewBuilder
-  private var anglerNumberFieldIfNeeded: some View {
-    if userType == .angler {
-      fieldBackground(
-        TextField("ODFW ID", text: $anglerNumber)
-          .keyboardType(.numberPad)
-          .textInputAutocapitalization(.never)
-          .accessibilityIdentifier("anglerNumber_registration")
-      )
+  private var licenseNumberField: some View {
+    fieldBackground(
+      TextField("License Number", text: $anglerNumber)
+        .keyboardType(.numberPad)
+        .textInputAutocapitalization(.never)
+        .accessibilityIdentifier("anglerNumber_registration")
+    )
+  }
+
+  // MARK: - License Fields (Country, State/Province, Expiration)
+
+  @ViewBuilder
+  private var licenseFields: some View {
+    VStack(spacing: 8) {
+      // Country picker
+      HStack {
+        Text("License Country")
+          .font(.caption)
+          .foregroundColor(.gray)
+        Spacer()
+        Picker("Country", selection: $licenseCountry) {
+          ForEach(LicenseCountry.allCases) { country in
+            Text(country.displayName).tag(country)
+          }
+        }
+        .pickerStyle(.segmented)
+        .frame(maxWidth: 200)
+      }
+      .padding(.horizontal, 10)
+
+      // State/Province picker
+      HStack {
+        Text(licenseCountry.subdivisionLabel)
+          .font(.caption)
+          .foregroundColor(.gray)
+        Spacer()
+        Picker(licenseCountry.subdivisionLabel, selection: $licenseStateProvince) {
+          Text("Select...").tag("")
+          ForEach(licenseCountry.subdivisions, id: \.self) { sub in
+            Text(sub).tag(sub)
+          }
+        }
+        .tint(.white)
+      }
+      .padding(.horizontal, 10)
+      .frame(height: 40)
+      .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+
+      // Expiration date
+      HStack {
+        Text("License Expiration")
+          .font(.caption)
+          .foregroundColor(.gray)
+        Spacer()
+        DatePicker("", selection: $licenseExpirationDate, in: Date()..., displayedComponents: .date)
+          .labelsHidden()
+          .colorScheme(.dark)
+      }
+      .padding(.horizontal, 10)
+      .frame(height: 40)
+      .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+    }
+    .onChange(of: licenseCountry) { _ in
+      // Reset state/province when country changes
+      licenseStateProvince = ""
     }
   }
 
@@ -483,7 +555,7 @@ struct GuideRegistrationView: View {
       return
     }
 
-    let communityName = selectedCommunity.rawValue
+    let code = communityCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
 
     if userType == .guide {
       // GUIDE REGISTRATION FLOW
@@ -495,18 +567,28 @@ struct GuideRegistrationView: View {
         errorText = "Please enter your last name."
         return
       }
+      guard isCommunityCodeValid else {
+        errorText = "Please enter a valid 6-character community code."
+        return
+      }
 
       errorText = nil
       isBusy = true
       do {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+
         try await auth.signUp(
           email: email.trimmingCharacters(in: .whitespaces),
           password: password,
           firstName: firstName,
           lastName: lastName,
           userType: userType,
-          community: communityName,
-          anglerNumber: nil
+          communityCode: code,
+          anglerNumber: anglerNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : anglerNumber.trimmingCharacters(in: .whitespacesAndNewlines),
+          licenseCountry: licenseCountry.rawValue,
+          licenseStateProvince: licenseStateProvince.isEmpty ? nil : licenseStateProvince,
+          licenseExpirationDate: df.string(from: licenseExpirationDate)
         )
         // ✅ For guides: just dismiss. AppRootView + LandingView handle onboarding + navigation.
         dismiss()
@@ -539,7 +621,7 @@ struct GuideRegistrationView: View {
         password: password,
         firstName: firstName,
         lastName: lastName,
-        community: communityName,
+        communityCode: code,
         anglerNumber: trimmedAngler,
         dob: scannedDOB,
         sex: scannedSex,
@@ -565,7 +647,7 @@ struct GuideRegistrationView: View {
     password: String,
     firstName: String,
     lastName: String,
-    community: String,
+    communityCode: String,
     anglerNumber: String,
     dob: Date?,
     sex: Sex?,
@@ -582,7 +664,7 @@ struct GuideRegistrationView: View {
       "first_name": firstName,
       "last_name": lastName,
       "user_type": "angler",
-      "community": community,
+      "community_code": communityCode,
       "angler_number": anglerNumber
     ]
 
@@ -599,6 +681,11 @@ struct GuideRegistrationView: View {
       dataPayload["telephone_number"] = tel
     }
     if let res = residency { dataPayload["residency"] = res.rawValue }
+
+    // License fields
+    dataPayload["license_country"] = licenseCountry.rawValue
+    if !licenseStateProvince.isEmpty { dataPayload["license_state_province"] = licenseStateProvince }
+    dataPayload["license_expiration_date"] = df.string(from: licenseExpirationDate)
 
     let body: [String: Any] = ["email": email, "password": password, "data": dataPayload]
     request.httpBody = try JSONSerialization.data(withJSONObject: body, options: [])
@@ -725,7 +812,6 @@ struct GuideRegistrationView: View {
     showScanCamera = false
     showScanLibrary = false
 
-    // Reset community to default when switching roles
-    selectedCommunity = .primary
+    communityCode = ""
   }
 }

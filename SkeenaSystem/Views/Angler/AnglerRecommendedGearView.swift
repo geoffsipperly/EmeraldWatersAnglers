@@ -106,10 +106,7 @@ struct AnglerRecommendedGearView: View {
         // Header
         VStack(spacing: 6) {
           HStack(alignment: .center, spacing: 12) {
-            Image(AppEnvironment.shared.appLogoAsset)
-              .resizable()
-              .scaledToFit()
-              .frame(width: 64, height: 64)
+            CommunityLogoView(config: CommunityService.shared.activeCommunityConfig, size: 64)
               .clipShape(RoundedRectangle(cornerRadius: 12))
               .shadow(radius: 4)
             VStack(alignment: .leading, spacing: 2) {
@@ -117,7 +114,7 @@ struct AnglerRecommendedGearView: View {
                 .font(.title2)
                 .fontWeight(.bold)
                 .foregroundColor(.white)
-              Text(AppEnvironment.shared.forecastLocation)
+              Text(CommunityService.shared.activeCommunityConfig.resolvedForecastLocation ?? "Location not configured")
                 .font(.subheadline)
                 .foregroundColor(.gray)
             }

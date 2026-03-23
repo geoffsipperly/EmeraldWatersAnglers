@@ -39,6 +39,16 @@ final class AuthService: ObservableObject {
   @Published private(set) var currentLastName: String?
   @Published private(set) var currentAnglerNumber: String?
 
+  /// Called by CommunityService when the active community (and thus role) changes.
+  /// This keeps views that read `auth.currentUserType` working without modification.
+  @MainActor
+  func updateUserType(_ type: UserType) {
+    if currentUserType != type {
+      currentUserType = type
+      AppLogging.log("[AuthService] userType updated from CommunityService: \(type.rawValue)", level: .info, category: .auth)
+    }
+  }
+
   // Transient (in-memory only) last sign-in credentials for remember-me recording after role resolution
   private var lastSignInEmail: String?
   private var lastSignInPassword: String?
@@ -114,16 +124,21 @@ final class AuthService: ObservableObject {
     firstName: String,
     lastName: String,
     userType: UserType,
-    community: String,
-    anglerNumber: String? = nil
+    communityCode: String,
+    anglerNumber: String? = nil,
+    licenseCountry: String? = nil,
+    licenseStateProvince: String? = nil,
+    licenseExpirationDate: String? = nil  // YYYY-MM-DD
   ) async throws {
     // Validate
     let first = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
     let last = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
-    let comm = community.trimmingCharacters(in: .whitespacesAndNewlines)
+    let commCode = communityCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
     guard !first.isEmpty else { throw InputValidationError.invalidInput("First name is required.") }
     guard !last.isEmpty else { throw InputValidationError.invalidInput("Last name is required.") }
-    guard !comm.isEmpty else { throw InputValidationError.invalidInput("Community is required.") }
+    guard !commCode.isEmpty else { throw InputValidationError.invalidInput("Community code is required.") }
+    let codeValid = commCode.range(of: #"^[A-Z0-9]{6}$"#, options: .regularExpression) != nil
+    guard codeValid else { throw InputValidationError.invalidInput("Community code must be 6 alphanumeric characters.") }
     if userType == .angler {
       guard let ang = anglerNumber, !ang.isEmpty else {
         throw InputValidationError.invalidInput("Angler number is required for anglers.")
@@ -132,7 +147,7 @@ final class AuthService: ObservableObject {
       guard ok else { throw InputValidationError.invalidInput("Angler number must be 5–10 digits.") }
     }
 
-    AppLogging.log("signUp -> email=\(email) type=\(userType.rawValue) name=\(firstName) \(lastName) community=\(community) angler=\(anglerNumber ?? "<nil>")", level: .info, category: .auth)
+    AppLogging.log("signUp -> email=\(email) type=\(userType.rawValue) name=\(firstName) \(lastName) communityCode=\(commCode) angler=\(anglerNumber ?? "<nil>")", level: .info, category: .auth)
 
     let url = projectURL.appendingPathComponent("/auth/v1/signup")
     var req = URLRequest(url: url)
@@ -144,9 +159,12 @@ final class AuthService: ObservableObject {
       "first_name": first,
       "last_name": last,
       "user_type": userType.rawValue,
-      "community": comm
+      "community_code": commCode
     ]
     if let ang = anglerNumber, !ang.isEmpty { dataObj["angler_number"] = ang }
+    if let c = licenseCountry, !c.isEmpty { dataObj["license_country"] = c }
+    if let s = licenseStateProvince, !s.isEmpty { dataObj["license_state_province"] = s }
+    if let d = licenseExpirationDate, !d.isEmpty { dataObj["license_expiration_date"] = d }
 
     let body: [String: Any] = [
       "email": email,
@@ -177,15 +195,15 @@ final class AuthService: ObservableObject {
     }
   }
 
-  /// Convenience for legacy call sites:
-  func signUp(email: String, password: String) async throws {
+  /// Convenience for legacy call sites (requires a community code):
+  func signUp(email: String, password: String, communityCode: String) async throws {
     try await signUp(
       email: email,
       password: password,
       firstName: "Unknown",
       lastName: "User",
       userType: .guide,
-      community: AppEnvironment.shared.communityName,
+      communityCode: communityCode,
       anglerNumber: nil
     )
   }
@@ -374,6 +392,7 @@ final class AuthService: ObservableObject {
       await clearStoredTokens()
       // Keep other cleanup
       AuthStore.shared.clear()
+      CommunityService.shared.clear()
     }
 
   // MARK: - Profile / Role
@@ -861,7 +880,8 @@ final class AuthService: ObservableObject {
       // Use the centralized async clear so state updates are deterministic.
       await clearStoredTokens()
       AuthStore.shared.clear()
-      AppLogging.log("[Refresh] Failed; tokens cleared, isAuthenticated=false.", level: .error, category: .auth)
+      CommunityService.shared.clear()
+      AppLogging.log("[Refresh] Failed; tokens and community state cleared, isAuthenticated=false.", level: .error, category: .auth)
     }
 
   // MARK: - Token Handling

@@ -3,7 +3,7 @@ import CoreData
 @testable import SkeenaSystem
 
 /// Regression tests for PersistenceController and seed data.
-/// These tests verify that the Bend Fly Shop community and its lodges
+/// These tests verify that the configured community and its lodges
 /// are correctly seeded into Core Data, and that the seeding is idempotent.
 @MainActor
 final class PersistenceTests: XCTestCase {
@@ -15,14 +15,14 @@ final class PersistenceTests: XCTestCase {
   private var controller: PersistenceController!
   private var context: NSManagedObjectContext!
 
-  // MARK: - Expected Data (Snapshot of Current Configuration)
+  // MARK: - Expected Data (Derived from Configuration)
 
-  /// The expected community name - this is hardcoded in Persistence.swift
-  private let expectedCommunityName = "Bend Fly Shop"
+  /// The expected community name - read from AppEnvironment
+  private let expectedCommunityName = AppEnvironment.shared.communityName
 
-  /// The expected lodge names - these are hardcoded in Persistence.swift
+  /// The expected lodge names - derived from AppEnvironment
   private let expectedLodgeNames: Set<String> = [
-    "Bend Fly Shop"
+    AppEnvironment.shared.communityName
   ]
 
   // MARK: - Setup / Teardown
@@ -48,7 +48,7 @@ final class PersistenceTests: XCTestCase {
     let communities = try? context.fetch(fetchRequest)
 
     XCTAssertNotNil(communities, "Should be able to fetch communities")
-    XCTAssertEqual(communities?.count, 1, "Should have exactly one Bend Fly Shop community")
+    XCTAssertEqual(communities?.count, 1, "Should have exactly one \(expectedCommunityName) community")
     XCTAssertEqual(communities?.first?.name, expectedCommunityName,
                    "Community name should be '\(expectedCommunityName)'")
   }
@@ -173,41 +173,41 @@ final class PersistenceTests: XCTestCase {
     // Create an orphan lodge with a known name (but no community link)
     let orphanLodge = Lodge(context: context)
     orphanLodge.lodgeId = UUID()
-    orphanLodge.name = "Bend Fly Shop"
+    orphanLodge.name = expectedCommunityName
     orphanLodge.createdAt = Date()
     orphanLodge.community = nil
 
     try? context.save()
 
-    // Now call seed - it should link the orphan to Bend Fly Shop
+    // Now call seed - it should link the orphan to the community
     controller.seedCommunityIfNeeded(context: context)
 
     // Fetch the lodge again
     let fetchRequest: NSFetchRequest<Lodge> = Lodge.fetchRequest()
-    fetchRequest.predicate = NSPredicate(format: "name ==[c] %@", "Bend Fly Shop")
+    fetchRequest.predicate = NSPredicate(format: "name ==[c] %@", expectedCommunityName)
 
     let lodges = try? context.fetch(fetchRequest)
 
     // Should have at least one, and it should be linked
-    XCTAssertGreaterThan(lodges?.count ?? 0, 0, "Should have at least one Bend Fly Shop lodge")
+    XCTAssertGreaterThan(lodges?.count ?? 0, 0, "Should have at least one \(expectedCommunityName) lodge")
 
     for lodge in lodges ?? [] {
       XCTAssertNotNil(lodge.community, "Orphan lodge should now be linked to community")
       XCTAssertEqual(lodge.community?.name, expectedCommunityName,
-                     "Orphan lodge should be linked to Bend Fly Shop")
+                     "Orphan lodge should be linked to \(expectedCommunityName)")
     }
   }
 
   // MARK: - Specific Lodge Tests (Snapshot/Regression)
 
-  func testBendFlyShopLodgeExists() {
+  func testSeededLodgeExists() {
     let fetchRequest: NSFetchRequest<Lodge> = Lodge.fetchRequest()
-    fetchRequest.predicate = NSPredicate(format: "name == %@", "Bend Fly Shop")
+    fetchRequest.predicate = NSPredicate(format: "name == %@", expectedCommunityName)
 
     let lodges = try? context.fetch(fetchRequest)
 
-    XCTAssertEqual(lodges?.count, 1, "Should have exactly one Bend Fly Shop lodge")
-    XCTAssertNotNil(lodges?.first?.community, "Bend Fly Shop should be linked to community")
+    XCTAssertEqual(lodges?.count, 1, "Should have exactly one \(expectedCommunityName) lodge")
+    XCTAssertNotNil(lodges?.first?.community, "\(expectedCommunityName) should be linked to community")
   }
 
   // MARK: - Trip Relationship Tests
@@ -215,9 +215,9 @@ final class PersistenceTests: XCTestCase {
   func testLodgeCanHaveTrips() {
     // Fetch a lodge
     let lodgeFetch: NSFetchRequest<Lodge> = Lodge.fetchRequest()
-    lodgeFetch.predicate = NSPredicate(format: "name == %@", "Bend Fly Shop")
+    lodgeFetch.predicate = NSPredicate(format: "name == %@", expectedCommunityName)
     guard let lodge = try? context.fetch(lodgeFetch).first else {
-      XCTFail("Bend Fly Shop lodge should exist")
+      XCTFail("\(expectedCommunityName) lodge should exist")
       return
     }
 
@@ -233,7 +233,7 @@ final class PersistenceTests: XCTestCase {
     try? context.save()
 
     // Verify the relationship
-    XCTAssertEqual(trip.lodge?.name, "Bend Fly Shop")
+    XCTAssertEqual(trip.lodge?.name, expectedCommunityName)
     XCTAssertTrue((lodge.trips as? Set<Trip>)?.contains(trip) ?? false,
                   "Lodge should contain the trip in its trips relationship")
   }

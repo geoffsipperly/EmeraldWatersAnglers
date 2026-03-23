@@ -142,7 +142,7 @@ final class LoginAuthRegressionTests: XCTestCase {
     }
 
     let auth = AuthService.shared
-    try await auth.signUp(email: "g@example.com", password: "password", firstName: "G", lastName: "U", userType: .guide, community: "Bend Fly Shop")
+    try await auth.signUp(email: "g@example.com", password: "password", firstName: "G", lastName: "U", userType: .guide, communityCode: "A3F7K2")
     XCTAssertTrue(auth.isAuthenticated)
     XCTAssertEqual(auth.currentUserType, .guide)
     XCTAssertEqual(auth.currentFirstName, "G")
@@ -178,7 +178,7 @@ final class LoginAuthRegressionTests: XCTestCase {
     }
 
     let auth = AuthService.shared
-    try await auth.signUp(email: "a@example.com", password: "pw", firstName: "A", lastName: "L", userType: .angler, community: "Bend Fly Shop", anglerNumber: "12345")
+    try await auth.signUp(email: "a@example.com", password: "pw", firstName: "A", lastName: "L", userType: .angler, communityCode: "A3F7K2", anglerNumber: "12345")
     XCTAssertTrue(auth.isAuthenticated)
     XCTAssertEqual(auth.currentUserType, .angler)
     XCTAssertEqual(auth.currentAnglerNumber, "12345")
@@ -189,7 +189,7 @@ final class LoginAuthRegressionTests: XCTestCase {
   func testSignUp_missingFirstName_throwsValidationError() async throws {
     let auth = AuthService.shared
     do {
-      try await auth.signUp(email: "x@x.com", password: "p", firstName: "", lastName: "L", userType: .guide, community: "C")
+      try await auth.signUp(email: "x@x.com", password: "p", firstName: "", lastName: "L", userType: .guide, communityCode: "ABC123")
       XCTFail("Expected validation error")
     } catch {
       XCTAssert(error is AuthService.InputValidationError)
@@ -199,7 +199,7 @@ final class LoginAuthRegressionTests: XCTestCase {
   func testSignUp_anglerMissingAnglerNumber_throwsValidationError() async throws {
     let auth = AuthService.shared
     do {
-      try await auth.signUp(email: "angler@x", password: "p", firstName: "A", lastName: "B", userType: .angler, community: "C", anglerNumber: nil)
+      try await auth.signUp(email: "angler@x", password: "p", firstName: "A", lastName: "B", userType: .angler, communityCode: "ABC123", anglerNumber: nil)
       XCTFail("Expected validation error for anglerNumber")
     } catch {
       XCTAssert(error is AuthService.InputValidationError)
@@ -209,7 +209,7 @@ final class LoginAuthRegressionTests: XCTestCase {
   func testSignUp_anglerNumber_invalidFormat_throwsValidationError() async throws {
     let auth = AuthService.shared
     do {
-      try await auth.signUp(email: "angler@x", password: "p", firstName: "A", lastName: "B", userType: .angler, community: "C", anglerNumber: "12ab")
+      try await auth.signUp(email: "angler@x", password: "p", firstName: "A", lastName: "B", userType: .angler, communityCode: "ABC123", anglerNumber: "12ab")
       XCTFail("Expected validation error for invalid angler number")
     } catch {
       XCTAssert(error is AuthService.InputValidationError)
@@ -228,7 +228,7 @@ final class LoginAuthRegressionTests: XCTestCase {
     }
     let auth = AuthService.shared
     do {
-      try await auth.signUp(email: "dup@example.com", password: "p", firstName: "D", lastName: "U", userType: .guide, community: "C")
+      try await auth.signUp(email: "dup@example.com", password: "p", firstName: "D", lastName: "U", userType: .guide, communityCode: "ABC123")
       XCTFail("Expected http error for duplicate")
     } catch {
       XCTAssert(error is AuthService.AuthError)
@@ -264,7 +264,7 @@ final class LoginAuthRegressionTests: XCTestCase {
     }
 
     let auth = AuthService.shared
-    try await auth.signUp(email: "long@example.com", password: "pw", firstName: "Łŕøg-😀", lastName: "User", userType: .guide, community: "C")
+    try await auth.signUp(email: "long@example.com", password: "pw", firstName: "Łŕøg-😀", lastName: "User", userType: .guide, communityCode: "ABC123")
     XCTAssertTrue(auth.isAuthenticated)
     XCTAssertEqual(auth.currentFirstName, "Łŕøg-😀")
   }
@@ -284,7 +284,7 @@ final class LoginAuthRegressionTests: XCTestCase {
 
     let auth = AuthService.shared
     do {
-      try await auth.signUp(email: "confirm@example.com", password: "pw", firstName: "C", lastName: "U", userType: .guide, community: "C")
+      try await auth.signUp(email: "confirm@example.com", password: "pw", firstName: "C", lastName: "U", userType: .guide, communityCode: "ABC123")
       XCTFail("Expected signIn to fail due to confirmation requirement")
     } catch {
       XCTAssertTrue(true)
@@ -616,7 +616,7 @@ final class LoginAuthRegressionTests: XCTestCase {
     }
     let auth = AuthService.shared
     do {
-      try await auth.signUp(email: "x'; DROP TABLE --@x", password: "p", firstName: "X", lastName: "Y", userType: .guide, community: "C")
+      try await auth.signUp(email: "x'; DROP TABLE --@x", password: "p", firstName: "X", lastName: "Y", userType: .guide, communityCode: "ABC123")
       XCTFail("Expected server to reject bad input")
     } catch {
       XCTAssertTrue(error is AuthService.AuthError)
@@ -659,7 +659,7 @@ final class LoginAuthRegressionTests: XCTestCase {
     }
 
     let auth = AuthService.shared
-    try await auth.signUp(email: "u@u.com", password: "p", firstName: String(repeating: "𐍈", count: 200), lastName: "L", userType: .guide, community: "C")
+    try await auth.signUp(email: "u@u.com", password: "p", firstName: String(repeating: "𐍈", count: 200), lastName: "L", userType: .guide, communityCode: "ABC123")
     XCTAssertTrue(auth.isAuthenticated)
   }
 

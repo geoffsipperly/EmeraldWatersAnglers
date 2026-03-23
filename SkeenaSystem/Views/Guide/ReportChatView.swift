@@ -451,10 +451,17 @@ struct ReportChatView: View {
     let today = Calendar.current.startOfDay(for: Date())
     let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)!
 
-    // Look for an existing solo trip created today
+    // Create or reuse a same-day solo trip
+    let guideName = (AuthService.shared.currentFirstName ?? "Guide").trimmingCharacters(in: .whitespacesAndNewlines)
+
+    // Look for an existing solo trip created today by this guide
+    let df = DateFormatter()
+    df.dateFormat = "ddMMyyyy"
+    let todayTripName = "\(guideName) - \(df.string(from: Date()))"
+
     let request: NSFetchRequest<Trip> = Trip.fetchRequest()
     request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-      NSPredicate(format: "name BEGINSWITH %@", "Solo"),
+      NSPredicate(format: "name == %@", todayTripName),
       NSPredicate(format: "startDate >= %@ AND startDate < %@", today as NSDate, tomorrow as NSDate)
     ])
     request.fetchLimit = 1
@@ -463,19 +470,24 @@ struct ReportChatView: View {
       return existing
     }
 
-    // Create a new solo trip
-    let guideName = (AuthService.shared.currentFirstName ?? "Guide").trimmingCharacters(in: .whitespacesAndNewlines)
+    // Also check for legacy "Solo" trips from before the naming change
+    let legacyRequest: NSFetchRequest<Trip> = Trip.fetchRequest()
+    legacyRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+      NSPredicate(format: "name BEGINSWITH %@", "Solo"),
+      NSPredicate(format: "startDate >= %@ AND startDate < %@", today as NSDate, tomorrow as NSDate)
+    ])
+    legacyRequest.fetchLimit = 1
+
+    if let legacy = (try? context.fetch(legacyRequest))?.first {
+      return legacy
+    }
     let guideLastName = (AuthService.shared.currentLastName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     let anglerNumber = (AuthService.shared.currentAnglerNumber ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-
-    let df = DateFormatter()
-    df.dateFormat = "MMM d"
-    let tripName = "Solo – \(df.string(from: Date()))"
 
     let trip = Trip(context: context)
     trip.tripId = UUID()
     trip.guideName = guideName
-    trip.name = tripName
+    trip.name = todayTripName
     trip.startDate = today
     trip.endDate = today
     trip.createdAt = Date()
@@ -488,19 +500,19 @@ struct ReportChatView: View {
 
     do {
       try context.save()
-      AppLogging.log("[Solo] Created solo trip: \(tripName) id=\(trip.tripId?.uuidString ?? "?")", level: .info, category: .trip)
+      AppLogging.log("[Solo] Created solo trip: \(todayTripName) id=\(trip.tripId?.uuidString ?? "?")", level: .info, category: .trip)
 
       // Upload the solo trip to the server (fire-and-forget)
       let iso = ISO8601DateFormatter()
       iso.formatOptions = [.withInternetDateTime]
       let upsert = TripAPI.UpsertTripRequest(
         tripId: trip.tripId?.uuidString ?? UUID().uuidString,
-        tripName: tripName,
+        tripName: todayTripName,
         startDate: iso.string(from: today),
         endDate: iso.string(from: today),
         guideName: guideName,
         clientName: nil,
-        community: AppEnvironment.shared.communityName,
+        community: CommunityService.shared.activeCommunityName,
         lodge: nil,
         anglers: [
           .init(
@@ -512,6 +524,9 @@ struct ReportChatView: View {
             sex: nil,
             mailingAddress: nil,
             telephoneNumber: nil,
+            licenseCountry: nil,
+            licenseStateProvince: nil,
+            licenseExpirationDate: nil,
             classifiedWatersLicenses: nil
           )
         ]
@@ -754,7 +769,7 @@ struct ReportChatView: View {
     let cwlNumber = vm.classifiedWatersLicenseNumber
     let tripIdString = trip?.tripId?.uuidString
 
-    let communityName = isSoloMode ? AppEnvironment.shared.communityName : trip?.lodge?.community?.name
+    let communityName = isSoloMode ? CommunityService.shared.activeCommunityName : trip?.lodge?.community?.name
     let lodgeName = isSoloMode ? nil : trip?.lodge?.name
     let loggedInGuide = (AuthService.shared.currentFirstName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     let guideName = loggedInGuide.isEmpty ? snapshot.guideName : loggedInGuide
@@ -766,7 +781,6 @@ struct ReportChatView: View {
     let rawTripName = trip?.name?.trimmingCharacters(in: .whitespacesAndNewlines)
     let tripNameValue: String? = {
       if let n = rawTripName, !n.isEmpty { return n }
-      if isSoloMode { return nil } // solo trips already have a name set above
       let label = currentTripText()
       if label == "No trips created" { return nil }
       return label
