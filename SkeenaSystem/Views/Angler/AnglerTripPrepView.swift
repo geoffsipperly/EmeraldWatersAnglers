@@ -52,7 +52,7 @@ struct AnglerTripPrepView: View {
       ToolbarTab(icon: "book", label: "Learn") {
         handleTab(.learn)
       }
-      ToolbarTab(icon: "bubble.left.and.bubble.right", label: "Community") {
+      ToolbarTab(icon: "message", label: "Social") {
         handleTab(.community)
       }
     }) {

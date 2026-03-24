@@ -180,22 +180,22 @@ struct GuideRegistrationView: View {
   @ViewBuilder
   private var mainContent: some View {
     VStack(spacing: 0) {
-      // Platform branding — MadThinker logo (not community-specific)
-      Image("MadThinkerLogo")
-        .resizable()
-        .scaledToFit()
-        .frame(width: 120, height: 120)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .padding(.top, 12)
-        .padding(.bottom, 4)
+      ScrollView {
+        // Platform branding — MadThinker logo (not community-specific)
+        Image("MadThinkerLogo")
+          .resizable()
+          .scaledToFit()
+          .frame(width: 120, height: 120)
+          .clipShape(RoundedRectangle(cornerRadius: 16))
+          .padding(.top, 12)
+          .padding(.bottom, 4)
 
-      VStack(spacing: 10) {
-        registrationForm
-        errorView
+        VStack(spacing: 10) {
+          registrationForm
+          errorView
+        }
+        .padding(.top, 8)
       }
-      .padding(.top, 8)
-
-      Spacer(minLength: 0)
 
       registerButtonBar
     }

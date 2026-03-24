@@ -23,7 +23,7 @@ struct LearnTacticsView: View {
       ToolbarTab(icon: "book", label: "Learn") {
         // Already on Learn — no-op
       }
-      ToolbarTab(icon: "bubble.left.and.bubble.right", label: "Community") {
+      ToolbarTab(icon: "message", label: "Social") {
         navigateTo(.community)
       }
     }) {

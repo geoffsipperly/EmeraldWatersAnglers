@@ -411,6 +411,152 @@ enum RiverAtlas {
         ],
 
         // ─────────────────────────────────────────────
+        // Alaska — Togiak National Wildlife Refuge
+        // ─────────────────────────────────────────────
+
+        "Togiak River": [
+            // Mile 0 — Mouth: Togiak River at Togiak Bay (near village of Togiak)
+            CLLocationCoordinate2D(latitude: 59.0608, longitude: -160.3772),
+            // Mile 5 — Lower river, tidal estuary / wetland marsh zone
+            CLLocationCoordinate2D(latitude: 59.0900, longitude: -160.3100),
+            // Mile 10 — Above tidal influence, lower canyon
+            CLLocationCoordinate2D(latitude: 59.1200, longitude: -160.2400),
+            // Mile 15 — Mid-lower river, Togiak NWR wilderness
+            CLLocationCoordinate2D(latitude: 59.1600, longitude: -160.1700),
+            // Mile 20 — Pungokepuk River confluence area (upper/lower river division)
+            CLLocationCoordinate2D(latitude: 59.2100, longitude: -160.1000),
+            // Mile 25 — Upper river, below Kemuk River confluence
+            CLLocationCoordinate2D(latitude: 59.2700, longitude: -160.0300),
+            // Mile 30 — Kemuk River confluence area
+            CLLocationCoordinate2D(latitude: 59.3740, longitude: -160.0075),
+            // Mile 35 — Upper river, approaching Togiak Lake outlet
+            CLLocationCoordinate2D(latitude: 59.4500, longitude: -159.9000),
+            // Mile 40 — Near Togiak Lake outlet
+            CLLocationCoordinate2D(latitude: 59.5200, longitude: -159.8000),
+            // Mile 45 — Togiak Lake (lower / southwest end)
+            CLLocationCoordinate2D(latitude: 59.5800, longitude: -159.7000),
+            // Mile 48 — Togiak Lake (source, mid-lake)
+            CLLocationCoordinate2D(latitude: 59.6261, longitude: -159.6122),
+        ],
+
+        // ─────────────────────────────────────────────
+        // Northern BC — Skeena Region
+        // ─────────────────────────────────────────────
+
+        "Skeena River": [
+            // Mile 0 — Mouth: Skeena River entering Chatham Sound (south of Prince Rupert)
+            CLLocationCoordinate2D(latitude: 54.2500, longitude: -130.2500),
+            // Mile 5 — Port Edward / lower estuary
+            CLLocationCoordinate2D(latitude: 54.2333, longitude: -130.2833),
+            // Mile 10 — Tidal reach, approaching Hwy 16
+            CLLocationCoordinate2D(latitude: 54.2600, longitude: -130.1500),
+            // Mile 15 — Lower Skeena, Kasiks area (upper tidal limit)
+            CLLocationCoordinate2D(latitude: 54.2900, longitude: -130.0200),
+            // Mile 20 — Exchamsiks River Park area
+            CLLocationCoordinate2D(latitude: 54.3200, longitude: -129.8800),
+            // Mile 25 — Mid-lower Skeena, Hwy 16 corridor
+            CLLocationCoordinate2D(latitude: 54.3500, longitude: -129.7200),
+            // Mile 30 — Approaching Terrace from the west
+            CLLocationCoordinate2D(latitude: 54.3900, longitude: -129.5500),
+            // Mile 35 — Terrace area
+            CLLocationCoordinate2D(latitude: 54.5099, longitude: -128.5932),
+            // Mile 40 — East of Terrace, Kitselas Canyon area
+            CLLocationCoordinate2D(latitude: 54.5400, longitude: -128.4800),
+            // Mile 45 — Usk (WSC gauge 08EF001)
+            CLLocationCoordinate2D(latitude: 54.6346, longitude: -128.4090),
+            // Mile 50 — East of Usk, heading toward Cedarvale
+            CLLocationCoordinate2D(latitude: 54.6800, longitude: -128.3000),
+            // Mile 55 — Cedarvale area
+            CLLocationCoordinate2D(latitude: 54.7200, longitude: -128.2000),
+            // Mile 60 — Between Cedarvale and Kitwanga
+            CLLocationCoordinate2D(latitude: 54.7800, longitude: -128.1500),
+            // Mile 65 — Kitwanga area (Hwy 37 junction)
+            CLLocationCoordinate2D(latitude: 55.1000, longitude: -128.0667),
+            // Mile 70 — Between Kitwanga and Hazelton
+            CLLocationCoordinate2D(latitude: 55.1500, longitude: -127.9000),
+            // Mile 75 — Approaching Hazelton / Bulkley confluence
+            CLLocationCoordinate2D(latitude: 55.2000, longitude: -127.7500),
+            // Mile 80 — Hazelton: Skeena-Bulkley confluence
+            CLLocationCoordinate2D(latitude: 55.2568, longitude: -127.6720),
+            // Mile 85 — Above Babine River confluence (WSC 08EB005)
+            CLLocationCoordinate2D(latitude: 55.3000, longitude: -127.6000),
+            // Mile 90 — Kispiox area
+            CLLocationCoordinate2D(latitude: 55.3500, longitude: -127.5500),
+            // Mile 95 — Upper Skeena, heading northeast
+            CLLocationCoordinate2D(latitude: 55.4200, longitude: -127.4500),
+            // Mile 100 — Upper Skeena wilderness
+            CLLocationCoordinate2D(latitude: 55.5000, longitude: -127.3500),
+        ],
+
+        "Bulkley River": [
+            // Mile 0 — Mouth: Bulkley-Skeena confluence at Hazelton
+            CLLocationCoordinate2D(latitude: 55.2556, longitude: -127.6753),
+            // Mile 5 — South Hazelton / New Hazelton area
+            CLLocationCoordinate2D(latitude: 55.2414, longitude: -127.5834),
+            // Mile 10 — Between Hazelton and Moricetown
+            CLLocationCoordinate2D(latitude: 55.1800, longitude: -127.5000),
+            // Mile 15 — Approaching Moricetown/Witset
+            CLLocationCoordinate2D(latitude: 55.1000, longitude: -127.4200),
+            // Mile 20 — Moricetown Canyon / Moricetown Falls
+            CLLocationCoordinate2D(latitude: 55.0332, longitude: -127.3332),
+            // Mile 25 — Between Moricetown and Smithers
+            CLLocationCoordinate2D(latitude: 54.9500, longitude: -127.2800),
+            // Mile 30 — Approaching Smithers (WSC 08EE005)
+            CLLocationCoordinate2D(latitude: 54.8500, longitude: -127.2200),
+            // Mile 35 — Smithers
+            CLLocationCoordinate2D(latitude: 54.7820, longitude: -127.1720),
+            // Mile 40 — Between Smithers and Telkwa
+            CLLocationCoordinate2D(latitude: 54.7400, longitude: -127.1100),
+            // Mile 45 — Telkwa (Telkwa River confluence)
+            CLLocationCoordinate2D(latitude: 54.6940, longitude: -127.0480),
+            // Mile 50 — Quick area (WSC gauge 08EE004)
+            CLLocationCoordinate2D(latitude: 54.6500, longitude: -126.9800),
+            // Mile 55 — Bulkley River Recreation Site
+            CLLocationCoordinate2D(latitude: 54.6000, longitude: -126.9200),
+            // Mile 60 — Between Quick and Houston (WSC 08EE003)
+            CLLocationCoordinate2D(latitude: 54.5500, longitude: -126.8500),
+            // Mile 65 — Approaching Houston
+            CLLocationCoordinate2D(latitude: 54.4800, longitude: -126.7800),
+            // Mile 70 — Houston (Morice River confluence)
+            CLLocationCoordinate2D(latitude: 54.3998, longitude: -126.6701),
+            // Mile 75 — South of Houston, upper Bulkley
+            CLLocationCoordinate2D(latitude: 54.3500, longitude: -126.7500),
+            // Mile 80 — Approaching Bulkley Lake (source)
+            CLLocationCoordinate2D(latitude: 54.3000, longitude: -126.8500),
+            // Mile 85 — Bulkley Lake (source)
+            CLLocationCoordinate2D(latitude: 54.2500, longitude: -126.9500),
+        ],
+
+        "Babine River": [
+            // Mile 0 — Mouth: Babine River confluence with the Skeena River (near Kisgegas)
+            CLLocationCoordinate2D(latitude: 55.6831, longitude: -127.7000),
+            // Mile 5 — Lower river, above Kisgegas Canyon
+            CLLocationCoordinate2D(latitude: 55.6500, longitude: -127.6100),
+            // Mile 10 — Lower canyon stretch, Babine River Corridor Park
+            CLLocationCoordinate2D(latitude: 55.6150, longitude: -127.5200),
+            // Mile 15 — Mid-lower river, Silver Hilton Lodge vicinity (lower camp)
+            CLLocationCoordinate2D(latitude: 55.5800, longitude: -127.4300),
+            // Mile 20 — Silver Hilton Lodge vicinity (upper camp, ~7 mi from lower)
+            CLLocationCoordinate2D(latitude: 55.5500, longitude: -127.3500),
+            // Mile 25 — Mid-river, wilderness corridor
+            CLLocationCoordinate2D(latitude: 55.5150, longitude: -127.2600),
+            // Mile 30 — Mid-river, deep in Babine River Corridor Park
+            CLLocationCoordinate2D(latitude: 55.4800, longitude: -127.1700),
+            // Mile 35 — Upper-mid river, approaching Babine Steelhead Lodge area
+            CLLocationCoordinate2D(latitude: 55.4500, longitude: -127.0800),
+            // Mile 40 — Babine Steelhead Lodge vicinity (~15 km below weir)
+            CLLocationCoordinate2D(latitude: 55.4200, longitude: -127.0000),
+            // Mile 45 — Upper river, between lodge and Babine Norlakes Camp
+            CLLocationCoordinate2D(latitude: 55.4000, longitude: -126.9200),
+            // Mile 50 — Babine Norlakes Camp vicinity (~3 mi below lake outlet)
+            CLLocationCoordinate2D(latitude: 55.3850, longitude: -126.8400),
+            // Mile 55 — DFO salmon counting fence (~1 km below Nilkitkwa Lake)
+            CLLocationCoordinate2D(latitude: 55.3750, longitude: -126.7600),
+            // Mile 60 — Source: Outlet of Nilkitkwa Lake / Babine Lake system
+            CLLocationCoordinate2D(latitude: 55.3660, longitude: -126.6600),
+        ],
+
+        // ─────────────────────────────────────────────
         // Olympic Peninsula — Emerald Waters Angler
         // ─────────────────────────────────────────────
 

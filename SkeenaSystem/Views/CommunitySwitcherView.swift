@@ -20,17 +20,19 @@ struct CommunityToolbarButton: View {
             Button {
                 showSwitcher = true
             } label: {
-                HStack(spacing: 4) {
+                HStack(spacing: 6) {
+                    Image(systemName: "person.3")
+                        .font(.subheadline)
                     Text(communityService.activeCommunityName)
                         .font(.caption.weight(.semibold))
                         .lineLimit(1)
                     Image(systemName: "chevron.down")
                         .font(.caption2)
                 }
-                .foregroundColor(.white.opacity(0.8))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.white.opacity(0.1), in: Capsule())
+                .foregroundColor(.white)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.black, in: Capsule())
             }
             .buttonStyle(.plain)
             .sheet(isPresented: $showSwitcher) {

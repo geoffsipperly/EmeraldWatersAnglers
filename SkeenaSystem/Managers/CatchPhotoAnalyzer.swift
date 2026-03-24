@@ -59,13 +59,7 @@ final class CatchPhotoAnalyzer {
 
   // Species labels for ViT
     private let speciesLabels: [String] = [
-        "articchar_holding",
-        "articchar_traveler",
-        "brook_holding",
-        "grayling",
-        "rainbow_holding",
-        "rainbow_lake",
-        "rainbow_traveler",
+        "sea_run_trout",
         "steelhead_holding",
         "steelhead_traveler"
     ]
@@ -118,6 +112,7 @@ final class CatchPhotoAnalyzer {
     let vitResult = runViT(on: image)
 
     let speciesText: String?
+    var detectedSpeciesLabel: String? = nil
     let lowConfidenceThreshold: Float = 0.3
     if let vit = vitResult,
        vit.index >= 0,
@@ -125,12 +120,10 @@ final class CatchPhotoAnalyzer {
       let rawLabel = speciesLabels[vit.index]
       let prettyLabel = rawLabel.replacingOccurrences(of: "_", with: " ")
 
-      if vit.confidence >= AppEnvironment.shared.speciesDetectionThreshold {
+      if vit.confidence >= lowConfidenceThreshold {
         speciesText = "Species (model): \(prettyLabel)"
+        detectedSpeciesLabel = rawLabel
         AppLogging.log({ "ViT species: \(prettyLabel), confidence: \(vit.confidence)" }, level: .info, category: .ml)
-      } else if vit.confidence >= lowConfidenceThreshold {
-        speciesText = "Species (low confidence): \(prettyLabel)"
-        AppLogging.log({ "ViT species (low confidence): \(prettyLabel), confidence: \(vit.confidence)" }, level: .info, category: .ml)
       } else {
         AppLogging.log({ "ViT species below threshold: best=\(prettyLabel), confidence=\(vit.confidence) (min \(lowConfidenceThreshold))" }, level: .debug, category: .ml)
         speciesText = "Species: Unable to confidently detect"
@@ -221,21 +214,39 @@ final class CatchPhotoAnalyzer {
         return lines.joined(separator: "\n")
       }, level: .debug, category: .ml)
 
-      // Try ML regressor first (if enabled), fall back to heuristic
+      // Species that haven't been calibrated with the regressor — use heuristic only
+      let regressorBypassSpecies: Set<String> = ["sea_run_trout"]
+      let useRegressorForSpecies = !regressorBypassSpecies.contains(detectedSpeciesLabel ?? "")
+
+      // Always log regressor prediction for future training data
       if AppEnvironment.shared.useLengthRegressor, let predicted = predictLength(from: fv) {
         let clamped = max(
           AppEnvironment.shared.fishMinLengthInches,
           min(predicted, AppEnvironment.shared.fishMaxLengthInches)
         )
-        lengthText = String(format: "%.0f inches", clamped.rounded())
-        lengthSource = .regressor
         AppLogging.log({ "Length regressor: raw=\(String(format: "%.1f", predicted)), clamped=\(String(format: "%.1f", clamped))" }, level: .debug, category: .ml)
 
-        // Heuristic confidence based on available scale signals
         let confidence = Self.estimateConfidence(from: fv)
         AppLogging.log({
           "Length estimate confidence: \(confidence.label) (\(String(format: "%.0f", confidence.score * 100))%) — \(confidence.reasoning)"
         }, level: .info, category: .ml)
+
+        // Also log heuristic for comparison
+        let heuristicResult = estimateLength(from: fishBox, imageSize: image.size, speciesLabel: detectedSpeciesLabel)
+        AppLogging.log({
+          "Length heuristic (for comparison): \(heuristicResult.display) vs regressor: \(String(format: "%.0f inches", clamped.rounded()))"
+        }, level: .info, category: .ml)
+
+        if useRegressorForSpecies {
+          lengthText = String(format: "%.0f inches (%@ confidence)", clamped.rounded(), confidence.label)
+          lengthSource = .regressor
+        } else {
+          // Use species-scaled heuristic for uncalibrated species
+          let scaledResult = estimateLength(from: fishBox, imageSize: image.size, speciesLabel: detectedSpeciesLabel)
+          lengthText = scaledResult.display
+          lengthSource = .heuristic
+          AppLogging.log({ "Using species-scaled heuristic for \(detectedSpeciesLabel ?? "unknown") (regressor not yet calibrated)" }, level: .info, category: .ml)
+        }
       } else {
         let result = estimateLength(from: fishBox, imageSize: image.size)
         lengthText = result.display
@@ -1138,10 +1149,23 @@ final class CatchPhotoAnalyzer {
       return DetectionResult(fishBox: resolvedFishBox, personBox: bestPersonBox)
     }
 
+  // MARK: - Species length ranges (min/max in inches)
+
+  /// Known length ranges per species for heuristic rescaling.
+  /// Add new species here as they are calibrated.
+  private static let speciesLengthRanges: [String: (min: Double, max: Double)] = [
+    "steelhead_holding":   (min: 24, max: 42),
+    "steelhead_traveler":  (min: 24, max: 42),
+    "sea_run_trout":       (min: 8,  max: 20),
+  ]
+
   /// Turn the best detected box into a rough length estimate.
+  /// When `speciesLabel` is provided and the species has a known range,
+  /// the raw heuristic output is rescaled into that range.
   private func estimateLength(
     from box: NormalizedBox,
-    imageSize: CGSize
+    imageSize: CGSize,
+    speciesLabel: String? = nil
   ) -> (inches: Double, display: String) {
     // YOLOv8 export is giving us pixel coordinates in 640×640 space.
     // Use the *long side* of the box as a proxy for fish length.
@@ -1157,7 +1181,39 @@ final class CatchPhotoAnalyzer {
 
     AppLogging.log({ "estimateLength: w=\(box.width), h=\(box.height), pixelLength=\(pixelLength), rawInches=\(rawInches)" }, level: .debug, category: .ml)
 
-    // Clamp to a plausible range for steelhead
+    // If species has a known range, rescale the raw heuristic into that range
+    if let species = speciesLabel,
+       let range = Self.speciesLengthRanges[species] {
+
+      // Steelhead heuristic range (what the raw heuristic was calibrated for)
+      let heuristicMin = env.fishMinLengthInches
+      let heuristicMax = env.fishMaxLengthInches
+
+      // Normalize raw inches to 0..1 within the steelhead heuristic range
+      let fraction = min(1.0, max(0.0,
+        (rawInches - heuristicMin) / (heuristicMax - heuristicMin)
+      ))
+
+      // Map into the species-specific range
+      let scaled = range.min + fraction * (range.max - range.min)
+      let low = (scaled * env.fishEstimateLowFactor).rounded()
+      let high = (scaled * env.fishEstimateHighFactor).rounded()
+
+      AppLogging.log({
+        "estimateLength (species-scaled): raw=\(String(format: "%.1f", rawInches))\" " +
+        "-> fraction=\(String(format: "%.2f", fraction)) " +
+        "-> \(species) range [\(Int(range.min))-\(Int(range.max))] " +
+        "-> scaled=\(String(format: "%.1f", scaled))\""
+      }, level: .debug, category: .ml)
+
+      let display = String(
+        format: "%.0f–%.0f inches (photo estimate)",
+        low, high
+      )
+      return (inches: scaled, display: display)
+    }
+
+    // Default: clamp to steelhead range (original behavior)
     let clamped = max(env.fishMinLengthInches, min(rawInches, env.fishMaxLengthInches))
 
     let low = clamped * env.fishEstimateLowFactor

@@ -285,7 +285,12 @@ struct FishingForecastRequestView: View {
         self.result = materializeStrict(from: loose)
         self.goToResult = true
       } catch {
-        self.errorText = error.localizedDescription
+        let msg = error.localizedDescription
+        if msg.lowercased().contains("invalid water body") || msg.lowercased().contains("not supported") {
+          self.errorText = "Gauge data is not yet available for \(river). Check back soon."
+        } else {
+          self.errorText = msg
+        }
       }
       self.loadingRiver = nil
     }
@@ -311,14 +316,35 @@ struct FishingForecastRequestView: View {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue("application/json", forHTTPHeaderField: "Accept")
 
+        // Auth headers
+        let anonKey = (Bundle.main.object(forInfoDictionaryKey: "SUPABASE_ANON_KEY") as? String)?
+          .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !anonKey.isEmpty {
+          req.setValue(anonKey, forHTTPHeaderField: "apikey")
+        }
+        if let jwt = AuthStore.shared.jwt, !jwt.isEmpty {
+          req.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
+        }
+
+        // Community ID header (preferred over body for flexibility)
+        let communityId = CommunityService.shared.activeCommunityId
+        if let communityId, !communityId.isEmpty {
+          req.setValue(communityId, forHTTPHeaderField: "x-community-id")
+        }
+
         struct BatchPayload: Encodable {
           let rivers: [String]
+          let communityId: String?
+          enum CodingKeys: String, CodingKey {
+            case rivers
+            case communityId = "community_id"
+          }
         }
         // Strip river suffixes for rivers; water bodies pass through as-is
         let apiNames = rivers.map { AppEnvironment.stripRiverSuffix($0) } + waterBodies
-        let payload = BatchPayload(rivers: apiNames)
+        let payload = BatchPayload(rivers: apiNames, communityId: communityId)
         req.httpBody = try JSONEncoder().encode(payload)
-        AppLogging.log("[Forecast] batch request body: rivers=\(apiNames)", level: .debug, category: .trip)
+        AppLogging.log("[Forecast] batch request body: rivers=\(apiNames), community_id=\(communityId ?? "nil")", level: .debug, category: .trip)
 
         let (data, resp) = try await URLSession.shared.data(for: req)
         guard let http = resp as? HTTPURLResponse else {
@@ -373,12 +399,35 @@ struct FishingForecastRequestView: View {
     req.setValue("application/json", forHTTPHeaderField: "Content-Type")
     req.setValue("application/json", forHTTPHeaderField: "Accept")
 
+    // Auth headers
+    let anonKey = (Bundle.main.object(forInfoDictionaryKey: "SUPABASE_ANON_KEY") as? String)?
+      .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    if !anonKey.isEmpty {
+      req.setValue(anonKey, forHTTPHeaderField: "apikey")
+    }
+    if let jwt = AuthStore.shared.jwt, !jwt.isEmpty {
+      req.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
+    }
+
+    // Community ID
+    let communityId = CommunityService.shared.activeCommunityId
+    if let communityId, !communityId.isEmpty {
+      req.setValue(communityId, forHTTPHeaderField: "x-community-id")
+    }
+
     struct Payload: Encodable {
       let date: String
       let river: String
-      let include_water_temperature: Bool
+      let includeWaterTemperature: Bool
+      let communityId: String?
+      enum CodingKeys: String, CodingKey {
+        case date, river
+        case includeWaterTemperature = "include_water_temperature"
+        case communityId = "community_id"
+      }
     }
-    req.httpBody = try JSONEncoder().encode(Payload(date: ymd, river: river, include_water_temperature: true))
+    req.httpBody = try JSONEncoder().encode(Payload(date: ymd, river: river, includeWaterTemperature: true, communityId: communityId))
+    AppLogging.log("[Forecast] request body: river=\(river), date=\(ymd), community_id=\(communityId ?? "nil")", level: .debug, category: .trip)
 
     let (data, resp) = try await URLSession.shared.data(for: req)
     guard let http = resp as? HTTPURLResponse else {

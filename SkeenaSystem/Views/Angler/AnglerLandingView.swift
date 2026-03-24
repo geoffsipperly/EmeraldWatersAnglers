@@ -163,7 +163,7 @@ struct AnglerLandingView: View {
         ToolbarTab(icon: "book", label: "Learn") {
           navPath.append(AnglerDestination.learn)
         }
-        ToolbarTab(icon: "bubble.left.and.bubble.right", label: "Community") {
+        ToolbarTab(icon: "message", label: "Social") {
           navPath.append(AnglerDestination.community)
         }
       }) {

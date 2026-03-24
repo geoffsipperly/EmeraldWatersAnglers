@@ -91,7 +91,7 @@ struct RoleAwareToolbar: View {
     ToolbarTab(icon: "book", label: "Learn") {
       if activeTab != "learn" { navigateTo(.learn) }
     }
-    ToolbarTab(icon: "bubble.left.and.bubble.right", label: "Community") {
+    ToolbarTab(icon: "message", label: "Social") {
       if activeTab != "community" { navigateTo(.community) }
     }
   }
@@ -107,7 +107,7 @@ struct RoleAwareToolbar: View {
     ToolbarTab(icon: "camera.viewfinder", label: "Catches") {
       if activeTab != "catches" { guideNavigateTo(.catches) }
     }
-    ToolbarTab(icon: "person.3", label: "Community") {
+    ToolbarTab(icon: "message", label: "Social") {
       if activeTab != "community" { guideNavigateTo(.community) }
     }
     ToolbarTab(icon: "waveform", label: "Observations") {
@@ -166,8 +166,27 @@ struct AppHeader: View {
   @ObservedObject private var communityService = CommunityService.shared
 
   var body: some View {
+    let config = communityService.activeCommunityConfig
+
     VStack(spacing: 0) {
-      CommunityLogoView(config: communityService.activeCommunityConfig)
+      CommunityLogoView(config: config)
+
+      if let name = config.displayName, !name.isEmpty {
+        Text(name)
+          .font(.title2.weight(.bold))
+          .foregroundColor(.white)
+          .multilineTextAlignment(.center)
+          .padding(.top, 8)
+      }
+
+      if let tag = config.tagline, !tag.isEmpty {
+        Text(tag)
+          .font(.subheadline)
+          .foregroundColor(.gray)
+          .multilineTextAlignment(.center)
+          .padding(.top, 4)
+          .padding(.horizontal, 20)
+      }
 
       ZStack {
         if let onMapTapped {
