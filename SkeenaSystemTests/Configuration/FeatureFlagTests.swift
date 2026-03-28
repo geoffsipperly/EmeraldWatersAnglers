@@ -1,26 +1,26 @@
 import XCTest
 @testable import SkeenaSystem
 
-/// Tests for the feature flag system.
+/// Tests for the entitlement system.
 ///
 /// Validates:
-/// 1. readFeatureFlag correctly reads Bool values from Info.plist
-/// 2. readFeatureFlag returns false for absent or empty keys
+/// 1. readEntitlement correctly reads Bool values from Info.plist
+/// 2. readEntitlement returns false for absent or empty keys
 /// 3. Consecutive reads return consistent values
 /// 4. Non-boolean Info.plist keys are not misinterpreted as true
 final class FeatureFlagTests: XCTestCase {
 
-  // MARK: - readFeatureFlag helper behaviour
+  // MARK: - readEntitlement helper behaviour
 
   func testReadFeatureFlag_returnsFalseForAbsentKey() {
     // A key that is not in Info.plist should default to false
-    let result = readFeatureFlag("FF_NONEXISTENT_FLAG_12345")
-    XCTAssertFalse(result, "readFeatureFlag should return false for keys not present in Info.plist")
+    let result = readEntitlement("E_NONEXISTENT_FLAG_12345")
+    XCTAssertFalse(result, "readEntitlement should return false for keys not present in Info.plist")
   }
 
   func testReadFeatureFlag_returnsFalseForEmptyKey() {
-    let result = readFeatureFlag("")
-    XCTAssertFalse(result, "readFeatureFlag should return false for an empty key string")
+    let result = readEntitlement("")
+    XCTAssertFalse(result, "readEntitlement should return false for an empty key string")
   }
 
   // MARK: - Consistency: consecutive reads return the same value
@@ -28,21 +28,21 @@ final class FeatureFlagTests: XCTestCase {
   func testReadFeatureFlag_isConsistentAcrossReads() {
     // Pick a flag that exists in Info.plist and verify two reads agree
     let flagsToCheck = [
-      "FF_FLIGHT_INFO",
-      "FF_MEET_STAFF",
-      "FF_GEAR_CHECKLIST",
-      "FF_MANAGE_LICENSES",
-      "FF_SELF_ASSESSMENT",
-      "FF_CATCH_CAROUSEL",
-      "FF_THE_BUZZ",
-      "FF_CATCH_MAP",
+      "E_FLIGHT_INFO",
+      "E_MEET_STAFF",
+      "E_GEAR_CHECKLIST",
+      "E_MANAGE_LICENSES",
+      "E_SELF_ASSESSMENT",
+      "E_CATCH_CAROUSEL",
+      "E_THE_BUZZ",
+      "E_CATCH_MAP",
     ]
 
     for flag in flagsToCheck {
-      let first = readFeatureFlag(flag)
-      let second = readFeatureFlag(flag)
+      let first = readEntitlement(flag)
+      let second = readEntitlement(flag)
       XCTAssertEqual(first, second,
-                     "readFeatureFlag(\"\(flag)\") should return the same value on consecutive reads")
+                     "readEntitlement(\"\(flag)\") should return the same value on consecutive reads")
     }
   }
 
@@ -50,14 +50,14 @@ final class FeatureFlagTests: XCTestCase {
 
   func testAllFeatureFlags_presentInInfoPlist() {
     let expectedFlags = [
-      "FF_FLIGHT_INFO",
-      "FF_MEET_STAFF",
-      "FF_GEAR_CHECKLIST",
-      "FF_MANAGE_LICENSES",
-      "FF_SELF_ASSESSMENT",
-      "FF_CATCH_CAROUSEL",
-      "FF_THE_BUZZ",
-      "FF_CATCH_MAP",
+      "E_FLIGHT_INFO",
+      "E_MEET_STAFF",
+      "E_GEAR_CHECKLIST",
+      "E_MANAGE_LICENSES",
+      "E_SELF_ASSESSMENT",
+      "E_CATCH_CAROUSEL",
+      "E_THE_BUZZ",
+      "E_CATCH_MAP",
     ]
 
     for flag in expectedFlags {
@@ -66,12 +66,12 @@ final class FeatureFlagTests: XCTestCase {
     }
   }
 
-  // MARK: - Consistency: non-FF keys are not treated as feature flags
+  // MARK: - Consistency: non-FF keys are not treated as entitlements
 
   func testNonFeatureFlag_keyReturnsExpectedValue() {
     // API_BASE_URL is a string config key, not a boolean flag.
-    // readFeatureFlag should return false since it's not "true"/"YES"/1.
-    let value = readFeatureFlag("API_BASE_URL")
+    // readEntitlement should return false since it's not "true"/"YES"/1.
+    let value = readEntitlement("API_BASE_URL")
     XCTAssertFalse(value, "Non-boolean Info.plist values should not be interpreted as true")
   }
 }

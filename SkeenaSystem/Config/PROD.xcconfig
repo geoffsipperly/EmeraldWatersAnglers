@@ -16,17 +16,17 @@ SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSI
 LOG_LEVEL = error
 
 // ──────────────────────────────────────────────
-// MARK: - Feature Flags
+// MARK: - Entitlements
 // ──────────────────────────────────────────────
 
-FF_FLIGHT_INFO = true
-FF_MEET_STAFF = true
-FF_GEAR_CHECKLIST = true
-FF_MANAGE_LICENSES = true
-FF_SELF_ASSESSMENT = true
-FF_CATCH_CAROUSEL = true
-FF_THE_BUZZ = true
-FF_CATCH_MAP = true
+E_FLIGHT_INFO = true
+E_MEET_STAFF = true
+E_GEAR_CHECKLIST = true
+E_MANAGE_LICENSES = true
+E_SELF_ASSESSMENT = true
+E_CATCH_CAROUSEL = true
+E_THE_BUZZ = true
+E_CATCH_MAP = true
 
 // ──────────────────────────────────────────────
 // MARK: - API Endpoints (Edge Functions)

@@ -58,7 +58,7 @@ struct CommunityInfo: Codable, Identifiable {
         case communityTypes = "community_types"
     }
 
-    /// Merges branding, geography (community-level), and feature flags (type-level)
+    /// Merges branding, geography (community-level), and entitlements (type-level)
     /// into a unified CommunityConfig for the app to consume.
     var config: CommunityConfig {
         CommunityConfig(
@@ -67,7 +67,7 @@ struct CommunityInfo: Codable, Identifiable {
             tagline: tagline,
             displayName: displayName,
             learnUrl: learnUrl,
-            featureFlags: communityTypes?.featureFlags ?? [:],
+            entitlements: communityTypes?.entitlements ?? [:],
             geography: geography ?? .empty
         )
     }
@@ -78,11 +78,11 @@ struct CommunityInfo: Codable, Identifiable {
 struct CommunityTypeInfo: Codable, Identifiable {
     let id: String
     let name: String  // "Lodge", "FlyShop", "Conservation", "MultiLodge"
-    let featureFlags: [String: Bool]
+    let entitlements: [String: Bool]
 
     enum CodingKeys: String, CodingKey {
         case id, name
-        case featureFlags = "feature_flags"
+        case entitlements
     }
 }
 

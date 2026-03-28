@@ -91,6 +91,23 @@ struct CommunitySwitcherSheet: View {
                             .buttonStyle(.plain)
                         }
 
+                        // Update default community
+                        Button {
+                            communityService.clearActiveCommunity()
+                            dismiss()
+                        } label: {
+                            HStack {
+                                Image(systemName: "star.circle")
+                                Text("Update Default Community")
+                                    .font(.subheadline.weight(.semibold))
+                            }
+                            .foregroundColor(.blue)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+
                         // Join another community
                         Button {
                             showJoinCommunity = true

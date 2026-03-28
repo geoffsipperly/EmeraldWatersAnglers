@@ -36,22 +36,22 @@
 	<string>$(DEFAULT_RIVER)</string>
 	<key>DOWNLOAD_CATCH_URL</key>
 	<string>$(DOWNLOAD_CATCH_URL)</string>
-	<key>FF_CATCH_CAROUSEL</key>
-	<string>$(FF_CATCH_CAROUSEL)</string>
-	<key>FF_CATCH_MAP</key>
-	<string>$(FF_CATCH_MAP)</string>
-	<key>FF_FLIGHT_INFO</key>
-	<string>$(FF_FLIGHT_INFO)</string>
-	<key>FF_GEAR_CHECKLIST</key>
-	<string>$(FF_GEAR_CHECKLIST)</string>
-	<key>FF_MANAGE_LICENSES</key>
-	<string>$(FF_MANAGE_LICENSES)</string>
-	<key>FF_MEET_STAFF</key>
-	<string>$(FF_MEET_STAFF)</string>
-	<key>FF_SELF_ASSESSMENT</key>
-	<string>$(FF_SELF_ASSESSMENT)</string>
-	<key>FF_THE_BUZZ</key>
-	<string>$(FF_THE_BUZZ)</string>
+	<key>E_CATCH_CAROUSEL</key>
+	<string>$(E_CATCH_CAROUSEL)</string>
+	<key>E_CATCH_MAP</key>
+	<string>$(E_CATCH_MAP)</string>
+	<key>E_FLIGHT_INFO</key>
+	<string>$(E_FLIGHT_INFO)</string>
+	<key>E_GEAR_CHECKLIST</key>
+	<string>$(E_GEAR_CHECKLIST)</string>
+	<key>E_MANAGE_LICENSES</key>
+	<string>$(E_MANAGE_LICENSES)</string>
+	<key>E_MEET_STAFF</key>
+	<string>$(E_MEET_STAFF)</string>
+	<key>E_SELF_ASSESSMENT</key>
+	<string>$(E_SELF_ASSESSMENT)</string>
+	<key>E_THE_BUZZ</key>
+	<string>$(E_THE_BUZZ)</string>
 	<key>FISH_BOX_SCALE_FACTOR</key>
 	<string>$(FISH_BOX_SCALE_FACTOR)</string>
 	<key>SPECIES_DETECTION_THRESHOLD</key>

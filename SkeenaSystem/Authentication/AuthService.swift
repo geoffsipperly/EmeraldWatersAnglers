@@ -28,7 +28,7 @@ final class AuthService: ObservableObject {
   private let kOfflineRememberMeKey = "OfflineRememberMeEnabled"
   private let kCachedFirstName = "CachedFirstName"
   private let kCachedUserType = "CachedUserType"
-  private let kCachedAnglerNumber = "CachedAnglerNumber"
+  private let kCachedMemberId = "CachedMemberId"
   // ---------------------------------------
 
   var publicAnonKey: String { anonPublicKey }
@@ -37,7 +37,7 @@ final class AuthService: ObservableObject {
   @Published private(set) var currentUserType: UserType? // <- role for routing
   @Published private(set) var currentFirstName: String?
   @Published private(set) var currentLastName: String?
-  @Published private(set) var currentAnglerNumber: String?
+  @Published private(set) var currentMemberId: String?
 
   /// Called by CommunityService when the active community (and thus role) changes.
   /// This keeps views that read `auth.currentUserType` working without modification.
@@ -124,30 +124,24 @@ final class AuthService: ObservableObject {
     firstName: String,
     lastName: String,
     userType: UserType,
-    communityCode: String,
-    anglerNumber: String? = nil,
-    licenseCountry: String? = nil,
-    licenseStateProvince: String? = nil,
-    licenseExpirationDate: String? = nil  // YYYY-MM-DD
+    communityCode: String? = nil
   ) async throws {
     // Validate
     let first = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
     let last = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
-    let commCode = communityCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
     guard !first.isEmpty else { throw InputValidationError.invalidInput("First name is required.") }
     guard !last.isEmpty else { throw InputValidationError.invalidInput("Last name is required.") }
-    guard !commCode.isEmpty else { throw InputValidationError.invalidInput("Community code is required.") }
-    let codeValid = commCode.range(of: #"^[A-Z0-9]{6}$"#, options: .regularExpression) != nil
-    guard codeValid else { throw InputValidationError.invalidInput("Community code must be 6 alphanumeric characters.") }
-    if userType == .angler {
-      guard let ang = anglerNumber, !ang.isEmpty else {
-        throw InputValidationError.invalidInput("Angler number is required for anglers.")
-      }
-      let ok = ang.range(of: #"^[A-Za-z0-9\-]{3,20}$"#, options: .regularExpression) != nil
-      guard ok else { throw InputValidationError.invalidInput("Angler number must be 3–20 characters (letters, digits, or hyphens).") }
+
+    let commCode: String? = {
+      let trimmed = (communityCode ?? "").trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+      return trimmed.isEmpty ? nil : trimmed
+    }()
+    if let code = commCode {
+      let codeValid = code.range(of: #"^[A-Z0-9]{6}$"#, options: .regularExpression) != nil
+      guard codeValid else { throw InputValidationError.invalidInput("Community code must be 6 alphanumeric characters.") }
     }
 
-    AppLogging.log("signUp -> email=\(email) type=\(userType.rawValue) name=\(firstName) \(lastName) communityCode=\(commCode) angler=\(anglerNumber ?? "<nil>")", level: .info, category: .auth)
+    AppLogging.log("signUp -> email=\(email) type=\(userType.rawValue) name=\(firstName) \(lastName) communityCode=\(commCode ?? "<none>")", level: .info, category: .auth)
 
     let url = projectURL.appendingPathComponent("/auth/v1/signup")
     var req = URLRequest(url: url)
@@ -158,13 +152,9 @@ final class AuthService: ObservableObject {
     var dataObj: [String: Any] = [
       "first_name": first,
       "last_name": last,
-      "user_type": userType.rawValue,
-      "community_code": commCode
+      "user_type": userType.rawValue
     ]
-    if let ang = anglerNumber, !ang.isEmpty { dataObj["angler_number"] = ang }
-    if let c = licenseCountry, !c.isEmpty { dataObj["license_country"] = c }
-    if let s = licenseStateProvince, !s.isEmpty { dataObj["license_state_province"] = s }
-    if let d = licenseExpirationDate, !d.isEmpty { dataObj["license_expiration_date"] = d }
+    if let code = commCode { dataObj["community_code"] = code }
 
     let body: [String: Any] = [
       "email": email,
@@ -261,8 +251,7 @@ final class AuthService: ObservableObject {
       firstName: "Unknown",
       lastName: "User",
       userType: .guide,
-      communityCode: communityCode,
-      anglerNumber: nil
+      communityCode: communityCode
     )
   }
 
@@ -273,7 +262,7 @@ final class AuthService: ObservableObject {
     await MainActor.run {
       self.currentUserType = nil
       self.currentFirstName = nil
-      self.currentAnglerNumber = nil
+      self.currentMemberId = nil
       self.isAuthenticated = false
     }
 
@@ -312,6 +301,9 @@ final class AuthService: ObservableObject {
         throw mapAuthHTTPError(status: code, responseBody: data)
       }
 
+      let rawBody = String(data: data, encoding: .utf8) ?? "<unable to decode>"
+      AppLogging.log("signIn response body: \(rawBody)", level: .debug, category: .auth)
+
       let token = try JSONDecoder().decode(TokenResponse.self, from: data)
 
       persistTokens(
@@ -343,14 +335,14 @@ final class AuthService: ObservableObject {
 
           let cachedFirst = UserDefaults.standard.string(forKey: kCachedFirstName)
           let cachedTypeRaw = UserDefaults.standard.string(forKey: kCachedUserType)
-          let cachedAng = UserDefaults.standard.string(forKey: kCachedAnglerNumber)
+          let cachedMid = UserDefaults.standard.string(forKey: kCachedMemberId)
           await MainActor.run {
             self.currentFirstName = cachedFirst
             if let raw = cachedTypeRaw, let t = UserType(rawValue: raw) { self.currentUserType = t }
-            self.currentAnglerNumber = cachedAng
+            self.currentMemberId = cachedMid
             self.isAuthenticated = true
           }
-          AppLogging.log("[Offline] restored cached profile first=\(cachedFirst ?? "<nil>") type=\(cachedTypeRaw ?? "<nil>") angler=\(cachedAng ?? "<nil>")", level: .debug, category: .auth)
+          AppLogging.log("[Offline] restored cached profile first=\(cachedFirst ?? "<nil>") type=\(cachedTypeRaw ?? "<nil>") memberId=\(cachedMid ?? "<nil>")", level: .debug, category: .auth)
           return
         } else {
           AppLogging.log("[Offline] sign-in failed – no matching cached credentials.", level: .warn, category: .auth)
@@ -485,10 +477,10 @@ final class AuthService: ObservableObject {
           let first_name: String?
           let last_name: String?
           let user_type: String?
-          let angler_number: String?
+          let member_id: String?
 
           private enum CodingKeys: String, CodingKey {
-            case first_name, last_name, user_type, angler_number
+            case first_name, last_name, user_type, member_id, angler_number
           }
 
           init(from decoder: Decoder) throws {
@@ -497,13 +489,17 @@ final class AuthService: ObservableObject {
             self.last_name = try container.decodeIfPresent(String.self, forKey: .last_name)
             self.user_type = try container.decodeIfPresent(String.self, forKey: .user_type)
 
-            // angler_number may be a String or a Number in some responses — handle both.
-            if let s = try? container.decodeIfPresent(String.self, forKey: .angler_number) {
-              self.angler_number = s
+            // member_id (new) with fallback to angler_number (legacy). May be String or Number.
+            if let s = try? container.decodeIfPresent(String.self, forKey: .member_id) {
+              self.member_id = s
+            } else if let i = try? container.decodeIfPresent(Int.self, forKey: .member_id) {
+              self.member_id = String(i)
+            } else if let s = try? container.decodeIfPresent(String.self, forKey: .angler_number) {
+              self.member_id = s
             } else if let i = try? container.decodeIfPresent(Int.self, forKey: .angler_number) {
-              self.angler_number = String(i)
+              self.member_id = String(i)
             } else {
-              self.angler_number = nil
+              self.member_id = nil
             }
           }
         }
@@ -516,7 +512,7 @@ final class AuthService: ObservableObject {
 
         let profile = try JSONDecoder().decode(UserProfile.self, from: data)
 
-        AppLogging.log("[Profile][PARSED] first_name=\(profile.user_metadata?.first_name ?? "<nil>") last_name=\(profile.user_metadata?.last_name ?? "<nil>") user_type=\(profile.user_metadata?.user_type ?? "<nil>") angler_number=\(profile.user_metadata?.angler_number ?? "<nil>")", level: .info, category: .auth)
+        AppLogging.log("[Profile][PARSED] first_name=\(profile.user_metadata?.first_name ?? "<nil>") last_name=\(profile.user_metadata?.last_name ?? "<nil>") user_type=\(profile.user_metadata?.user_type ?? "<nil>") member_id=\(profile.user_metadata?.member_id ?? "<nil>")", level: .info, category: .auth)
 
         await MainActor.run {
           if let md = profile.user_metadata {
@@ -527,18 +523,18 @@ final class AuthService: ObservableObject {
             } else {
               self.currentUserType = nil
             }
-            self.currentAnglerNumber = md.angler_number
+            self.currentMemberId = md.member_id
           } else {
             self.currentFirstName = nil
             self.currentLastName = nil
             self.currentUserType = nil
-            self.currentAnglerNumber = nil
+            self.currentMemberId = nil
           }
           // Persist minimal cached profile for offline use
           UserDefaults.standard.set(self.currentFirstName, forKey: kCachedFirstName)
           UserDefaults.standard.set(self.currentUserType?.rawValue, forKey: kCachedUserType)
-          UserDefaults.standard.set(self.currentAnglerNumber, forKey: kCachedAnglerNumber)
-          AppLogging.log("[Offline][ProfileCache] saved first=\(self.currentFirstName ?? "<nil>") userType=\(self.currentUserType?.rawValue ?? "<nil>") angler=\(self.currentAnglerNumber ?? "<nil>")", level: .debug, category: .auth)
+          UserDefaults.standard.set(self.currentMemberId, forKey: kCachedMemberId)
+          AppLogging.log("[Offline][ProfileCache] saved first=\(self.currentFirstName ?? "<nil>") userType=\(self.currentUserType?.rawValue ?? "<nil>") memberId=\(self.currentMemberId ?? "<nil>")", level: .debug, category: .auth)
 
           if let t = self.currentUserType {
             // Default Remember Me based on role: guides ON, anglers OFF
@@ -566,14 +562,14 @@ final class AuthService: ObservableObject {
       }
     }
 
-  // MARK: - Update Angler Number (for guides using Solo mode)
+  // MARK: - Update Member ID (for guides using Solo mode)
 
-  /// Updates the current user's angler_number in Supabase user_metadata
+  /// Updates the current user's member_id in Supabase user_metadata
   /// and refreshes the local cache.
-  func updateAnglerNumber(_ number: String) async throws {
-    let trimmed = number.trimmingCharacters(in: .whitespacesAndNewlines)
+  func updateMemberId(_ id: String) async throws {
+    let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else {
-      throw InputValidationError.invalidInput("Angler number cannot be empty.")
+      throw InputValidationError.invalidInput("Mad Thinker ID cannot be empty.")
     }
 
     guard let token = await currentAccessToken() else {
@@ -588,7 +584,7 @@ final class AuthService: ObservableObject {
     req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
     let body: [String: Any] = [
-      "data": ["angler_number": trimmed]
+      "data": ["member_id": trimmed]
     ]
     req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -597,14 +593,14 @@ final class AuthService: ObservableObject {
 
     guard (200...299).contains(status) else {
       let msg = String(data: data, encoding: .utf8) ?? "<no body>"
-      AppLogging.log("[AuthService] updateAnglerNumber failed: HTTP \(status) \(msg)", level: .error, category: .auth)
+      AppLogging.log("[AuthService] updateMemberId failed: HTTP \(status) \(msg)", level: .error, category: .auth)
       throw mapAuthHTTPError(status: status, responseBody: data)
     }
 
     await MainActor.run {
-      self.currentAnglerNumber = trimmed
-      UserDefaults.standard.set(trimmed, forKey: kCachedAnglerNumber)
-      AppLogging.log("[AuthService] updateAnglerNumber -> \(trimmed)", level: .info, category: .auth)
+      self.currentMemberId = trimmed
+      UserDefaults.standard.set(trimmed, forKey: kCachedMemberId)
+      AppLogging.log("[AuthService] updateMemberId -> \(trimmed)", level: .info, category: .auth)
     }
   }
 
@@ -663,11 +659,11 @@ final class AuthService: ObservableObject {
         if canSignInOffline(email: creds.email, password: creds.password) {
           let cachedFirst = UserDefaults.standard.string(forKey: kCachedFirstName)
           let cachedTypeRaw = UserDefaults.standard.string(forKey: kCachedUserType)
-          let cachedAng = UserDefaults.standard.string(forKey: kCachedAnglerNumber)
+          let cachedMid = UserDefaults.standard.string(forKey: kCachedMemberId)
           // We're on MainActor so we can update directly
           self.currentFirstName = cachedFirst
           if let raw = cachedTypeRaw, let t = UserType(rawValue: raw) { self.currentUserType = t }
-          self.currentAnglerNumber = cachedAng
+          self.currentMemberId = cachedMid
           self.isAuthenticated = true
 
           AppLogging.log("[Biometric][Offline] Restored cached profile (after-auth).", level: .info, category: .auth)
@@ -888,7 +884,7 @@ final class AuthService: ObservableObject {
         Keychain.delete(kOfflinePasswordKey)
         UserDefaults.standard.removeObject(forKey: kCachedFirstName)
         UserDefaults.standard.removeObject(forKey: kCachedUserType)
-        UserDefaults.standard.removeObject(forKey: kCachedAnglerNumber)
+        UserDefaults.standard.removeObject(forKey: kCachedMemberId)
         AppLogging.log("[Offline] rememberMe=false; cleared cached offline credentials", level: .debug, category: .auth)
         AppLogging.log("[Offline] cleared cached profile (rememberMe=false)", level: .debug, category: .auth)
       } else {
@@ -901,7 +897,7 @@ final class AuthService: ObservableObject {
         self.isAuthenticated = false
         self.currentUserType = nil
         self.currentFirstName = nil
-        self.currentAnglerNumber = nil
+        self.currentMemberId = nil
       }
     }
 

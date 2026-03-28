@@ -11,12 +11,12 @@ struct AnglerTripPrepView: View {
   @ObservedObject private var communityService = CommunityService.shared
   var onClose: (() -> Void)?
 
-  // Reactive feature flags — driven by backend config with xcconfig fallback
-  private var FF_FLIGHT_INFO: Bool { communityService.activeCommunityConfig.flag("FF_FLIGHT_INFO") }
-  private var FF_MEET_STAFF: Bool { communityService.activeCommunityConfig.flag("FF_MEET_STAFF") }
-  private var FF_GEAR_CHECKLIST: Bool { communityService.activeCommunityConfig.flag("FF_GEAR_CHECKLIST") }
-  private var FF_MANAGE_LICENSES: Bool { communityService.activeCommunityConfig.flag("FF_MANAGE_LICENSES") }
-  private var FF_SELF_ASSESSMENT: Bool { communityService.activeCommunityConfig.flag("FF_SELF_ASSESSMENT") }
+  // Reactive entitlements — driven by backend config with xcconfig fallback
+  private var E_FLIGHT_INFO: Bool { communityService.activeCommunityConfig.flag("E_FLIGHT_INFO") }
+  private var E_MEET_STAFF: Bool { communityService.activeCommunityConfig.flag("E_MEET_STAFF") }
+  private var E_GEAR_CHECKLIST: Bool { communityService.activeCommunityConfig.flag("E_GEAR_CHECKLIST") }
+  private var E_MANAGE_LICENSES: Bool { communityService.activeCommunityConfig.flag("E_MANAGE_LICENSES") }
+  private var E_SELF_ASSESSMENT: Bool { communityService.activeCommunityConfig.flag("E_SELF_ASSESSMENT") }
 
   /// When in overlay mode, close the panel first then navigate centrally.
   /// When pushed (no onClose), just use navigateTo directly.
@@ -62,7 +62,7 @@ struct AnglerTripPrepView: View {
             .padding(.bottom, 10)
 
           VStack(spacing: 14) {
-            if FF_FLIGHT_INFO {
+            if E_FLIGHT_INFO {
               NavigationLink {
                 AnglerFlights()
               } label: {
@@ -70,7 +70,7 @@ struct AnglerTripPrepView: View {
               }
             }
 
-            if FF_MEET_STAFF {
+            if E_MEET_STAFF {
               NavigationLink {
                 MeetStaff()
               } label: {
@@ -78,7 +78,7 @@ struct AnglerTripPrepView: View {
               }
             }
 
-            if FF_GEAR_CHECKLIST {
+            if E_GEAR_CHECKLIST {
               NavigationLink {
                 GearChecklist()
               } label: {
@@ -86,7 +86,7 @@ struct AnglerTripPrepView: View {
               }
             }
 
-            if FF_MANAGE_LICENSES {
+            if E_MANAGE_LICENSES {
               NavigationLink {
                 AnglerClassifiedWatersLicenseUpload()
               } label: {
@@ -94,7 +94,7 @@ struct AnglerTripPrepView: View {
               }
             }
 
-            if FF_SELF_ASSESSMENT {
+            if E_SELF_ASSESSMENT {
               NavigationLink {
                 AnglerAboutYou()
               } label: {

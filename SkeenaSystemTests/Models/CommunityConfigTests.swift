@@ -10,45 +10,45 @@ final class CommunityConfigTests: XCTestCase {
     func testFlag_returnsBackendValue_whenPresent() {
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: nil, learnUrl: nil,
-            featureFlags: ["FF_TEST_FLAG": true],
+            entitlements: ["E_TEST_FLAG": true],
             geography: .empty
         )
-        XCTAssertTrue(config.flag("FF_TEST_FLAG"),
+        XCTAssertTrue(config.flag("E_TEST_FLAG"),
                       "Should return backend value when key is present")
     }
 
     func testFlag_returnsBackendFalse_whenExplicitlyFalse() {
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: nil, learnUrl: nil,
-            featureFlags: ["FF_TEST_FLAG": false],
+            entitlements: ["E_TEST_FLAG": false],
             geography: .empty
         )
-        XCTAssertFalse(config.flag("FF_TEST_FLAG"),
+        XCTAssertFalse(config.flag("E_TEST_FLAG"),
                        "Should return false when backend explicitly sets it to false")
     }
 
     func testFlag_fallsBackToXcconfig_whenKeyAbsent() {
         let config = CommunityConfig.default
-        // FF_CATCH_CAROUSEL is true in DevTEST xcconfig
-        let xcconfigValue = readFeatureFlag("FF_CATCH_CAROUSEL")
-        XCTAssertEqual(config.flag("FF_CATCH_CAROUSEL"), xcconfigValue,
+        // E_CATCH_CAROUSEL is true in DevTEST xcconfig
+        let xcconfigValue = readEntitlement("E_CATCH_CAROUSEL")
+        XCTAssertEqual(config.flag("E_CATCH_CAROUSEL"), xcconfigValue,
                        "Should fall back to xcconfig when key absent from backend")
     }
 
     func testFlag_returnsFalse_whenKeyAbsentFromBothSources() {
         let config = CommunityConfig.default
-        XCTAssertFalse(config.flag("FF_NONEXISTENT_12345"),
+        XCTAssertFalse(config.flag("E_NONEXISTENT_12345"),
                        "Should return false when key absent from both backend and xcconfig")
     }
 
     func testFlag_backendOverridesXcconfig() {
-        // FF_CATCH_CAROUSEL is true in DevTEST xcconfig — backend overrides to false
+        // E_CATCH_CAROUSEL is true in DevTEST xcconfig — backend overrides to false
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: nil, learnUrl: nil,
-            featureFlags: ["FF_CATCH_CAROUSEL": false],
+            entitlements: ["E_CATCH_CAROUSEL": false],
             geography: .empty
         )
-        XCTAssertFalse(config.flag("FF_CATCH_CAROUSEL"),
+        XCTAssertFalse(config.flag("E_CATCH_CAROUSEL"),
                        "Backend value should override xcconfig value")
     }
 
@@ -57,7 +57,7 @@ final class CommunityConfigTests: XCTestCase {
     func testResolvedLogoAssetName_returnsBackendValue_whenPresent() {
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: "BendFlyShopLogo", tagline: nil, displayName: nil, learnUrl: nil,
-            featureFlags: [:],
+            entitlements: [:],
             geography: .empty
         )
         XCTAssertEqual(config.resolvedLogoAssetName, "BendFlyShopLogo")
@@ -72,7 +72,7 @@ final class CommunityConfigTests: XCTestCase {
     func testResolvedLogoAssetName_fallsBackToXcconfig_whenEmpty() {
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: "", tagline: nil, displayName: nil, learnUrl: nil,
-            featureFlags: [:],
+            entitlements: [:],
             geography: .empty
         )
         XCTAssertEqual(config.resolvedLogoAssetName, AppEnvironment.shared.appLogoAsset,
@@ -82,7 +82,7 @@ final class CommunityConfigTests: XCTestCase {
     func testResolvedDisplayName_returnsBackendValue_whenPresent() {
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: "Custom Name", learnUrl: nil,
-            featureFlags: [:],
+            entitlements: [:],
             geography: .empty
         )
         XCTAssertEqual(config.resolvedDisplayName, "Custom Name")
@@ -96,7 +96,7 @@ final class CommunityConfigTests: XCTestCase {
     func testResolvedTagline_returnsBackendValue_whenPresent() {
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: "Custom Tagline", displayName: nil, learnUrl: nil,
-            featureFlags: [:],
+            entitlements: [:],
             geography: .empty
         )
         XCTAssertEqual(config.resolvedTagline, "Custom Tagline")
@@ -105,8 +105,8 @@ final class CommunityConfigTests: XCTestCase {
     // MARK: - Default Config
 
     func testDefault_hasEmptyFeatureFlags() {
-        XCTAssertTrue(CommunityConfig.default.featureFlags.isEmpty,
-                      "Default config should have no backend flags")
+        XCTAssertTrue(CommunityConfig.default.entitlements.isEmpty,
+                      "Default config should have no backend entitlements")
     }
 
     func testDefault_hasNilBranding() {
@@ -127,7 +127,7 @@ final class CommunityConfigTests: XCTestCase {
             "tagline": "Test Tagline",
             "displayName": "Test Community",
             "learnUrl": "https://example.com/learn",
-            "featureFlags": {"FF_MEET_STAFF": true, "FF_FLIGHT_INFO": false},
+            "entitlements": {"E_MEET_STAFF": true, "E_FLIGHT_INFO": false},
             "geography": {"default_river": "Hoh River", "lodge_rivers": ["Hoh River", "Green River"], "forecast_location": "Western Washington"}
         }
         """.data(using: .utf8)!
@@ -139,9 +139,9 @@ final class CommunityConfigTests: XCTestCase {
         XCTAssertEqual(config.tagline, "Test Tagline")
         XCTAssertEqual(config.displayName, "Test Community")
         XCTAssertEqual(config.learnUrl, "https://example.com/learn")
-        XCTAssertEqual(config.featureFlags["FF_MEET_STAFF"], true)
-        XCTAssertEqual(config.featureFlags["FF_FLIGHT_INFO"], false)
-        XCTAssertEqual(config.featureFlags.count, 2)
+        XCTAssertEqual(config.entitlements["E_MEET_STAFF"], true)
+        XCTAssertEqual(config.entitlements["E_FLIGHT_INFO"], false)
+        XCTAssertEqual(config.entitlements.count, 2)
     }
 
     func testDecoding_roundtrip() throws {
@@ -151,7 +151,7 @@ final class CommunityConfigTests: XCTestCase {
             tagline: "Tagline",
             displayName: "Name",
             learnUrl: "https://example.com/learn",
-            featureFlags: ["FF_A": true, "FF_B": false],
+            entitlements: ["E_A": true, "E_B": false],
             geography: CommunityGeography(
                 defaultRiver: "Hoh River", lodgeRivers: ["Hoh River"],
                 defaultWaterBody: "Puget Sound", lodgeWaterBodies: ["Puget Sound"],
@@ -171,7 +171,7 @@ final class CommunityConfigTests: XCTestCase {
         let typeInfo = CommunityTypeInfo(
             id: "type-1",
             name: "Lodge",
-            featureFlags: ["FF_MEET_STAFF": true, "FF_FLIGHT_INFO": false]
+            entitlements: ["E_MEET_STAFF": true, "E_FLIGHT_INFO": false]
         )
 
         let communityInfo = CommunityInfo(
@@ -202,8 +202,8 @@ final class CommunityConfigTests: XCTestCase {
         XCTAssertEqual(config.displayName, "Test Lodge Display")
 
         // Flags from type
-        XCTAssertTrue(config.flag("FF_MEET_STAFF"))
-        XCTAssertFalse(config.flag("FF_FLIGHT_INFO"))
+        XCTAssertTrue(config.flag("E_MEET_STAFF"))
+        XCTAssertFalse(config.flag("E_FLIGHT_INFO"))
     }
 
     func testCommunityInfo_config_withNilType_returnsEmptyFlags() {
@@ -224,8 +224,8 @@ final class CommunityConfigTests: XCTestCase {
 
         let config = communityInfo.config
 
-        XCTAssertTrue(config.featureFlags.isEmpty,
-                      "Config should have empty flags when community has no type")
+        XCTAssertTrue(config.entitlements.isEmpty,
+                      "Config should have empty entitlements when community has no type")
     }
 
     // MARK: - Equatable
@@ -233,11 +233,11 @@ final class CommunityConfigTests: XCTestCase {
     func testEquatable_sameValues_areEqual() {
         let a = CommunityConfig(
             logoUrl: "url", logoAssetName: "asset", tagline: "tag", displayName: "name", learnUrl: nil,
-            featureFlags: ["FF_A": true], geography: .empty
+            entitlements: ["E_A": true], geography: .empty
         )
         let b = CommunityConfig(
             logoUrl: "url", logoAssetName: "asset", tagline: "tag", displayName: "name", learnUrl: nil,
-            featureFlags: ["FF_A": true], geography: .empty
+            entitlements: ["E_A": true], geography: .empty
         )
         XCTAssertEqual(a, b)
     }
@@ -245,11 +245,11 @@ final class CommunityConfigTests: XCTestCase {
     func testEquatable_differentFlags_areNotEqual() {
         let a = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: nil, learnUrl: nil,
-            featureFlags: ["FF_A": true], geography: .empty
+            entitlements: ["E_A": true], geography: .empty
         )
         let b = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: nil, learnUrl: nil,
-            featureFlags: ["FF_A": false], geography: .empty
+            entitlements: ["E_A": false], geography: .empty
         )
         XCTAssertNotEqual(a, b)
     }
@@ -268,7 +268,7 @@ final class CommunityConfigTests: XCTestCase {
         )
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: nil, learnUrl: nil,
-            featureFlags: [:], geography: geo
+            entitlements: [:], geography: geo
         )
 
         XCTAssertEqual(config.resolvedDefaultRiver, "Skeena River")
@@ -299,7 +299,7 @@ final class CommunityConfigTests: XCTestCase {
         )
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: nil, learnUrl: nil,
-            featureFlags: [:], geography: geo
+            entitlements: [:], geography: geo
         )
         XCTAssertTrue(config.hasGeography)
     }
@@ -310,7 +310,7 @@ final class CommunityConfigTests: XCTestCase {
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: nil,
             learnUrl: "https://community.example.com/learn",
-            featureFlags: [:], geography: .empty
+            entitlements: [:], geography: .empty
         )
         XCTAssertEqual(config.resolvedLearnUrl, "https://community.example.com/learn")
     }
@@ -318,7 +318,7 @@ final class CommunityConfigTests: XCTestCase {
     func testResolvedLearnUrl_fallsBackToXcconfig_whenNil() {
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: nil, learnUrl: nil,
-            featureFlags: [:], geography: .empty
+            entitlements: [:], geography: .empty
         )
         XCTAssertEqual(config.resolvedLearnUrl, AppEnvironment.shared.defaultLearnURL,
                        "Should fall back to xcconfig DEFAULT_LEARN_URL when learnUrl is nil")
@@ -327,7 +327,7 @@ final class CommunityConfigTests: XCTestCase {
     func testResolvedLearnUrl_fallsBackToXcconfig_whenEmpty() {
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: nil, learnUrl: "",
-            featureFlags: [:], geography: .empty
+            entitlements: [:], geography: .empty
         )
         XCTAssertEqual(config.resolvedLearnUrl, AppEnvironment.shared.defaultLearnURL,
                        "Should fall back to xcconfig DEFAULT_LEARN_URL when learnUrl is empty string")

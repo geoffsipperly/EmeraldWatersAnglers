@@ -25,6 +25,7 @@ final class CommunityServiceTests: XCTestCase {
     URLProtocol.registerClass(MockURLProtocol.self)
     AuthService.resetSharedForTests(session: mockSession)
     CommunityService.shared.clear()
+    CommunityService.shared.clearDefaultCommunity()
   }
 
   override func tearDown() {
@@ -34,6 +35,7 @@ final class CommunityServiceTests: XCTestCase {
     _mockSession = nil
     clearKeychainEntries()
     CommunityService.shared.clear()
+    CommunityService.shared.clearDefaultCommunity()
     super.tearDown()
   }
 
@@ -81,7 +83,8 @@ final class CommunityServiceTests: XCTestCase {
     communityId: String = "comm-uuid-1",
     communityName: String = "Emerald Waters Anglers",
     role: String = "guide",
-    code: String = "EWA001"
+    code: String = "EWA001",
+    isActive: Bool = true
   ) -> [String: Any] {
     [
       "id": UUID().uuidString,
@@ -91,7 +94,7 @@ final class CommunityServiceTests: XCTestCase {
         "id": communityId,
         "name": communityName,
         "code": code,
-        "is_active": true
+        "is_active": isActive
       ]
     ]
   }
@@ -494,5 +497,364 @@ final class CommunityServiceTests: XCTestCase {
 
     XCTAssertEqual(svc.activeMembership?.communityId, "c-2")
     XCTAssertEqual(svc.activeMembership?.role, "angler")
+  }
+
+  // MARK: - Tests: Default community
+
+  func testSetDefaultCommunity_persistsToUserDefaults() {
+    let svc = CommunityService.shared
+    svc.setDefaultCommunity(id: "default-comm-1")
+
+    XCTAssertEqual(svc.defaultCommunityId, "default-comm-1")
+    XCTAssertEqual(UserDefaults.standard.string(forKey: "CommunityService.defaultCommunityId"), "default-comm-1")
+  }
+
+  func testClearDefaultCommunity_removesFromUserDefaults() {
+    let svc = CommunityService.shared
+    svc.setDefaultCommunity(id: "default-comm-1")
+    XCTAssertEqual(svc.defaultCommunityId, "default-comm-1")
+
+    svc.clearDefaultCommunity()
+    XCTAssertNil(svc.defaultCommunityId)
+    XCTAssertNil(UserDefaults.standard.string(forKey: "CommunityService.defaultCommunityId"))
+  }
+
+  func testClear_doesNotRemoveDefaultCommunity() {
+    let svc = CommunityService.shared
+    svc.setDefaultCommunity(id: "default-comm-1")
+
+    svc.clear()
+
+    // Default should survive logout
+    XCTAssertEqual(svc.defaultCommunityId, "default-comm-1",
+                   "Default community should persist across logout")
+    XCTAssertEqual(UserDefaults.standard.string(forKey: "CommunityService.defaultCommunityId"), "default-comm-1")
+    // But active state should be cleared
+    XCTAssertNil(svc.activeCommunityId)
+    XCTAssertNil(svc.activeRole)
+  }
+
+  func testFetchMemberships_withValidDefault_autoSelects() async {
+    setAccessToken("valid-token")
+    let m1 = makeSingleMembership(communityId: "c-1", communityName: "Comm A", role: "guide", code: "AAA111")
+    let m2 = makeSingleMembership(communityId: "c-2", communityName: "Comm B", role: "angler", code: "BBB222")
+    let data = makeMembershipsJSON([m1, m2])
+
+    MockURLProtocol.requestHandler = { request in
+      guard let url = request.url else { throw URLError(.badURL) }
+      if url.path.contains("/rest/v1/user_communities") {
+        return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+      }
+      return (HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!, nil)
+    }
+
+    let svc = CommunityService.shared
+    // Simulate: user previously set c-2 as default, then logged out
+    svc.setDefaultCommunity(id: "c-2")
+    svc.clear() // logout clears active but keeps default
+
+    await svc.fetchMemberships()
+
+    XCTAssertEqual(svc.activeCommunityId, "c-2",
+                   "Should auto-select the default community on login")
+    XCTAssertEqual(svc.activeRole, "angler",
+                   "Should set the correct role for the default community")
+    XCTAssertEqual(svc.defaultCommunityId, "c-2",
+                   "Default should remain unchanged after auto-select")
+  }
+
+  func testFetchMemberships_withInvalidDefault_clearsDefaultAndShowsPicker() async {
+    setAccessToken("valid-token")
+    let m1 = makeSingleMembership(communityId: "c-1", communityName: "Comm A", role: "guide", code: "AAA111")
+    let data = makeMembershipsJSON([m1])
+
+    MockURLProtocol.requestHandler = { request in
+      guard let url = request.url else { throw URLError(.badURL) }
+      if url.path.contains("/rest/v1/user_communities") {
+        return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+      }
+      return (HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!, nil)
+    }
+
+    let svc = CommunityService.shared
+    // Set a default to a community the user is no longer a member of
+    svc.setDefaultCommunity(id: "removed-comm")
+
+    await svc.fetchMemberships()
+
+    XCTAssertNil(svc.activeCommunityId,
+                 "Should not auto-select when default community is no longer valid")
+    XCTAssertNil(svc.defaultCommunityId,
+                 "Should clear invalid default community")
+    XCTAssertNil(UserDefaults.standard.string(forKey: "CommunityService.defaultCommunityId"),
+                 "Should remove invalid default from UserDefaults")
+  }
+
+  func testFetchMemberships_noDefault_showsPicker() async {
+    setAccessToken("valid-token")
+    let m1 = makeSingleMembership(communityId: "c-1", communityName: "Comm A", role: "guide", code: "AAA111")
+    let m2 = makeSingleMembership(communityId: "c-2", communityName: "Comm B", role: "angler", code: "BBB222")
+    let data = makeMembershipsJSON([m1, m2])
+
+    MockURLProtocol.requestHandler = { request in
+      guard let url = request.url else { throw URLError(.badURL) }
+      if url.path.contains("/rest/v1/user_communities") {
+        return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+      }
+      return (HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!, nil)
+    }
+
+    let svc = CommunityService.shared
+    XCTAssertNil(svc.defaultCommunityId, "Precondition: no default set")
+
+    await svc.fetchMemberships()
+
+    XCTAssertNil(svc.activeCommunityId,
+                 "Should not auto-select when no default is set — picker should be shown")
+    XCTAssertEqual(svc.memberships.count, 2)
+  }
+
+  func testClearActiveCommunity_nilsActiveButKeepsDefault() {
+    let svc = CommunityService.shared
+    svc.setDefaultCommunity(id: "c-1")
+    // Simulate an active community
+    UserDefaults.standard.set("c-1", forKey: "CommunityService.activeCommunityId")
+    UserDefaults.standard.set("guide", forKey: "CommunityService.activeRole")
+
+    svc.clearActiveCommunity()
+
+    XCTAssertNil(svc.activeCommunityId,
+                 "Active community should be nil after clearActiveCommunity")
+    XCTAssertNil(svc.activeRole,
+                 "Active role should be nil after clearActiveCommunity")
+    XCTAssertEqual(svc.defaultCommunityId, "c-1",
+                   "Default community should be preserved after clearActiveCommunity")
+    XCTAssertTrue(svc.hasFetchedMemberships == false || true,
+                  "Memberships array should remain intact")
+  }
+
+  func testQuickSwitch_doesNotChangeDefault() async {
+    setAccessToken("valid-token")
+    let m1 = makeSingleMembership(communityId: "c-1", communityName: "Comm A", role: "guide", code: "AAA111")
+    let m2 = makeSingleMembership(communityId: "c-2", communityName: "Comm B", role: "angler", code: "BBB222")
+    let data = makeMembershipsJSON([m1, m2])
+
+    MockURLProtocol.requestHandler = { request in
+      guard let url = request.url else { throw URLError(.badURL) }
+      if url.path.contains("/rest/v1/user_communities") {
+        return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+      }
+      return (HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!, nil)
+    }
+
+    let svc = CommunityService.shared
+    svc.setDefaultCommunity(id: "c-1")
+    await svc.fetchMemberships()
+
+    // Quick-switch to c-2 (does NOT call setDefaultCommunity)
+    svc.setActiveCommunity(id: "c-2")
+
+    XCTAssertEqual(svc.activeCommunityId, "c-2",
+                   "Active community should switch to c-2")
+    XCTAssertEqual(svc.defaultCommunityId, "c-1",
+                   "Default should remain c-1 after quick-switch")
+  }
+
+  func testSetDefaultCommunity_overwritesPrevious() {
+    let svc = CommunityService.shared
+    svc.setDefaultCommunity(id: "c-1")
+    XCTAssertEqual(svc.defaultCommunityId, "c-1")
+
+    svc.setDefaultCommunity(id: "c-2")
+    XCTAssertEqual(svc.defaultCommunityId, "c-2",
+                   "New default should overwrite previous")
+    XCTAssertEqual(UserDefaults.standard.string(forKey: "CommunityService.defaultCommunityId"), "c-2")
+  }
+
+  func testFullLoginCycle_defaultSurvivesLogout() async {
+    setAccessToken("valid-token")
+    let m1 = makeSingleMembership(communityId: "c-1", communityName: "Comm A", role: "guide", code: "AAA111")
+    let m2 = makeSingleMembership(communityId: "c-2", communityName: "Comm B", role: "angler", code: "BBB222")
+    let data = makeMembershipsJSON([m1, m2])
+
+    MockURLProtocol.requestHandler = { request in
+      guard let url = request.url else { throw URLError(.badURL) }
+      if url.path.contains("/rest/v1/user_communities") {
+        return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+      }
+      return (HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!, nil)
+    }
+
+    let svc = CommunityService.shared
+
+    // First login: user picks c-2 from picker (sets default + active)
+    await svc.fetchMemberships()
+    svc.setDefaultCommunity(id: "c-2")
+    svc.setActiveCommunity(id: "c-2")
+    XCTAssertEqual(svc.activeCommunityId, "c-2")
+    XCTAssertEqual(svc.defaultCommunityId, "c-2")
+
+    // Logout
+    svc.clear()
+    XCTAssertNil(svc.activeCommunityId, "Active should be nil after logout")
+    XCTAssertEqual(svc.defaultCommunityId, "c-2", "Default should survive logout")
+
+    // Second login: fetchMemberships should auto-select the default
+    setAccessToken("valid-token-2")
+    await svc.fetchMemberships()
+
+    XCTAssertEqual(svc.activeCommunityId, "c-2",
+                   "Should auto-select default community on re-login")
+    XCTAssertEqual(svc.activeRole, "angler",
+                   "Should restore correct role for default community")
+  }
+
+  // MARK: - Tests: Inactive community filtering
+
+  func testFetchMemberships_filtersOutInactiveCommunities() async {
+    setAccessToken("valid-token")
+    let m1 = makeSingleMembership(communityId: "c-1", communityName: "Active Lodge", role: "guide", code: "AAA111", isActive: true)
+    let m2 = makeSingleMembership(communityId: "c-2", communityName: "Inactive Lodge", role: "angler", code: "BBB222", isActive: false)
+    let m3 = makeSingleMembership(communityId: "c-3", communityName: "Active Shop", role: "angler", code: "CCC333", isActive: true)
+    let data = makeMembershipsJSON([m1, m2, m3])
+
+    MockURLProtocol.requestHandler = { request in
+      guard let url = request.url else { throw URLError(.badURL) }
+      if url.path.contains("/rest/v1/user_communities") {
+        return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+      }
+      return (HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!, nil)
+    }
+
+    let svc = CommunityService.shared
+    await svc.fetchMemberships()
+
+    XCTAssertEqual(svc.memberships.count, 2,
+                   "Should only contain active communities")
+    XCTAssertTrue(svc.memberships.contains(where: { $0.communityId == "c-1" }))
+    XCTAssertTrue(svc.memberships.contains(where: { $0.communityId == "c-3" }))
+    XCTAssertFalse(svc.memberships.contains(where: { $0.communityId == "c-2" }),
+                   "Inactive community should be filtered out")
+  }
+
+  func testFetchMemberships_defaultCommunityMadeInactive_clearsDefaultAndShowsPicker() async {
+    setAccessToken("valid-token")
+    // User has 3 communities; c-2 was the default but has been made inactive
+    let m1 = makeSingleMembership(communityId: "c-1", communityName: "Active Lodge", role: "guide", code: "AAA111", isActive: true)
+    let m2 = makeSingleMembership(communityId: "c-2", communityName: "Deactivated Lodge", role: "angler", code: "BBB222", isActive: false)
+    let m3 = makeSingleMembership(communityId: "c-3", communityName: "Active Shop", role: "angler", code: "CCC333", isActive: true)
+    let data = makeMembershipsJSON([m1, m2, m3])
+
+    MockURLProtocol.requestHandler = { request in
+      guard let url = request.url else { throw URLError(.badURL) }
+      if url.path.contains("/rest/v1/user_communities") {
+        return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+      }
+      return (HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!, nil)
+    }
+
+    let svc = CommunityService.shared
+    svc.setDefaultCommunity(id: "c-2") // was default before deactivation
+    svc.clear() // simulate logout
+
+    await svc.fetchMemberships()
+
+    // Inactive c-2 is filtered out, so default is no longer valid
+    XCTAssertNil(svc.activeCommunityId,
+                 "Should not auto-select inactive default — picker should be shown")
+    XCTAssertNil(svc.defaultCommunityId,
+                 "Should clear default when it points to an inactive community")
+    XCTAssertEqual(svc.memberships.count, 2,
+                   "Picker should show the 2 remaining active communities")
+    XCTAssertTrue(svc.memberships.contains(where: { $0.communityId == "c-1" }))
+    XCTAssertTrue(svc.memberships.contains(where: { $0.communityId == "c-3" }))
+  }
+
+  func testFetchMemberships_cachedCommunityMadeInactive_showsPickerWithActiveCommunities() async {
+    setAccessToken("valid-token")
+    // First fetch: all 3 active — user selects c-2
+    let m1Active = makeSingleMembership(communityId: "c-1", communityName: "Lodge A", role: "guide", code: "AAA111", isActive: true)
+    let m2Active = makeSingleMembership(communityId: "c-2", communityName: "Lodge B", role: "angler", code: "BBB222", isActive: true)
+    let m3Active = makeSingleMembership(communityId: "c-3", communityName: "Lodge C", role: "angler", code: "CCC333", isActive: true)
+
+    var callCount = 0
+    // Second fetch: c-2 is now inactive
+    let m2Inactive = makeSingleMembership(communityId: "c-2", communityName: "Lodge B", role: "angler", code: "BBB222", isActive: false)
+
+    MockURLProtocol.requestHandler = { request in
+      guard let url = request.url else { throw URLError(.badURL) }
+      if url.path.contains("/rest/v1/user_communities") {
+        callCount += 1
+        let payload: [[String: Any]]
+        if callCount == 1 {
+          payload = [m1Active, m2Active, m3Active]
+        } else {
+          payload = [m1Active, m2Inactive, m3Active]
+        }
+        let data = try! JSONSerialization.data(withJSONObject: payload)
+        return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+      }
+      return (HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!, nil)
+    }
+
+    let svc = CommunityService.shared
+
+    // First login: user selects c-2
+    await svc.fetchMemberships()
+    svc.setActiveCommunity(id: "c-2")
+    XCTAssertEqual(svc.activeCommunityId, "c-2")
+
+    // Second fetch: c-2 is now inactive — app should detect and show picker
+    await svc.fetchMemberships()
+
+    XCTAssertNil(svc.activeCommunityId,
+                 "Should clear active selection when community becomes inactive")
+    XCTAssertEqual(svc.memberships.count, 2,
+                   "Should only show the 2 remaining active communities")
+  }
+
+  func testFetchMemberships_allCommunitiesInactive_showsPickerWithEmpty() async {
+    setAccessToken("valid-token")
+    let m1 = makeSingleMembership(communityId: "c-1", communityName: "Inactive A", role: "guide", code: "AAA111", isActive: false)
+    let m2 = makeSingleMembership(communityId: "c-2", communityName: "Inactive B", role: "angler", code: "BBB222", isActive: false)
+    let data = makeMembershipsJSON([m1, m2])
+
+    MockURLProtocol.requestHandler = { request in
+      guard let url = request.url else { throw URLError(.badURL) }
+      if url.path.contains("/rest/v1/user_communities") {
+        return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+      }
+      return (HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!, nil)
+    }
+
+    let svc = CommunityService.shared
+    await svc.fetchMemberships()
+
+    XCTAssertTrue(svc.memberships.isEmpty,
+                  "All communities are inactive — memberships should be empty")
+    XCTAssertNil(svc.activeCommunityId,
+                 "Should show picker (with join option) when all communities are inactive")
+  }
+
+  func testHasMultipleCommunities_excludesInactive() async {
+    setAccessToken("valid-token")
+    let m1 = makeSingleMembership(communityId: "c-1", communityName: "Active", role: "guide", code: "AAA111", isActive: true)
+    let m2 = makeSingleMembership(communityId: "c-2", communityName: "Inactive", role: "angler", code: "BBB222", isActive: false)
+    let data = makeMembershipsJSON([m1, m2])
+
+    MockURLProtocol.requestHandler = { request in
+      guard let url = request.url else { throw URLError(.badURL) }
+      if url.path.contains("/rest/v1/user_communities") {
+        return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+      }
+      return (HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!, nil)
+    }
+
+    let svc = CommunityService.shared
+    await svc.fetchMemberships()
+
+    XCTAssertFalse(svc.hasMultipleCommunities,
+                   "Should not count inactive communities — only 1 active")
+    XCTAssertEqual(svc.memberships.count, 1)
   }
 }

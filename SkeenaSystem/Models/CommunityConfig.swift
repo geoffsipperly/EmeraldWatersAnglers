@@ -3,7 +3,7 @@
 //  SkeenaSystem
 //
 //  Unified community configuration that merges branding (from communities table)
-//  and feature flags (from community_types table). Provides typed accessors with
+//  and entitlements (from community_types table). Provides typed accessors with
 //  xcconfig fallback so communities without backend config behave identically
 //  to the current static system.
 //
@@ -20,20 +20,20 @@ struct CommunityConfig: Codable, Equatable {
     let displayName: String?
     let learnUrl: String?
 
-    // MARK: - Feature flags (from community_types.feature_flags JSONB)
+    // MARK: - Entitlements (from community_types.entitlements JSONB)
 
-    let featureFlags: [String: Bool]
+    let entitlements: [String: Bool]
 
     // MARK: - Geography (from communities.geography JSONB)
 
     let geography: CommunityGeography
 
-    // MARK: - Flag accessor with xcconfig fallback
+    // MARK: - Entitlement accessor with xcconfig fallback
 
-    /// Returns the backend flag value if present, otherwise falls back to
-    /// the compile-time xcconfig value via `readFeatureFlag(_:)`.
+    /// Returns the backend entitlement value if present, otherwise falls back to
+    /// the compile-time xcconfig value via `readEntitlement(_:)`.
     func flag(_ key: String) -> Bool {
-        featureFlags[key] ?? readFeatureFlag(key)
+        entitlements[key] ?? readEntitlement(key)
     }
 
     // MARK: - Resolved branding with xcconfig fallback
@@ -106,7 +106,7 @@ struct CommunityConfig: Codable, Equatable {
         tagline: nil,
         displayName: nil,
         learnUrl: nil,
-        featureFlags: [:],
+        entitlements: [:],
         geography: .empty
     )
 }

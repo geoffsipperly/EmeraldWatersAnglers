@@ -97,10 +97,10 @@ struct AnglerLandingView: View {
   @ObservedObject private var communityService = CommunityService.shared
   @Environment(\.dismiss) private var dismiss
 
-  // Reactive feature flags — driven by backend config with xcconfig fallback
-  private var FF_CATCH_CAROUSEL: Bool { communityService.activeCommunityConfig.flag("FF_CATCH_CAROUSEL") }
-  private var FF_THE_BUZZ: Bool { communityService.activeCommunityConfig.flag("FF_THE_BUZZ") }
-  private var FF_CATCH_MAP: Bool { communityService.activeCommunityConfig.flag("FF_CATCH_MAP") }
+  // Reactive entitlements — driven by backend config with xcconfig fallback
+  private var E_CATCH_CAROUSEL: Bool { communityService.activeCommunityConfig.flag("E_CATCH_CAROUSEL") }
+  private var E_THE_BUZZ: Bool { communityService.activeCommunityConfig.flag("E_THE_BUZZ") }
+  private var E_CATCH_MAP: Bool { communityService.activeCommunityConfig.flag("E_CATCH_MAP") }
 
   // Data state
   @State private var reports: [CatchReportDTO] = []
@@ -199,14 +199,14 @@ struct AnglerLandingView: View {
       }
       .toolbar {
         ToolbarItem(placement: .navigationBarLeading) {
-          Button(action: { goToManageAccount = true }) {
-            Image(systemName: "person.circle")
-              .font(.title3.weight(.semibold))
-              .foregroundColor(.white)
+          HStack(spacing: 12) {
+            Button(action: { goToManageAccount = true }) {
+              Image(systemName: "person.circle")
+                .font(.title3.weight(.semibold))
+                .foregroundColor(.white)
+            }
+            CommunityToolbarButton()
           }
-        }
-        ToolbarItem(placement: .principal) {
-          CommunityToolbarButton()
         }
         ToolbarItem(placement: .navigationBarTrailing) {
           Button(action: logoutTapped) {
@@ -271,7 +271,7 @@ struct AnglerLandingView: View {
           .padding(.top, 16)
 
         // Header
-        AppHeader(onMapTapped: FF_CATCH_MAP ? {
+        AppHeader(onMapTapped: E_CATCH_MAP ? {
           goToCatchMap = true
         } : nil)
           .padding(.top, 12)
@@ -288,7 +288,7 @@ struct AnglerLandingView: View {
         }
 
         // Catch photo carousel
-        if FF_CATCH_CAROUSEL {
+        if E_CATCH_CAROUSEL {
           if isLoading, sortedReports.isEmpty {
             ProgressView().tint(.white)
               .padding(.vertical, 40)
@@ -313,7 +313,7 @@ struct AnglerLandingView: View {
         }
 
         // The Buzz — latest forum threads
-        if FF_THE_BUZZ, AppEnvironment.shared.buzzCategoryId != nil {
+        if E_THE_BUZZ, AppEnvironment.shared.buzzCategoryId != nil {
           VStack(alignment: .leading, spacing: 10) {
             Text("The Buzz")
               .font(.title3.weight(.bold))
@@ -420,7 +420,7 @@ struct AnglerLandingView: View {
       // River + date below the photo
       HStack {
         VStack(alignment: .leading, spacing: 2) {
-          Text(r.river)
+          Text(r.displayLocation)
             .font(.caption.weight(.semibold))
             .foregroundColor(.white)
             .lineLimit(1)

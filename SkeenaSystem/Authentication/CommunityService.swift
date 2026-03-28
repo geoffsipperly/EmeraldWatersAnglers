@@ -20,6 +20,10 @@ final class CommunityService: ObservableObject {
     @Published private(set) var activeRole: String?  // "guide" or "angler"
     @Published private(set) var activeCommunityTypeId: String?
     @Published private(set) var activeCommunityConfig: CommunityConfig = .default
+    /// The user's chosen default community. Survives logout so subsequent logins
+    /// auto-select this community and skip the picker. Cleared only when the user
+    /// explicitly changes it or is no longer a member.
+    @Published var defaultCommunityId: String?
     /// True after fetchMemberships() completes (success or failure). Views should
     /// wait for this before rendering community-dependent content.
     @Published private(set) var hasFetchedMemberships = false
@@ -30,6 +34,7 @@ final class CommunityService: ObservableObject {
     private let kActiveRole = "CommunityService.activeRole"
     private let kActiveCommunityTypeId = "CommunityService.activeCommunityTypeId"
     private let kActiveCommunityConfig = "CommunityService.activeCommunityConfig"
+    private let kDefaultCommunityId = "CommunityService.defaultCommunityId"
 
     // MARK: - Config (lazy to avoid Info.plist crash in test targets)
 
@@ -41,6 +46,7 @@ final class CommunityService: ObservableObject {
         activeCommunityId = UserDefaults.standard.string(forKey: kActiveCommunityId)
         activeRole = UserDefaults.standard.string(forKey: kActiveRole)
         activeCommunityTypeId = UserDefaults.standard.string(forKey: kActiveCommunityTypeId)
+        defaultCommunityId = UserDefaults.standard.string(forKey: kDefaultCommunityId)
 
         // Restore cached community config for instant cold-launch rendering
         if let configData = UserDefaults.standard.data(forKey: kActiveCommunityConfig),
@@ -49,7 +55,7 @@ final class CommunityService: ObservableObject {
         }
 
         if let cachedId = activeCommunityId {
-            AppLogging.log("[CommunityService] Restored cached community: id=\(cachedId) role=\(activeRole ?? "nil") typeId=\(activeCommunityTypeId ?? "nil") flags=\(activeCommunityConfig.featureFlags.count)", level: .debug, category: .auth)
+            AppLogging.log("[CommunityService] Restored cached community: id=\(cachedId) role=\(activeRole ?? "nil") typeId=\(activeCommunityTypeId ?? "nil") flags=\(activeCommunityConfig.entitlements.count)", level: .debug, category: .auth)
         }
     }
 
@@ -101,10 +107,10 @@ final class CommunityService: ObservableObject {
             AppLogging.log("[CommunityService][DIAG] JWT sub (user_id)=\(sub) exp=\(exp)", level: .info, category: .auth)
         }
 
-        // Build URL: GET /rest/v1/user_communities with nested joins for branding, geography + feature flags
+        // Build URL: GET /rest/v1/user_communities with nested joins for branding, geography + entitlements
         var comps = URLComponents(url: projectURL.appendingPathComponent("/rest/v1/user_communities"), resolvingAgainstBaseURL: false)!
         comps.queryItems = [
-            URLQueryItem(name: "select", value: "id,community_id,role,communities(id,name,code,is_active,community_type_id,logo_url,logo_asset_name,tagline,display_name,learn_url,geography,community_types(id,name,feature_flags))")
+            URLQueryItem(name: "select", value: "id,community_id,role,communities(id,name,code,is_active,community_type_id,logo_url,logo_asset_name,tagline,display_name,learn_url,geography,community_types(id,name,entitlements))")
         ]
 
         var request = URLRequest(url: comps.url!)
@@ -129,14 +135,20 @@ final class CommunityService: ObservableObject {
             }
 
             let decoder = JSONDecoder()
-            let fetched = try decoder.decode([CommunityMembership].self, from: data)
+            let allFetched = try decoder.decode([CommunityMembership].self, from: data)
+            // Filter out inactive communities — they should not be selectable or displayed
+            let fetched = allFetched.filter { $0.communities.isActive }
+            if allFetched.count != fetched.count {
+                let inactiveNames = allFetched.filter { !$0.communities.isActive }.map { $0.communities.name }
+                AppLogging.log("[CommunityService] Filtered \(allFetched.count - fetched.count) inactive community(s): \(inactiveNames.joined(separator: ", "))", level: .info, category: .auth)
+            }
 
             await MainActor.run {
                 self.memberships = fetched
-                AppLogging.log("[CommunityService] Fetched \(fetched.count) membership(s) from server", level: .info, category: .auth)
+                AppLogging.log("[CommunityService] Fetched \(fetched.count) active membership(s) from server", level: .info, category: .auth)
                 for m in fetched {
                     let typeName = m.communities.communityTypes?.name ?? "nil"
-                    let flagCount = m.communities.communityTypes?.featureFlags.count ?? 0
+                    let flagCount = m.communities.communityTypes?.entitlements.count ?? 0
                     AppLogging.log("[CommunityService]   • \(m.communities.name) role=\(m.role) type=\(typeName) flags=\(flagCount) logo=\(m.communities.logoUrl ?? "bundled")", level: .debug, category: .auth)
                 }
 
@@ -151,7 +163,7 @@ final class CommunityService: ObservableObject {
                             self.activeCommunityConfig = membership.communities.config
                             persistActiveState()
                             let typeName = membership.communities.communityTypes?.name ?? "nil"
-                            AppLogging.log("[CommunityService] Refreshed cached community: id=\(cachedId) role=\(membership.role) type=\(typeName) flags=\(self.activeCommunityConfig.featureFlags.count)", level: .debug, category: .auth)
+                            AppLogging.log("[CommunityService] Refreshed cached community: id=\(cachedId) role=\(membership.role) type=\(typeName) flags=\(self.activeCommunityConfig.entitlements.count)", level: .debug, category: .auth)
                         }
                     } else {
                         // Cached community no longer valid — clear selection so picker is shown
@@ -162,8 +174,18 @@ final class CommunityService: ObservableObject {
                         persistActiveState()
                         AppLogging.log("[CommunityService] Cached community no longer valid — showing picker for \(fetched.count) communities", level: .info, category: .auth)
                     }
+                } else if let defaultId = self.defaultCommunityId,
+                          fetched.contains(where: { $0.communityId == defaultId }) {
+                    // No active selection but user has a valid default — auto-select it
+                    AppLogging.log("[CommunityService] Auto-selecting default community: id=\(defaultId)", level: .info, category: .auth)
+                    self.setActiveCommunity(id: defaultId)
                 } else {
-                    // No cached selection — show picker
+                    // No cached selection and no valid default — show picker
+                    if let defaultId = self.defaultCommunityId {
+                        // Default exists but user is no longer a member — clear it
+                        AppLogging.log("[CommunityService] Default community \(defaultId) no longer valid — clearing", level: .info, category: .auth)
+                        self.clearDefaultCommunity()
+                    }
                     AppLogging.log("[CommunityService] No cached selection — \(fetched.count) communities available, showing picker", level: .info, category: .auth)
                 }
 
@@ -193,7 +215,35 @@ final class CommunityService: ObservableObject {
         }
 
         let typeName = membership?.communities.communityTypes?.name ?? "nil"
-        AppLogging.log("[CommunityService] Active community set: id=\(id) role=\(activeRole ?? "nil") type=\(typeName) flags=\(activeCommunityConfig.featureFlags.count) logo=\(activeCommunityConfig.logoUrl ?? "bundled") name=\(activeCommunityName)", level: .info, category: .auth)
+        AppLogging.log("[CommunityService] Active community set: id=\(id) role=\(activeRole ?? "nil") type=\(typeName) flags=\(activeCommunityConfig.entitlements.count) logo=\(activeCommunityConfig.logoUrl ?? "bundled") name=\(activeCommunityName)", level: .info, category: .auth)
+    }
+
+    // MARK: - Default community
+
+    /// Designate a community as the user's default. Persists across logouts so
+    /// subsequent logins auto-select this community and skip the picker.
+    func setDefaultCommunity(id: String) {
+        defaultCommunityId = id
+        UserDefaults.standard.set(id, forKey: kDefaultCommunityId)
+        AppLogging.log("[CommunityService] Default community set: id=\(id)", level: .info, category: .auth)
+    }
+
+    /// Remove the default community designation. The picker will be shown on next login.
+    func clearDefaultCommunity() {
+        defaultCommunityId = nil
+        UserDefaults.standard.removeObject(forKey: kDefaultCommunityId)
+        AppLogging.log("[CommunityService] Default community cleared", level: .info, category: .auth)
+    }
+
+    /// Nils the active community (routing back to the picker) without a full logout.
+    /// Used when the user wants to update their default community from the switcher.
+    func clearActiveCommunity() {
+        activeCommunityId = nil
+        activeRole = nil
+        activeCommunityTypeId = nil
+        activeCommunityConfig = .default
+        persistActiveState()
+        AppLogging.log("[CommunityService] Active community cleared — showing picker", level: .info, category: .auth)
     }
 
     // MARK: - Join community

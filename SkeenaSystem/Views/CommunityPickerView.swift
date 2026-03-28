@@ -57,6 +57,7 @@ struct CommunityPickerView: View {
                 LazyVGrid(columns: columns, spacing: 20) {
                     ForEach(communityService.memberships) { membership in
                         Button {
+                            communityService.setDefaultCommunity(id: membership.communityId)
                             communityService.setActiveCommunity(id: membership.communityId)
                         } label: {
                             communityTile(membership: membership)
@@ -86,7 +87,9 @@ struct CommunityPickerView: View {
     // MARK: - Community Tile
 
     private func communityTile(membership: CommunityMembership) -> some View {
-        VStack(spacing: 10) {
+        let isDefault = membership.communityId == communityService.defaultCommunityId
+
+        return VStack(spacing: 10) {
             // Name area — fixed height so role badges align across tiles
             Text(membership.communities.name)
                 .font(.subheadline.weight(.semibold))
@@ -101,10 +104,27 @@ struct CommunityPickerView: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 3)
                 .background(Color.white.opacity(0.85), in: Capsule())
+
+            if isDefault {
+                HStack(spacing: 4) {
+                    Image(systemName: "star.fill")
+                        .font(.caption2)
+                    Text("Default")
+                        .font(.caption2.weight(.medium))
+                }
+                .foregroundColor(.yellow)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
-        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(isDefault ? Color.blue.opacity(0.12) : Color.white.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(isDefault ? Color.blue.opacity(0.4) : Color.clear, lineWidth: 1)
+                )
+        )
     }
 
     // MARK: - Logout

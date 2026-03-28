@@ -16,17 +16,17 @@ LOG_LEVEL = debug
 BETA_RELEASE = true
 
 // ──────────────────────────────────────────────
-// MARK: - Feature Flags (compile-time fallback — overridden by community_types.feature_flags at runtime)
+// MARK: - Entitlements (compile-time fallback — overridden by community_types.entitlements at runtime)
 // ──────────────────────────────────────────────
 
-FF_FLIGHT_INFO = false
-FF_MEET_STAFF = true
-FF_GEAR_CHECKLIST = false
-FF_MANAGE_LICENSES = false
-FF_SELF_ASSESSMENT = true
-FF_CATCH_CAROUSEL = true
-FF_THE_BUZZ = true
-FF_CATCH_MAP = true
+E_FLIGHT_INFO = false
+E_MEET_STAFF = true
+E_GEAR_CHECKLIST = false
+E_MANAGE_LICENSES = false
+E_SELF_ASSESSMENT = true
+E_CATCH_CAROUSEL = true
+E_THE_BUZZ = true
+E_CATCH_MAP = true
 
 // ──────────────────────────────────────────────
 // MARK: - API Endpoints (Edge Functions)
@@ -53,8 +53,8 @@ TRIP_ROSTER_URL = /functions/v1/trip-roster
 OBSERVATIONS_URL = /functions/v1/observations
 
 // DevTEST-only endpoints
-STAFF_BIOS = /functions/v1/staff-bios
-STAFF_BIO_DETAIL = /functions/v1/staff-bio-detail
+STAE_BIOS = /functions/v1/staff-bios
+STAE_BIO_DETAIL = /functions/v1/staff-bio-detail
 FLIGHT_DETAILS = /functions/v1/flight-details
 FLIGHT_STATUS = /functions/v1/flight-status
 
@@ -132,10 +132,10 @@ FISH_ESTIMATE_LOW_FACTOR = 0.93
 FISH_ESTIMATE_HIGH_FACTOR = 1.07
 
 // ──────────────────────────────────────────────
-// NOTE: Feature Flags, App Branding, and Location & Geography sections above
+// NOTE: Entitlements, App Branding, and Location & Geography sections above
 // are compile-time fallbacks only. At runtime, these values are overridden by
 // server-driven community config:
-//   Feature flags → community_types.feature_flags JSONB
+//   Entitlements → community_types.entitlements JSONB
 //   Branding → communities.logo_url, logo_asset_name, display_name, tagline
 //   Geography → communities.geography JSONB
 // The xcconfig values only apply when a community has no backend config,
