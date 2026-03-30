@@ -97,7 +97,7 @@ struct TripDetailView: View {
                 AnglerDetailsSheetView(
                   anglerID: angler.id,
                   displayName: displayName.isEmpty ? "(Unnamed)" : displayName,
-                  anglerNumber: angler.anglerNumber,
+                  memberId: angler.memberId,
                   community: community,
                   lodge: lodge
                 )
@@ -154,8 +154,8 @@ struct TripDetailView: View {
         .font(.body)
         .foregroundColor(.white)
 
-      if !angler.anglerNumber.isEmpty {
-        Text("License: \(angler.anglerNumber)")
+      if !angler.memberId.isEmpty {
+        Text("Mad Thinker ID: \(angler.memberId)")
           .font(.caption)
           .foregroundColor(.secondary)
       }

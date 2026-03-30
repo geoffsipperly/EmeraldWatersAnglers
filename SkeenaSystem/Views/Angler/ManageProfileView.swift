@@ -14,7 +14,7 @@ import Foundation
 struct MyProfile: Codable, Equatable {
   var firstName: String?
   var lastName: String?
-  var anglerNumber: String?
+  var memberId: String?
   var dateOfBirth: String?
   var phoneNumber: String?
 }

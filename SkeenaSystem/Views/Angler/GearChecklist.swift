@@ -436,12 +436,12 @@ struct GearChecklist: View {
 
     let tokenOpt = await auth.currentAccessToken()
     guard let token = tokenOpt, !token.isEmpty else {
-      if let anglerId = auth.currentAnglerNumber {
+      if let anglerId = auth.currentMemberId {
         loadFromCache(anglerId: anglerId, lodgeName: lodgeName)
       }
       return
     }
-    guard let anglerId = auth.currentAnglerNumber, !anglerId.isEmpty else { return }
+    guard let anglerId = auth.currentMemberId, !anglerId.isEmpty else { return }
 
     let url: URL
     do {
@@ -519,7 +519,7 @@ struct GearChecklist: View {
       errorText = "You are not signed in."
       return false
     }
-    guard let anglerId = auth.currentAnglerNumber, !anglerId.isEmpty else {
+    guard let anglerId = auth.currentMemberId, !anglerId.isEmpty else {
       errorText = "Missing angler id."
       return false
     }

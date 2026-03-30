@@ -97,14 +97,14 @@ final class TripSyncServiceTests: XCTestCase {
   /// Creates an angler dictionary for mock responses
   private func makeAnglerDict(
     id: String = UUID().uuidString,
-    anglerNumber: String,
+    memberId: String,
     firstName: String? = nil,
     lastName: String? = nil,
     licenses: [[String: Any]]? = nil
   ) -> [String: Any] {
     var dict: [String: Any] = [
       "id": id,
-      "anglerNumber": anglerNumber
+      "memberId": memberId
     ]
     if let firstName = firstName { dict["firstName"] = firstName }
     if let lastName = lastName { dict["lastName"] = lastName }

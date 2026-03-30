@@ -382,7 +382,7 @@ final class GuideRegressionTests: XCTestCase {
       "user_metadata": [
         "first_name": "Alex",
         "user_type": "angler",
-        "angler_number": "98765"
+        "member_id": "98765"
       ]
     ]
     let userData = try JSONSerialization.data(withJSONObject: userJSON, options: [])

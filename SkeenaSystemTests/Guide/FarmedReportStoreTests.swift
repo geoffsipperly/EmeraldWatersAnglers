@@ -47,7 +47,7 @@ final class FarmedReportStoreTests: XCTestCase {
     guideName: String = "Test Guide",
     lat: Double? = 54.5,
     lon: Double? = -128.6,
-    anglerNumber: String? = nil,
+    memberId: String? = nil,
     status: FarmedReportStatus = .savedLocally
   ) -> FarmedReport {
     let report = FarmedReport(
@@ -57,7 +57,7 @@ final class FarmedReportStoreTests: XCTestCase {
       guideName: guideName,
       lat: lat,
       lon: lon,
-      anglerNumber: anglerNumber
+      memberId: memberId
     )
     createdIDs.append(report.id)
     return report
@@ -107,22 +107,22 @@ final class FarmedReportStoreTests: XCTestCase {
     }
   }
 
-  func testAdd_preservesAnglerNumber() {
-    let report = makeReport(anglerNumber: "ANG-001")
+  func testAdd_preservesMemberId() {
+    let report = makeReport(memberId: "ANG-001")
     store.add(report)
     waitForStoreUpdate()
 
     let found = store.reports.first(where: { $0.id == report.id })
-    XCTAssertEqual(found?.anglerNumber, "ANG-001")
+    XCTAssertEqual(found?.memberId, "ANG-001")
   }
 
-  func testAdd_nilAnglerNumber_preserved() {
-    let report = makeReport(anglerNumber: nil)
+  func testAdd_nilMemberId_preserved() {
+    let report = makeReport(memberId: nil)
     store.add(report)
     waitForStoreUpdate()
 
     let found = store.reports.first(where: { $0.id == report.id })
-    XCTAssertNil(found?.anglerNumber)
+    XCTAssertNil(found?.memberId)
   }
 
   func testAdd_nilCoordinates_preserved() {
@@ -150,17 +150,17 @@ final class FarmedReportStoreTests: XCTestCase {
     XCTAssertEqual(found?.guideName, "After", "Guide name should be updated")
   }
 
-  func testUpdate_changesAnglerNumber() {
-    var report = makeReport(anglerNumber: nil)
+  func testUpdate_changesMemberId() {
+    var report = makeReport(memberId: nil)
     store.add(report)
     waitForStoreUpdate()
 
-    report.anglerNumber = "ANG-UPDATED"
+    report.memberId = "ANG-UPDATED"
     store.update(report)
     waitForStoreUpdate()
 
     let found = store.reports.first(where: { $0.id == report.id })
-    XCTAssertEqual(found?.anglerNumber, "ANG-UPDATED")
+    XCTAssertEqual(found?.memberId, "ANG-UPDATED")
   }
 
   // MARK: - delete Tests

@@ -17,7 +17,7 @@ final class ReportFormViewModel: ObservableObject {
   @Published var tactic: String = "Swinging"
   @Published var guideName: String = ""
   @Published var clientName: String = ""
-  @Published var anglerNumber: String = "" // REQUIRED in catch payload
+  @Published var memberId: String = "" // REQUIRED in catch payload
 
   // MARK: - Optional
 
@@ -53,7 +53,7 @@ final class ReportFormViewModel: ObservableObject {
       !tactic.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
       !guideName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
       !clientName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-      !anglerNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      !memberId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 
     let tagOK = (origin != "Hatchery") ||
       !tagId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -131,7 +131,7 @@ final class ReportFormViewModel: ObservableObject {
       created.trip = trip
 
       // write new fields (unchanged)
-      created.setValue(anglerNumber.trimmingCharacters(in: .whitespacesAndNewlines), forKey: "anglerNumber")
+      created.setValue(memberId.trimmingCharacters(in: .whitespacesAndNewlines), forKey: "memberId")
       if let lic = classifiedWatersLicenseNumber?.trimmingCharacters(in: .whitespacesAndNewlines), !lic.isEmpty {
         created.setValue(lic, forKey: "classifiedWatersLicenseNumber")
       } else {

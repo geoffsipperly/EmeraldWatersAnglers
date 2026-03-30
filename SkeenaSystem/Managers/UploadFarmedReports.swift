@@ -40,7 +40,7 @@ final class UploadFarmedReports {
     let createdAt: String
     let latitude: Double
     let longitude: Double
-    let anglerNumber: String?
+    let memberId: String?
     let guideName: String?
     let river: String
     let meta: MetaDTO
@@ -176,7 +176,7 @@ final class UploadFarmedReports {
         createdAt: isoFormatter.string(from: report.createdAt),
         latitude: report.lat!,
         longitude: report.lon!,
-        anglerNumber: report.anglerNumber,
+        memberId: report.memberId,
         guideName: report.guideName,
         river: river,
         meta: MetaDTO(

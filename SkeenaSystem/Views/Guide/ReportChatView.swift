@@ -29,7 +29,7 @@ struct ReportChatView: View {
   // Solo mode
   @State private var isSoloMode = false
   @State private var showSoloAnglerPrompt = false
-  @State private var soloAnglerNumberInput = ""
+  @State private var soloMemberIdInput = ""
   @State private var soloSaving = false
   @State private var soloErrorMessage: String?
 
@@ -178,12 +178,12 @@ struct ReportChatView: View {
       .padding(.horizontal)
     }
     .alert("Enter Your Angler License #", isPresented: $showSoloAnglerPrompt) {
-      TextField("License number", text: $soloAnglerNumberInput)
+      TextField("Mad Thinker ID", text: $soloMemberIdInput)
         .keyboardType(.asciiCapable)
       Button("Save") {
-        Task { await saveSoloAnglerNumber() }
+        Task { await saveSoloMemberId() }
       }
-      .disabled(soloAnglerNumberInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+      .disabled(soloMemberIdInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
       Button("Cancel", role: .cancel) {
         // Revert solo mode since they cancelled
         withAnimation { isSoloMode = false }
@@ -343,7 +343,7 @@ struct ReportChatView: View {
 
   private var isCaptureEnabled: Bool {
     if isSoloMode {
-      let anglerNum = (AuthService.shared.currentAnglerNumber ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+      let anglerNum = (AuthService.shared.currentMemberId ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
       return !anglerNum.isEmpty
     }
     return selectedClientID != nil &&
@@ -375,12 +375,12 @@ struct ReportChatView: View {
     // Clear view-model fields
     vm.guideName = ""
     vm.clientName = ""
-    vm.anglerNumber = ""
+    vm.memberId = ""
     vm.classifiedWatersLicenseNumber = nil
 
     // Clear solo mode
     isSoloMode = false
-    soloAnglerNumberInput = ""
+    soloMemberIdInput = ""
     soloErrorMessage = nil
 
     // Clear selections and options
@@ -397,20 +397,20 @@ struct ReportChatView: View {
   // MARK: - Solo mode helpers
 
   private func handleSoloActivated() {
-    let existingNumber = (AuthService.shared.currentAnglerNumber ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    let existingNumber = (AuthService.shared.currentMemberId ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     if existingNumber.isEmpty {
       // First time — prompt for angler number
-      soloAnglerNumberInput = ""
+      soloMemberIdInput = ""
       showSoloAnglerPrompt = true
     } else {
       // Already have a number — pre-populate and activate
-      configureSoloState(anglerNumber: existingNumber)
+      configureSoloState(memberId: existingNumber)
     }
   }
 
   private func handleSoloDeactivated() {
     // Restore normal mode — clear solo overrides
-    vm.anglerNumber = ""
+    vm.memberId = ""
     vm.clientName = ""
     vm.classifiedWatersLicenseNumber = nil
     // Re-trigger normal trip/client selection
@@ -419,13 +419,13 @@ struct ReportChatView: View {
     }
   }
 
-  private func saveSoloAnglerNumber() async {
-    let trimmed = soloAnglerNumberInput.trimmingCharacters(in: .whitespacesAndNewlines)
+  private func saveSoloMemberId() async {
+    let trimmed = soloMemberIdInput.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else { return }
     do {
-      try await AuthService.shared.updateAnglerNumber(trimmed)
+      try await AuthService.shared.updateMemberId(trimmed)
       await MainActor.run {
-        configureSoloState(anglerNumber: trimmed)
+        configureSoloState(memberId: trimmed)
       }
     } catch {
       await MainActor.run {
@@ -435,9 +435,9 @@ struct ReportChatView: View {
     }
   }
 
-  private func configureSoloState(anglerNumber: String) {
+  private func configureSoloState(memberId: String) {
     let guideName = (AuthService.shared.currentFirstName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-    vm.anglerNumber = anglerNumber
+    vm.memberId = memberId
     vm.clientName = guideName
     vm.classifiedWatersLicenseNumber = nil
     vm.guideName = guideName
@@ -482,7 +482,7 @@ struct ReportChatView: View {
       return legacy
     }
     let guideLastName = (AuthService.shared.currentLastName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-    let anglerNumber = (AuthService.shared.currentAnglerNumber ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    let memberId = (AuthService.shared.currentMemberId ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 
     let trip = Trip(context: context)
     trip.tripId = UUID()
@@ -495,7 +495,7 @@ struct ReportChatView: View {
     // Create a TripClient for the guide themselves
     let client = TripClient(context: context)
     client.name = guideName
-    client.licenseNumber = anglerNumber
+    client.licenseNumber = memberId
     client.trip = trip
 
     do {
@@ -516,7 +516,7 @@ struct ReportChatView: View {
         lodge: nil,
         anglers: [
           .init(
-            anglerNumber: anglerNumber,
+            memberId: memberId,
             firstName: guideName,
             lastName: guideLastName.isEmpty ? nil : guideLastName,
             dateOfBirth: nil,
@@ -671,10 +671,10 @@ struct ReportChatView: View {
 
     if let cid = selectedClientID,
        let clientObj = try? context.existingObject(with: cid) as? TripClient,
-       let auto = safeAnglerNumber(from: clientObj) {
-      vm.anglerNumber = auto
+       let auto = safeMemberId(from: clientObj) {
+      vm.memberId = auto
     } else {
-      vm.anglerNumber = ""
+      vm.memberId = ""
     }
 
     reloadLicenses()
@@ -765,7 +765,7 @@ struct ReportChatView: View {
     // Resolve trip — solo mode creates/reuses a same-day trip automatically
     let trip: Trip? = isSoloMode ? findOrCreateSoloTrip() : selectedTrip
 
-    let anglerNumber = vm.anglerNumber
+    let memberId = vm.memberId
     let cwlNumber = vm.classifiedWatersLicenseNumber
     let tripIdString = trip?.tripId?.uuidString
 
@@ -788,7 +788,7 @@ struct ReportChatView: View {
     }()
 
     CatchReportPicMemoStore.shared.createFromChat(
-      anglerNumber: anglerNumber.isEmpty ? "Unknown" : anglerNumber,
+      memberId: memberId.isEmpty ? "Unknown" : memberId,
       species: snapshot.species,
       sex: snapshot.sex,
       origin: "Wild",
@@ -897,11 +897,12 @@ private extension String {
   }
 }
 
-private func safeAnglerNumber(from client: TripClient) -> String? {
+private func safeMemberId(from client: TripClient) -> String? {
   let attrs = client.entity.attributesByName
 
   let keys = [
     "licenseNumber",
+    "memberId",
     "anglerNumber",
     "bcAnglerNumber",
     "anglerID",

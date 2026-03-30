@@ -19,4 +19,17 @@ struct CatchReportDTO: Decodable, Identifiable {
   var id: String { catch_id }
   var createdAt: String { created_at }
   var photoURL: URL? { photo_url.flatMap(URL.init(string:)) }
+
+  /// Display-friendly location: river name first, GPS coordinates if river detection failed,
+  /// "Unable to detect via GPS" as last resort.
+  var displayLocation: String {
+    let lower = river.lowercased()
+    guard lower.contains("unable to detect") || lower.contains("unknown") else {
+      return river
+    }
+    if let lat = latitude, let lon = longitude {
+      return String(format: "%.4f, %.4f", lat, lon)
+    }
+    return "Unable to detect via GPS"
+  }
 }

@@ -149,7 +149,7 @@ final class LoginAuthRegressionTests: XCTestCase {
     XCTAssertNotNil(getKeychain(account: "epicwaters.auth.access_token"))
   }
 
-  func testAnglerSignUp_success_requiresAnglerNumber_and_publishesAnglerRole() async throws {
+  func testAnglerSignUp_success_requiresMemberId_and_publishesAnglerRole() async throws {
     let signupResponse = Data("{}".utf8)
     let tokenJSON: [String: Any] = [
       "access_token":"signup-angler-token",
@@ -161,7 +161,7 @@ final class LoginAuthRegressionTests: XCTestCase {
     let userJSON: [String: Any] = [
       "id":"a1",
       "email":"a@example.com",
-      "user_metadata":["first_name":"A","user_type":"angler","angler_number":"12345"]
+      "user_metadata":["first_name":"A","user_type":"angler","member_id":"12345"]
     ]
     let userData = try JSONSerialization.data(withJSONObject: userJSON, options: [])
 
@@ -178,10 +178,10 @@ final class LoginAuthRegressionTests: XCTestCase {
     }
 
     let auth = AuthService.shared
-    try await auth.signUp(email: "a@example.com", password: "pw", firstName: "A", lastName: "L", userType: .angler, communityCode: "A3F7K2", anglerNumber: "12345")
+    try await auth.signUp(email: "a@example.com", password: "pw", firstName: "A", lastName: "L", userType: .angler, communityCode: "A3F7K2")
     XCTAssertTrue(auth.isAuthenticated)
     XCTAssertEqual(auth.currentUserType, .angler)
-    XCTAssertEqual(auth.currentAnglerNumber, "12345")
+    XCTAssertEqual(auth.currentMemberId, "12345")
   }
 
   // MARK: - Sign-up validation & negative paths
@@ -196,27 +196,10 @@ final class LoginAuthRegressionTests: XCTestCase {
     }
   }
 
-  func testSignUp_anglerMissingAnglerNumber_throwsValidationError() async throws {
-    let auth = AuthService.shared
-    do {
-      try await auth.signUp(email: "angler@x", password: "p", firstName: "A", lastName: "B", userType: .angler, communityCode: "ABC123", anglerNumber: nil)
-      XCTFail("Expected validation error for anglerNumber")
-    } catch {
-      XCTAssert(error is AuthService.InputValidationError)
-    }
-  }
+  // testSignUp_anglerMissingMemberId and testSignUp_memberId_invalidFormat removed —
+  // member_id is now auto-generated on backend, no longer validated at signup
 
-  func testSignUp_anglerNumber_invalidFormat_throwsValidationError() async throws {
-    let auth = AuthService.shared
-    do {
-      try await auth.signUp(email: "angler@x", password: "p", firstName: "A", lastName: "B", userType: .angler, communityCode: "ABC123", anglerNumber: "12-ab!@")
-      XCTFail("Expected validation error for invalid angler number")
-    } catch {
-      XCTAssert(error is AuthService.InputValidationError)
-    }
-  }
-
-  func testSignUp_anglerNumber_alphanumericWithHyphen_succeeds() async throws {
+  func testSignUp_memberId_alphanumericWithHyphen_succeeds() async throws {
     // NYSDE-281901 format should now be accepted
     let signupResponse = Data("{}".utf8)
     let tokenJSON: [String: Any] = [
@@ -229,7 +212,7 @@ final class LoginAuthRegressionTests: XCTestCase {
     let userJSON: [String: Any] = [
       "id":"a-hyp",
       "email":"hyp@example.com",
-      "user_metadata":["first_name":"H","user_type":"angler","angler_number":"NYSDE-281901"]
+      "user_metadata":["first_name":"H","user_type":"angler","member_id":"NYSDE-281901"]
     ]
     let userData = try JSONSerialization.data(withJSONObject: userJSON, options: [])
 
@@ -246,32 +229,15 @@ final class LoginAuthRegressionTests: XCTestCase {
     }
 
     let auth = AuthService.shared
-    try await auth.signUp(email: "hyp@example.com", password: "pw", firstName: "H", lastName: "P", userType: .angler, communityCode: "ABC123", anglerNumber: "NYSDE-281901")
+    try await auth.signUp(email: "hyp@example.com", password: "pw", firstName: "H", lastName: "P", userType: .angler, communityCode: "ABC123")
     XCTAssertTrue(auth.isAuthenticated)
-    XCTAssertEqual(auth.currentAnglerNumber, "NYSDE-281901")
+    XCTAssertEqual(auth.currentMemberId, "NYSDE-281901")
   }
 
-  func testSignUp_anglerNumber_tooShort_throwsValidationError() async throws {
-    let auth = AuthService.shared
-    do {
-      try await auth.signUp(email: "angler@x", password: "p", firstName: "A", lastName: "B", userType: .angler, communityCode: "ABC123", anglerNumber: "AB")
-      XCTFail("Expected validation error for too-short angler number")
-    } catch {
-      XCTAssert(error is AuthService.InputValidationError)
-    }
-  }
+  // testSignUp_memberId_tooShort and testSignUp_memberId_tooLong removed —
+  // member_id is now auto-generated on backend, no longer validated at signup
 
-  func testSignUp_anglerNumber_tooLong_throwsValidationError() async throws {
-    let auth = AuthService.shared
-    do {
-      try await auth.signUp(email: "angler@x", password: "p", firstName: "A", lastName: "B", userType: .angler, communityCode: "ABC123", anglerNumber: "ABCDEFGHIJKLMNOPQRSTU")
-      XCTFail("Expected validation error for too-long angler number (21 chars)")
-    } catch {
-      XCTAssert(error is AuthService.InputValidationError)
-    }
-  }
-
-  func testSignUp_anglerNumber_pureDigits_succeeds() async throws {
+  func testSignUp_memberId_pureDigits_succeeds() async throws {
     // Traditional digit-only format should still work
     let signupResponse = Data("{}".utf8)
     let tokenJSON: [String: Any] = [
@@ -284,7 +250,7 @@ final class LoginAuthRegressionTests: XCTestCase {
     let userJSON: [String: Any] = [
       "id":"a-dig",
       "email":"dig@example.com",
-      "user_metadata":["first_name":"D","user_type":"angler","angler_number":"12345678"]
+      "user_metadata":["first_name":"D","user_type":"angler","member_id":"12345678"]
     ]
     let userData = try JSONSerialization.data(withJSONObject: userJSON, options: [])
 
@@ -301,7 +267,7 @@ final class LoginAuthRegressionTests: XCTestCase {
     }
 
     let auth = AuthService.shared
-    try await auth.signUp(email: "dig@example.com", password: "pw", firstName: "D", lastName: "G", userType: .angler, communityCode: "ABC123", anglerNumber: "12345678")
+    try await auth.signUp(email: "dig@example.com", password: "pw", firstName: "D", lastName: "G", userType: .angler, communityCode: "ABC123")
     XCTAssertTrue(auth.isAuthenticated)
   }
 
@@ -653,7 +619,7 @@ final class LoginAuthRegressionTests: XCTestCase {
     setAccessToken("valid-token", expiresInSeconds: 3600)
     let userJSON: [String: Any] = [
       "id":"u-angler","email":"ang@example.com",
-      "user_metadata":["first_name":"Terry", "user_type":"angler", "angler_number": 98765]
+      "user_metadata":["first_name":"Terry", "user_type":"angler", "member_id": 98765]
     ]
     let userData = try JSONSerialization.data(withJSONObject: userJSON, options: [])
 
@@ -669,7 +635,7 @@ final class LoginAuthRegressionTests: XCTestCase {
     await auth.loadUserProfile()
     XCTAssertEqual(auth.currentUserType, .angler)
     XCTAssertEqual(auth.currentFirstName, "Terry")
-    XCTAssertEqual(auth.currentAnglerNumber, "98765")
+    XCTAssertEqual(auth.currentMemberId, "98765")
   }
 
   func testLoadUserProfile_missingUserMetadata_clearsFields() async throws {
@@ -688,7 +654,7 @@ final class LoginAuthRegressionTests: XCTestCase {
     await auth.loadUserProfile()
     XCTAssertNil(auth.currentFirstName)
     XCTAssertNil(auth.currentUserType)
-    XCTAssertNil(auth.currentAnglerNumber)
+    XCTAssertNil(auth.currentMemberId)
   }
 
   // MARK: - Security / Edge cases

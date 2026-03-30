@@ -18,8 +18,8 @@ struct CatchDetailView: View {
 
       ScrollView {
         VStack(alignment: .leading, spacing: 16) {
-          // Story Title (from API; fall back to river while loading)
-          Text(story?.title ?? report.river)
+          // Story Title (from API; fall back to river/coordinates while loading)
+          Text(story?.title ?? report.displayLocation)
             .font(.title2.bold())
             .foregroundColor(.white)
             .padding(.top, 8)

@@ -48,9 +48,9 @@ struct AnglerProfileResponse: Decodable {
 }
 
 struct AnglerProfile: Decodable, Identifiable {
-  var id: String { anglerNumber }
+  var id: String { memberId }
   let anglerName: String
-  let anglerNumber: String
+  let memberId: String
   let classifiedWatersLicenses: [CWLicense]
 
   struct CWLicense: Decodable, Identifiable {
@@ -85,8 +85,8 @@ enum AnglerAPI {
   static let endpoint = AppEnvironment.shared.anglerProfileURL
   static let anonKey = AppEnvironment.shared.anonKey
 
-  static func search(anglerNumber: String?, anglerName: String?, jwt: String) async throws -> [AnglerProfile] {
-    guard (anglerNumber?.trimmingCharacters(in: .whitespaces).isEmpty == false) ||
+  static func search(memberId: String?, anglerName: String?, jwt: String) async throws -> [AnglerProfile] {
+    guard (memberId?.trimmingCharacters(in: .whitespaces).isEmpty == false) ||
       (anglerName?.trimmingCharacters(in: .whitespaces).isEmpty == false)
     else {
       throw AnglerLookupError.badRequest("Enter a name or number to look up.")
@@ -101,8 +101,8 @@ enum AnglerAPI {
       throw AnglerLookupError.badRequest("Invalid lookup URL configuration.")
     }
     var items: [URLQueryItem] = []
-    if let n = anglerNumber?.trimmingCharacters(in: .whitespaces), !n.isEmpty {
-      items.append(URLQueryItem(name: "anglerNumber", value: n))
+    if let n = memberId?.trimmingCharacters(in: .whitespaces), !n.isEmpty {
+      items.append(URLQueryItem(name: "memberId", value: n))
     }
     if let nm = anglerName?.trimmingCharacters(in: .whitespaces), !nm.isEmpty {
       items.append(URLQueryItem(name: "anglerName", value: nm))
@@ -128,7 +128,7 @@ enum AnglerAPI {
     case 200:
       let decoded = try JSONDecoder().decode(AnglerProfileResponse.self, from: data)
       return decoded.anglers
-    case 400: throw AnglerLookupError.badRequest("Neither anglerNumber nor anglerName was provided.")
+    case 400: throw AnglerLookupError.badRequest("Neither memberId nor anglerName was provided.")
     case 401: throw AnglerLookupError.unauthorized
     case 404: return []
     default:
@@ -254,7 +254,7 @@ final class TripFormViewModel: ObservableObject {
       do {
         let current = clients[index]
         let results = try await AnglerAPI.search(
-          anglerNumber: current.licenseNumber,
+          memberId: current.licenseNumber,
           anglerName: current.name,
           jwt: jwt
         )
@@ -289,7 +289,7 @@ final class TripFormViewModel: ObservableObject {
     guard clients.indices.contains(index) else { return }
     updateClient(at: index) { draft in
       draft.name = profile.anglerName
-      draft.licenseNumber = profile.anglerNumber
+      draft.licenseNumber = profile.memberId
       draft.licences = profile.classifiedWatersLicenses.map { lic in
         ClassifiedLicenceDraft(
           licNumber: lic.license_number,
@@ -550,11 +550,11 @@ struct TripFormView: View {
         Text("Required").font(.caption).foregroundColor(.red)
       }
 
-      TextField("Angler Number", text: vm.licenseNumberBinding(for: index))
+      TextField("Mad Thinker ID", text: vm.licenseNumberBinding(for: index))
         .textInputAutocapitalization(.characters)
         .disableAutocorrection(true)
         .keyboardType(.asciiCapable)
-        .accessibilityIdentifier("anglerNumberField_\(index + 1)")
+        .accessibilityIdentifier("memberIdField_\(index + 1)")
       if vm.clients[index].licenseNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
         Text("Required").font(.caption).foregroundColor(.red)
       }
@@ -611,7 +611,7 @@ struct TripFormView: View {
               Text(profile.anglerName)
                 .font(.headline)
                 .foregroundColor(.white)
-              Text("# \(profile.anglerNumber)")
+              Text("# \(profile.memberId)")
                 .font(.caption)
                 .foregroundColor(.gray)
               if !profile.classifiedWatersLicenses.isEmpty {
@@ -767,7 +767,7 @@ struct TripFormView: View {
         let lastName: String? = (parts.count > 1) ? parts.dropFirst().joined(separator: " ") : nil
 
         return .init(
-          anglerNumber: draft.licenseNumber,
+          memberId: draft.licenseNumber,
           firstName: firstName,
           lastName: lastName,
           dateOfBirth: draft.dateOfBirth?.yyyyMMdd,

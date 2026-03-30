@@ -77,7 +77,7 @@ final class CatchReportPicMemoStore: ObservableObject {
   /// This is the preferred entry point to ensure voice memos, photo, trip & analysis
   /// are all captured in one place.
   func createFromChat(
-    anglerNumber: String,
+    memberId: String,
     species: String?,
     sex: String?,
     origin: String?,
@@ -116,7 +116,7 @@ final class CatchReportPicMemoStore: ObservableObject {
       catchDate: catchDate,
       uploadedAt: nil,
       status: .savedLocally,
-      anglerNumber: anglerNumber,
+      memberId: memberId,
       species: species,
       sex: sex,
       origin: origin,

@@ -59,7 +59,7 @@ private struct TripDTO: Codable {
 
 private struct AnglerDTO: Codable {
   let id: String?
-  let anglerNumber: String?
+  let memberId: String?
   let firstName: String?
   let lastName: String?
   let licenseCountry: String?
@@ -342,8 +342,8 @@ public final class SynchTrips {
           log("Decoded Trip tripId=\(tid) anglers count=\(t.anglers?.count ?? -1)")
           if let anglers = t.anglers {
             for a in anglers {
-              let angNum = a.anglerNumber ?? "<nil>"
-              log("  Angler anglerNumber=\(angNum) licenses count=\(a.licenses?.count ?? -1)")
+              let angNum = a.memberId ?? "<nil>"
+              log("  Angler memberId=\(angNum) licenses count=\(a.licenses?.count ?? -1)")
             }
           }
         }
@@ -461,7 +461,7 @@ public final class SynchTrips {
           let last = (a.lastName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
           let full = [first, last].filter { !$0.isEmpty }.joined(separator: " ")
           client.name = full.isEmpty ? nil : full
-          client.licenseNumber = a.anglerNumber
+          client.licenseNumber = a.memberId
 
           if let licenses = a.licenses {
             for lic in licenses {
@@ -473,7 +473,7 @@ public final class SynchTrips {
               if let s = lic.endDate, let d = parseYMD(s: s) { cw.validTo = d }
             }
           } else {
-            log("  Server angler \(a.anglerNumber ?? "<nil>") has no licenses array in payload")
+            log("  Server angler \(a.memberId ?? "<nil>") has no licenses array in payload")
           }
         }
       } else {
@@ -514,7 +514,7 @@ public final class SynchTrips {
           let last = (a.lastName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
           let full = [first, last].filter { !$0.isEmpty }.joined(separator: " ")
           client.name = full.isEmpty ? nil : full
-          client.licenseNumber = a.anglerNumber
+          client.licenseNumber = a.memberId
           if let licenses = a.licenses {
             for lic in licenses {
               let cw = ClassifiedWaterLicense(context: context)
@@ -605,8 +605,8 @@ public final class SynchTrips {
     if let clients = localTrip.clients as? Set<TripClient> {
       for client in clients {
         var c: [String: Any] = [:]
-        let anglerNumber = (client.licenseNumber ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        c["anglerNumber"] = anglerNumber
+        let memberId = (client.licenseNumber ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        c["memberId"] = memberId
 
         var cwArray: [[String: Any]] = []
         if let rows = client.classifiedLicenses as? Set<ClassifiedWaterLicense> {

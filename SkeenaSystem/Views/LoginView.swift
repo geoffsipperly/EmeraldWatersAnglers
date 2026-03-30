@@ -342,14 +342,14 @@ struct LoginView: View {
     AppLogging.log({ "header: \(hdr)" }, level: .debug, category: .auth)
     AppLogging.log({ "payload: \(pld)" }, level: .debug, category: .auth)
 
-    // Pull angler number from payload JSON
-    let anglerFromPayload = extractAnglerNumber(fromPayloadJSON: pld) ?? "<nil>"
-    let authAngler = auth.currentAnglerNumber ?? "<nil>"
-    AppLogging.log({ "angler_number(payload)=\(anglerFromPayload) | AuthService.currentAnglerNumber=\(authAngler)" }, level: .debug, category: .auth)
+    // Pull member_id from payload JSON
+    let memberIdFromPayload = extractMemberId(fromPayloadJSON: pld) ?? "<nil>"
+    let authMemberId = auth.currentMemberId ?? "<nil>"
+    AppLogging.log({ "member_id(payload)=\(memberIdFromPayload) | AuthService.currentMemberId=\(authMemberId)" }, level: .debug, category: .auth)
 
     // Quick mismatch signal
-    if anglerFromPayload != authAngler {
-      AppLogging.log({ "angler_number mismatch between JWT payload and AuthService cache" }, level: .warn, category: .auth)
+    if memberIdFromPayload != authMemberId {
+      AppLogging.log({ "member_id mismatch between JWT payload and AuthService cache" }, level: .warn, category: .auth)
     }
   }
 
@@ -377,14 +377,14 @@ struct LoginView: View {
     return (decodePart(parts[0]), decodePart(parts[1]))
   }
 
-  /// Extracts `angler_number` or `anglerNumber` from JWT payload JSON.
-  private func extractAnglerNumber(fromPayloadJSON json: String) -> String? {
+  /// Extracts `member_id` from JWT payload JSON, with fallback to legacy `angler_number`.
+  private func extractMemberId(fromPayloadJSON json: String) -> String? {
     guard let data = json.data(using: .utf8),
           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
 
     if let um = obj["user_metadata"] as? [String: Any] {
-      if let angler = um["angler_number"] as? String ?? um["anglerNumber"] as? String {
-        return angler
+      if let mid = um["member_id"] as? String ?? um["angler_number"] as? String ?? um["anglerNumber"] as? String {
+        return mid
       }
     }
 

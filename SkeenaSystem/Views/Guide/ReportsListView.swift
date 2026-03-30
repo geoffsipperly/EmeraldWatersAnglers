@@ -351,7 +351,7 @@ struct ReportsListViewPicMemo: View {
         subtitle: r.river,
         lifecycleStage: r.lifecycleStage,
         lengthInches: r.lengthInches,
-        anglerNumber: r.anglerNumber,
+        memberId: r.memberId,
         createdAt: r.createdAt
       )
     }
@@ -665,7 +665,7 @@ private struct PicMemoRow: View {
         .lineLimit(1)
         .truncationMode(.tail)
 
-      Text("Angler: \(report.anglerNumber)")
+      Text("Mad Thinker ID: \(report.memberId)")
         .font(.footnote)
         .foregroundColor(.secondary)
         .lineLimit(1)
@@ -739,7 +739,7 @@ private struct PicMemoAnnotation: Identifiable {
   let subtitle: String?
   let lifecycleStage: String?
   let lengthInches: Int
-  let anglerNumber: String
+  let memberId: String
   let createdAt: Date
 }
 
@@ -795,7 +795,7 @@ private struct PicMemoMapView: View {
               title: selected.title,
               lifecycleStage: selected.lifecycleStage,
               lengthInches: selected.lengthInches,
-              anglerNumber: selected.anglerNumber,
+              memberId: selected.memberId,
               createdAt: selected.createdAt,
               onDismiss: { selectedAnnotation = nil }
             )
@@ -1007,9 +1007,9 @@ private struct PicMemoDetailView: View {
         set: { report.guideName = $0 }
       ))
 
-      editableTextField(title: "Angler", text: Binding(
-        get: { report.anglerNumber },
-        set: { report.anglerNumber = $0 }
+      editableTextField(title: "Mad Thinker ID", text: Binding(
+        get: { report.memberId },
+        set: { report.memberId = $0 }
       ))
 
       editableTextField(title: "Classified Waters License", text: Binding(

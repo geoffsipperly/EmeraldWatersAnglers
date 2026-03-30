@@ -28,7 +28,7 @@ public struct FarmedReport: Identifiable, Codable, Equatable {
   public var lon: Double?
 
   // Optional angler
-  public var anglerNumber: String?
+  public var memberId: String?
 
   // Convenience
   public var isUploaded: Bool { status == .uploaded }

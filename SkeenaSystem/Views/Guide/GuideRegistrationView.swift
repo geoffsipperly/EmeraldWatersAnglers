@@ -26,17 +26,10 @@ struct GuideRegistrationView: View {
 
   @State private var firstName: String = ""
   @State private var lastName: String = ""
-  @State private var anglerNumber: String = ""
 
   @State private var email: String = ""
   @State private var password: String = ""
   @State private var confirm: String = ""
-
-  // MARK: - License fields (both guides and anglers)
-
-  @State private var licenseCountry: LicenseCountry = .US
-  @State private var licenseStateProvince: String = ""
-  @State private var licenseExpirationDate: Date = Calendar.current.date(byAdding: .year, value: 1, to: Date()) ?? Date()
 
   // MARK: - Hidden fields populated by scan (sent to API if available)
 
@@ -46,6 +39,7 @@ struct GuideRegistrationView: View {
   @State private var scannedDOB: Date?
   @State private var scannedSex: Sex?
   @State private var scannedMailingAddress: String?
+  @State private var telephoneNumber: String = ""
   @State private var scannedTelephone: String?
   @State private var scannedResidency: Residency?
 
@@ -93,11 +87,9 @@ struct GuideRegistrationView: View {
     let base = !firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
       && !lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
       && isEmailValid
-      && isCommunityCodeValid
-    if userType == .angler {
-      return base && !anglerNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-    return base
+    // Community code is optional for full registration (Path C)
+    let codeOK = communityCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isCommunityCodeValid
+    return base && codeOK
   }
 
   private var canRegister: Bool {
@@ -397,10 +389,8 @@ struct GuideRegistrationView: View {
   private var registrationForm: some View {
     VStack(spacing: 10) {
       rolePicker
-      communityCodeField
       nameFields
-      licenseNumberField
-      licenseFields
+      telephoneField
       emailField
       passwordFields
       termsBlock
@@ -460,24 +450,11 @@ struct GuideRegistrationView: View {
     }
   }
 
+  // NOTE: OCR scan button hidden for now — member_id is auto-generated on backend.
+  // Scan functionality preserved in LicenseTextRecognizer for future reintroduction.
   @ViewBuilder
   private var scanButtonIfNeeded: some View {
-    if userType == .angler {
-      Button {
-        showScanChoice = true
-      } label: {
-        HStack(spacing: 6) {
-          Image(systemName: "text.viewfinder")
-          Text("Scan Fishing License")
-        }
-        .font(.footnote.weight(.semibold))
-        .foregroundColor(.blue)
-        .frame(maxWidth: .infinity, alignment: .leading)
-      }
-      .buttonStyle(.plain)
-      .padding(.top, 8)
-      .accessibilityIdentifier("scanLicenseButton_registration")
-    }
+    EmptyView()
   }
 
   @ViewBuilder
@@ -497,73 +474,17 @@ struct GuideRegistrationView: View {
     }
   }
 
+  // License number and license fields removed — member_id is auto-generated on backend.
+
   @ViewBuilder
-  private var licenseNumberField: some View {
+  private var telephoneField: some View {
     fieldBackground(
-      TextField("License Number", text: $anglerNumber)
-        .keyboardType(.asciiCapable)
-        .textInputAutocapitalization(.never)
-        .accessibilityIdentifier("anglerNumber_registration")
+      TextField("Phone Number", text: $telephoneNumber)
+        .keyboardType(.phonePad)
+        .textContentType(.telephoneNumber)
+        .autocorrectionDisabled(true)
+        .submitLabel(.next)
     )
-  }
-
-  // MARK: - License Fields (Country, State/Province, Expiration)
-
-  @ViewBuilder
-  private var licenseFields: some View {
-    VStack(spacing: 8) {
-      // Country picker
-      HStack {
-        Text("License Country")
-          .font(.caption)
-          .foregroundColor(.gray)
-        Spacer()
-        Picker("Country", selection: $licenseCountry) {
-          ForEach(LicenseCountry.allCases) { country in
-            Text(country.displayName).tag(country)
-          }
-        }
-        .pickerStyle(.segmented)
-        .frame(maxWidth: 200)
-      }
-      .padding(.horizontal, 10)
-
-      // State/Province picker
-      HStack {
-        Text(licenseCountry.subdivisionLabel)
-          .font(.caption)
-          .foregroundColor(.gray)
-        Spacer()
-        Picker(licenseCountry.subdivisionLabel, selection: $licenseStateProvince) {
-          Text("Select...").tag("")
-          ForEach(licenseCountry.subdivisions, id: \.self) { sub in
-            Text(sub).tag(sub)
-          }
-        }
-        .tint(.white)
-      }
-      .padding(.horizontal, 10)
-      .frame(height: 40)
-      .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
-
-      // Expiration date
-      HStack {
-        Text("License Expiration")
-          .font(.caption)
-          .foregroundColor(.gray)
-        Spacer()
-        DatePicker("", selection: $licenseExpirationDate, in: Date()..., displayedComponents: .date)
-          .labelsHidden()
-          .colorScheme(.dark)
-      }
-      .padding(.horizontal, 10)
-      .frame(height: 40)
-      .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
-    }
-    .onChange(of: licenseCountry) { _ in
-      // Reset state/province when country changes
-      licenseStateProvince = ""
-    }
   }
 
   @ViewBuilder
@@ -785,38 +706,35 @@ struct GuideRegistrationView: View {
 
     let code = communityCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
 
-    if userType == .guide {
-      // GUIDE REGISTRATION FLOW
-      guard !firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-        errorText = "Please enter your first name."
-        return
-      }
-      guard !lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-        errorText = "Please enter your last name."
-        return
-      }
+    guard !firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+      errorText = "Please enter your first name."
+      return
+    }
+    guard !lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+      errorText = "Please enter your last name."
+      return
+    }
+    // Community code is optional for Path C; validate only if provided
+    if !code.isEmpty {
       guard isCommunityCodeValid else {
         errorText = "Please enter a valid 6-character community code."
         return
       }
+    }
 
-      errorText = nil
-      isBusy = true
+    errorText = nil
+    isBusy = true
+
+    if userType == .guide {
+      // GUIDE REGISTRATION FLOW
       do {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-
         try await auth.signUp(
           email: email.trimmingCharacters(in: .whitespaces),
           password: password,
           firstName: firstName,
           lastName: lastName,
           userType: userType,
-          communityCode: code,
-          anglerNumber: anglerNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : anglerNumber.trimmingCharacters(in: .whitespacesAndNewlines),
-          licenseCountry: licenseCountry.rawValue,
-          licenseStateProvince: licenseStateProvince.isEmpty ? nil : licenseStateProvince,
-          licenseExpirationDate: df.string(from: licenseExpirationDate)
+          communityCode: code.isEmpty ? nil : code
         )
         dismiss()
       } catch {
@@ -826,34 +744,18 @@ struct GuideRegistrationView: View {
       return
     }
 
-    // ANGLER REGISTRATION FLOW
-    let trimmedAngler = anglerNumber.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-          !lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    else {
-      errorText = "Enter your first and last name, or scan your license."
-      return
-    }
-    let isAnglerValid = trimmedAngler.range(of: #"^[A-Za-z0-9\-]{3,20}$"#, options: .regularExpression) != nil
-    guard isAnglerValid else {
-      errorText = "Angler number must be 3-20 characters (letters, digits, or hyphens)."
-      return
-    }
-
-    errorText = nil
-    isBusy = true
+    // ANGLER REGISTRATION FLOW — member_id auto-generated on backend
     do {
       try await supabaseSignUpAngler(
         email: email.trimmingCharacters(in: .whitespaces),
         password: password,
         firstName: firstName,
         lastName: lastName,
-        communityCode: code,
-        anglerNumber: trimmedAngler,
+        communityCode: code.isEmpty ? nil : code,
         dob: scannedDOB,
         sex: scannedSex,
         mailingAddress: scannedMailingAddress,
-        telephone: scannedTelephone,
+        telephone: telephoneNumber.trimmingCharacters(in: .whitespaces).isEmpty ? scannedTelephone : telephoneNumber.trimmingCharacters(in: .whitespaces),
         residency: scannedResidency
       )
       try await auth.signIn(
@@ -874,8 +776,7 @@ struct GuideRegistrationView: View {
     password: String,
     firstName: String,
     lastName: String,
-    communityCode: String,
-    anglerNumber: String,
+    communityCode: String?,
     dob: Date?,
     sex: Sex?,
     mailingAddress: String?,
@@ -890,10 +791,9 @@ struct GuideRegistrationView: View {
     var dataPayload: [String: Any] = [
       "first_name": firstName,
       "last_name": lastName,
-      "user_type": "angler",
-      "community_code": communityCode,
-      "angler_number": anglerNumber
+      "user_type": "angler"
     ]
+    if let code = communityCode, !code.isEmpty { dataPayload["community_code"] = code }
 
     let df = DateFormatter()
     df.calendar = Calendar(identifier: .gregorian)
@@ -908,11 +808,6 @@ struct GuideRegistrationView: View {
       dataPayload["telephone_number"] = tel
     }
     if let res = residency { dataPayload["residency"] = res.rawValue }
-
-    // License fields
-    dataPayload["license_country"] = licenseCountry.rawValue
-    if !licenseStateProvince.isEmpty { dataPayload["license_state_province"] = licenseStateProvince }
-    dataPayload["license_expiration_date"] = df.string(from: licenseExpirationDate)
 
     let body: [String: Any] = ["email": email, "password": password, "data": dataPayload]
     request.httpBody = try JSONSerialization.data(withJSONObject: body, options: [])
@@ -955,8 +850,8 @@ struct GuideRegistrationView: View {
     FSELicenseTextRecognizer.recognize(in: img, options: opts) { result in
       var didFill = false
 
-      if let lic = result.licenseNumber?.trimmingCharacters(in: .whitespacesAndNewlines), !lic.isEmpty {
-        anglerNumber = lic
+      // OCR license number extraction preserved for future use
+      if let _ = result.licenseNumber?.trimmingCharacters(in: .whitespacesAndNewlines), !result.licenseNumber!.isEmpty {
         didFill = true
       }
       if let name = result.name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
@@ -980,6 +875,7 @@ struct GuideRegistrationView: View {
 
       if let tel = ocrTelephone, !tel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
         scannedTelephone = tel
+        telephoneNumber = tel
       }
 
       if let res = ocrResidencyString?.lowercased() {
@@ -1021,7 +917,6 @@ struct GuideRegistrationView: View {
   private func resetFormForRoleChange() {
     firstName = ""
     lastName = ""
-    anglerNumber = ""
     email = ""
     password = ""
     confirm = ""

@@ -493,7 +493,7 @@ private extension String {
 private func safeAnglerNumber(from client: TripClient) -> String? {
   let attrs = client.entity.attributesByName
   // "licenseNumber" is used in your model; try it first
-  for key in ["licenseNumber", "anglerNumber", "bcAnglerNumber", "anglerID", "clientNumber"] {
+  for key in ["memberId", "licenseNumber", "anglerNumber", "bcAnglerNumber", "anglerID", "clientNumber"] {
     if attrs[key] != nil,
        let v = client.value(forKey: key) as? String,
        !v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

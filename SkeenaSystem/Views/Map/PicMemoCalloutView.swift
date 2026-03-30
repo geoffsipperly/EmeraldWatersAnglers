@@ -9,7 +9,7 @@ struct PicMemoCalloutView: View {
   let title: String
   let lifecycleStage: String?
   let lengthInches: Int
-  let anglerNumber: String
+  let memberId: String
   let createdAt: Date
   let onDismiss: () -> Void
 
@@ -34,7 +34,7 @@ struct PicMemoCalloutView: View {
         .font(.caption)
         .foregroundColor(.primary)
 
-      Text("Angler: \(anglerNumber)")
+      Text("Mad Thinker ID: \(memberId)")
         .font(.caption)
         .foregroundColor(.primary)
 

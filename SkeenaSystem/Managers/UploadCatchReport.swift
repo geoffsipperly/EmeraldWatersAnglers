@@ -79,7 +79,7 @@ final class UploadCatchPicMemo {
   }
 
   private struct CatchDTO: Codable {
-    let anglerNumber: String
+    let memberId: String
     let species: String?
     let sex: String?
     let origin: String?
@@ -168,9 +168,9 @@ final class UploadCatchPicMemo {
   /// Validates a single report's fields. Returns error messages, or empty array if valid.
   static func validateReport(_ report: CatchReportPicMemo) -> [String] {
     var errors: [String] = []
-    let anglerNumber = report.anglerNumber.trimmingCharacters(in: .whitespacesAndNewlines)
-    if anglerNumber.isEmpty {
-      errors.append("• \(report.id.uuidString): anglerNumber is required")
+    let memberId = report.memberId.trimmingCharacters(in: .whitespacesAndNewlines)
+    if memberId.isEmpty {
+      errors.append("• \(report.id.uuidString): memberId is required")
     }
     if report.lengthInches < 1 {
       errors.append("• \(report.id.uuidString): lengthInches must be at least 1")
@@ -371,9 +371,9 @@ final class UploadCatchPicMemo {
   private func makeDTO(from r: CatchReportPicMemo, now: Date) throws -> UploadCatchPicMemoDTO {
     var localErrors: [String] = []
 
-    let anglerNumber = r.anglerNumber.trimmingCharacters(in: .whitespacesAndNewlines)
-    if anglerNumber.isEmpty {
-      localErrors.append("anglerNumber is required")
+    let memberId = r.memberId.trimmingCharacters(in: .whitespacesAndNewlines)
+    if memberId.isEmpty {
+      localErrors.append("memberId is required")
     }
 
     if r.lengthInches < 1 {
@@ -437,7 +437,7 @@ final class UploadCatchPicMemo {
     )
 
     let catchDTO = CatchDTO(
-      anglerNumber: anglerNumber,
+      memberId: memberId,
       species: r.species,
       sex: r.sex,
       origin: r.origin,

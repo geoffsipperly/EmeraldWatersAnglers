@@ -23,7 +23,7 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
   public var status: CatchReportPicMemoStatus
 
   // Catch info (FINAL, after any editing)
-  public var anglerNumber: String
+  public var memberId: String
   public var species: String?
   public var sex: String?
   public var origin: String?
@@ -90,7 +90,7 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
     catchDate: Date? = nil,
     uploadedAt: Date? = nil,
     status: CatchReportPicMemoStatus = .savedLocally,
-    anglerNumber: String,
+    memberId: String,
     species: String? = nil,
     sex: String? = nil,
     origin: String? = nil,
@@ -132,7 +132,7 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
     self.catchDate = catchDate
     self.uploadedAt = uploadedAt
     self.status = status
-    self.anglerNumber = anglerNumber
+    self.memberId = memberId
     self.species = species
     self.sex = sex
     self.origin = origin

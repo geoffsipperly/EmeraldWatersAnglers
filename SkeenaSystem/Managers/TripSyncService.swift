@@ -127,7 +127,7 @@ final class TripSyncService {
         let last = (a.lastName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let full = [first, last].filter { !$0.isEmpty }.joined(separator: " ")
         client.name = full.isEmpty ? nil : full
-        client.licenseNumber = a.anglerNumber
+        client.licenseNumber = a.memberId
 
         if let licenses = a.licenses {
           let ymd = DateFormatter()

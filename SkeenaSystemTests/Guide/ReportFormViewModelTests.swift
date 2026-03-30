@@ -41,7 +41,7 @@ final class ReportFormViewModelTests: XCTestCase {
     vm.tactic = "Swinging"
     vm.guideName = "Mike Johnson"
     vm.clientName = "John Doe"
-    vm.anglerNumber = "12345"
+    vm.memberId = "12345"
   }
 
   // MARK: - isValid: All fields filled
@@ -113,16 +113,16 @@ final class ReportFormViewModelTests: XCTestCase {
     XCTAssertFalse(vm.isValid, "Should be invalid when clientName is empty")
   }
 
-  func testIsValid_emptyAnglerNumber_returnsFalse() {
+  func testIsValid_emptyMemberId_returnsFalse() {
     fillAllRequiredFields()
-    vm.anglerNumber = ""
-    XCTAssertFalse(vm.isValid, "Should be invalid when anglerNumber is empty")
+    vm.memberId = ""
+    XCTAssertFalse(vm.isValid, "Should be invalid when memberId is empty")
   }
 
-  func testIsValid_whitespaceOnlyAnglerNumber_returnsFalse() {
+  func testIsValid_whitespaceOnlyMemberId_returnsFalse() {
     fillAllRequiredFields()
-    vm.anglerNumber = "   "
-    XCTAssertFalse(vm.isValid, "Should be invalid when anglerNumber is whitespace-only")
+    vm.memberId = "   "
+    XCTAssertFalse(vm.isValid, "Should be invalid when memberId is whitespace-only")
   }
 
   // MARK: - isValid: Hatchery tag requirement

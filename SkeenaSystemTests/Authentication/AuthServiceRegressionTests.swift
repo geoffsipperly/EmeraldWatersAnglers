@@ -123,7 +123,7 @@ final class AuthServiceRegressionTests: XCTestCase {
       "user_metadata": [
         "first_name": "Test",
         "user_type": "guide",
-        "angler_number": "12345"
+        "member_id": "12345"
       ]
     ]
     let userData = try JSONSerialization.data(withJSONObject: userJSON, options: [])
@@ -424,7 +424,7 @@ final class AuthServiceRegressionTests: XCTestCase {
       "user_metadata": [
         "first_name": "Terry",
         "user_type": "angler",
-        "angler_number": "98765"
+        "member_id": "98765"
       ]
     ]
     let userData = try JSONSerialization.data(withJSONObject: userJSON, options: [])
@@ -441,7 +441,7 @@ final class AuthServiceRegressionTests: XCTestCase {
     await auth.loadUserProfile()
     XCTAssertEqual(auth.currentUserType, .angler)
     XCTAssertEqual(auth.currentFirstName, "Terry")
-    XCTAssertEqual(auth.currentAnglerNumber, "98765")
+    XCTAssertEqual(auth.currentMemberId, "98765")
   }
 
   func testPersistTokens_replacesExistingToken() async throws {
@@ -485,14 +485,7 @@ final class AuthServiceRegressionTests: XCTestCase {
         XCTAssert(error is AuthService.InputValidationError)
       }
 
-      // Angler without anglerNumber
-      do {
-        try await auth.signUp(email: "angler@x", password: "p",
-                              firstName: "A", lastName: "B", userType: .angler, communityCode: "ABC123", anglerNumber: nil)
-        XCTFail("Expected signUp to throw for missing angler number")
-      } catch {
-        XCTAssert(error is AuthService.InputValidationError)
-      }
+      // member_id is now auto-generated on backend — no longer validated at signup
 
   }
 
@@ -577,17 +570,7 @@ final class AuthServiceRegressionTests: XCTestCase {
     XCTAssertEqual(getKeychain(account: "epicwaters.auth.access_token"), "duplicate-new")
   }
 
-  func testSignUpAnglerNumberRequired() async throws {
-      let auth = AuthService.shared
-      do {
-        try await auth.signUp(email: "a@b", password: "p", firstName: "F", lastName: "L",
-                              userType: .angler, communityCode: "ABC123", anglerNumber: nil)
-        XCTFail("Expected signUp to throw for missing angler number")
-      } catch {
-        XCTAssert(error is AuthService.InputValidationError)
-      }
-
-  }
+  // testSignUpMemberIdRequired removed — member_id is now auto-generated on backend
 
   func testDecodeJWTExp_malformedJWT_returnsNil() async throws {
     setAccessToken("not.a.valid.jwt", expiresInSeconds: 0)

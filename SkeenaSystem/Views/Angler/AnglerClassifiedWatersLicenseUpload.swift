@@ -10,7 +10,7 @@ struct AnglerClassifiedWatersLicenseUpload: View {
   @Environment(\.dismiss) private var dismiss
   @StateObject private var auth = AuthService.shared
 
-  private var anglerNumber: String? { auth.currentAnglerNumber }
+  private var memberId: String? { auth.currentMemberId }
 
   // Server list
   @State private var licenses: [CWLicenseDTO] = []
@@ -56,7 +56,7 @@ struct AnglerClassifiedWatersLicenseUpload: View {
     mainContent
       .background(Color.black.ignoresSafeArea())
       .task {
-        if !isLoading, let num = anglerNumber, !num.isEmpty {
+        if !isLoading, let num = memberId, !num.isEmpty {
           await fetchExisting(for: num)
         } else {
           errorText = "Missing angler number. Please sign in again."
@@ -189,7 +189,7 @@ struct AnglerClassifiedWatersLicenseUpload: View {
 
   @ViewBuilder
   private var licenseListContent: some View {
-    if let angler = anglerNumber, !angler.isEmpty {
+    if let angler = memberId, !angler.isEmpty {
       let grouped = groupLicenses(licenses)
 
       if !grouped.active.isEmpty {
@@ -477,7 +477,7 @@ struct AnglerClassifiedWatersLicenseUpload: View {
         let fetched = try await ClassifiedLicenceAPI.getLicenses(
           token: t1,
           apikey: auth.publicAnonKey,
-          anglerNumber: angler
+          memberId: angler
         )
         withAnimation {
           licenses = fetched
@@ -491,7 +491,7 @@ struct AnglerClassifiedWatersLicenseUpload: View {
         let fetched = try await ClassifiedLicenceAPI.getLicenses(
           token: t2,
           apikey: auth.publicAnonKey,
-          anglerNumber: angler
+          memberId: angler
         )
         withAnimation {
           licenses = fetched
@@ -505,7 +505,7 @@ struct AnglerClassifiedWatersLicenseUpload: View {
 
   // Save creates + edits + deletes in one pass with the updated API
   private func saveAll(thenDismiss: Bool = false) async {
-    guard let angler = anglerNumber, !angler.isEmpty else {
+    guard let angler = memberId, !angler.isEmpty else {
       errorText = "Missing angler number. Please sign in again."
       return
     }
@@ -535,7 +535,7 @@ struct AnglerClassifiedWatersLicenseUpload: View {
         let dto = try await ClassifiedLicenceAPI.createLicense(
           token: token,
           apikey: auth.publicAnonKey,
-          anglerNumber: angler,
+          memberId: angler,
           licenseNumber: row.licNumber,
           riverName: row.water,
           startDate: ymd(row.fromDate),
@@ -947,10 +947,10 @@ enum ClassifiedLicenceAPI {
     return req
   }
 
-  // GET ?anglerNumber=...
-  static func getLicenses(token: String, apikey: String, anglerNumber: String) async throws -> [CWLicenseDTO] {
+  // GET ?memberId=...
+  static func getLicenses(token: String, apikey: String, memberId: String) async throws -> [CWLicenseDTO] {
     var comps = URLComponents(url: base, resolvingAgainstBaseURL: false)!
-    comps.queryItems = [URLQueryItem(name: "anglerNumber", value: anglerNumber)]
+    comps.queryItems = [URLQueryItem(name: "memberId", value: memberId)]
 
     let req = makeRequest(url: comps.url!, method: "GET", token: token, apikey: apikey)
     let (data, resp) = try await URLSession.shared.data(for: req)
@@ -971,7 +971,7 @@ enum ClassifiedLicenceAPI {
   static func createLicense(
     token: String,
     apikey: String,
-    anglerNumber: String,
+    memberId: String,
     licenseNumber: String,
     riverName: String,
     startDate: String,
@@ -979,7 +979,7 @@ enum ClassifiedLicenceAPI {
   ) async throws -> CWLicenseDTO {
     // IMPORTANT: use "endDate" (lowercase e) unless your server truly expects "EndDate"
     let bodyObj: [String: String] = [
-      "anglerNumber": anglerNumber,
+      "memberId": memberId,
       "licenseNumber": licenseNumber,
       "riverName": riverName,
       "startDate": startDate,

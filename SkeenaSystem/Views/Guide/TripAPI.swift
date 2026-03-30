@@ -94,7 +94,7 @@ struct TripAPI {
 
         struct Angler: Decodable, Identifiable {
             let id: String
-            let anglerNumber: String
+            let memberId: String
             let firstName: String?
             let lastName: String?
             let licenses: [License]?
@@ -126,7 +126,7 @@ struct TripAPI {
         let anglers: [UpsertAngler]
 
         struct UpsertAngler: Encodable {
-            let anglerNumber: String
+            let memberId: String
             let firstName: String?
             let lastName: String?
             let dateOfBirth: String? // YYYY-MM-DD
@@ -211,7 +211,7 @@ struct TripAPI {
                     let anglersArr: [[String: Any]] = anglers.map { a in
                       var aDict: [String: Any] = [
                         "id": a.id,
-                        "anglerNumber": a.anglerNumber,
+                        "memberId": a.memberId,
                         "firstName": a.firstName as Any,
                         "lastName": a.lastName as Any
                       ]

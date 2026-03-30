@@ -274,12 +274,12 @@ struct AnglerAboutYou: View {
               .foregroundColor(.white)
               .padding(.horizontal, 12)
               .padding(.vertical, 6)
-              .background((isDirty && !isSaving && auth.currentAnglerNumber != nil) ? Color.blue : Color.gray)
+              .background((isDirty && !isSaving && auth.currentMemberId != nil) ? Color.blue : Color.gray)
               .clipShape(Capsule())
           }
         }
         .buttonStyle(.plain)
-        .disabled(auth.currentAnglerNumber == nil || !isDirty || isSaving)
+        .disabled(auth.currentMemberId == nil || !isDirty || isSaving)
       }
     }
     .alert("Thank you", isPresented: $showSavedAlert) {
@@ -363,7 +363,7 @@ struct AnglerAboutYou: View {
 
   // Save results to server
   private func saveAboutYou() async -> Bool {
-    guard let anglerId = auth.currentAnglerNumber, !anglerId.isEmpty else { return false }
+    guard let anglerId = auth.currentMemberId, !anglerId.isEmpty else { return false }
     let tokenOpt = await auth.currentAccessToken()
     guard let token = tokenOpt, !token.isEmpty else { return false }
 
@@ -442,7 +442,7 @@ struct AnglerAboutYou: View {
       originalHikingValue = hikingValue
 
       // Cache locally
-      if let anglerId = auth.currentAnglerNumber {
+      if let anglerId = auth.currentMemberId {
         let key = cacheKey(anglerId: anglerId, species: speciesId, tactic: tacticId)
         let dict: [String: Int] = [
           "learning_style": Int(learningStyleValue.rounded()),
@@ -565,7 +565,7 @@ struct AnglerAboutYou: View {
             originalHikingValue = hikingValue
           } else {
             // No server record; try local cache
-            if let anglerId = auth.currentAnglerNumber {
+            if let anglerId = auth.currentMemberId {
               let key = cacheKey(anglerId: anglerId, species: speciesId, tactic: tacticId)
               if let dict = UserDefaults.standard.dictionary(forKey: key) as? [String: Int] {
                 learningStyleValue = Double(dict["learning_style"] ?? 50)
@@ -586,7 +586,7 @@ struct AnglerAboutYou: View {
           }
         } else {
           // Server GET failed; use local cache if available
-          let key = auth.currentAnglerNumber.map { cacheKey(anglerId: $0, species: speciesId, tactic: tacticId) }
+          let key = auth.currentMemberId.map { cacheKey(anglerId: $0, species: speciesId, tactic: tacticId) }
           if let key, let dict = UserDefaults.standard.dictionary(forKey: key) as? [String: Int] {
             learningStyleValue = Double(dict["learning_style"] ?? 50)
             castingValue = Double(dict["casting"] ?? 50)
@@ -605,7 +605,7 @@ struct AnglerAboutYou: View {
         }
       } catch {
         // Network or decode error; fall back to local cache or defaults
-        let key = auth.currentAnglerNumber.map { cacheKey(anglerId: $0, species: speciesId, tactic: tacticId) }
+        let key = auth.currentMemberId.map { cacheKey(anglerId: $0, species: speciesId, tactic: tacticId) }
         if let key, let dict = UserDefaults.standard.dictionary(forKey: key) as? [String: Int] {
           learningStyleValue = Double(dict["learning_style"] ?? 50)
           castingValue = Double(dict["casting"] ?? 50)

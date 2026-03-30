@@ -21,7 +21,7 @@ final class FarmedReportTests: XCTestCase {
     guideName: String = "Test Guide",
     lat: Double? = 54.5,
     lon: Double? = -128.6,
-    anglerNumber: String? = nil
+    memberId: String? = nil
   ) -> FarmedReport {
     FarmedReport(
       id: id,
@@ -30,7 +30,7 @@ final class FarmedReportTests: XCTestCase {
       guideName: guideName,
       lat: lat,
       lon: lon,
-      anglerNumber: anglerNumber
+      memberId: memberId
     )
   }
 
@@ -58,7 +58,7 @@ final class FarmedReportTests: XCTestCase {
       guideName: "Alice",
       lat: 54.0,
       lon: -128.0,
-      anglerNumber: "A-12345"
+      memberId: "A-12345"
     )
 
     XCTAssertEqual(report.id, id)
@@ -67,12 +67,12 @@ final class FarmedReportTests: XCTestCase {
     XCTAssertEqual(report.guideName, "Alice")
     XCTAssertEqual(report.lat, 54.0)
     XCTAssertEqual(report.lon, -128.0)
-    XCTAssertEqual(report.anglerNumber, "A-12345")
+    XCTAssertEqual(report.memberId, "A-12345")
   }
 
-  func testInit_anglerNumberIsOptional() {
-    let report = createReport(anglerNumber: nil)
-    XCTAssertNil(report.anglerNumber, "anglerNumber should default to nil")
+  func testInit_memberIdIsOptional() {
+    let report = createReport(memberId: nil)
+    XCTAssertNil(report.memberId, "memberId should default to nil")
   }
 
   func testInit_locationIsOptional() {
@@ -164,7 +164,7 @@ final class FarmedReportTests: XCTestCase {
       guideName: "Bob",
       lat: 54.123,
       lon: -128.456,
-      anglerNumber: "X-999"
+      memberId: "X-999"
     )
 
     let data = try encoder.encode(report)
@@ -174,7 +174,7 @@ final class FarmedReportTests: XCTestCase {
     XCTAssertEqual(decoded.guideName, "Bob")
     XCTAssertEqual(decoded.lat, 54.123)
     XCTAssertEqual(decoded.lon, -128.456)
-    XCTAssertEqual(decoded.anglerNumber, "X-999")
+    XCTAssertEqual(decoded.memberId, "X-999")
     XCTAssertEqual(decoded.status, .savedLocally)
     // ISO 8601 may truncate subsecond precision
     XCTAssertEqual(
@@ -185,7 +185,7 @@ final class FarmedReportTests: XCTestCase {
   }
 
   func testEncodeDecode_roundTrip_nilOptionals() throws {
-    let report = createReport(lat: nil, lon: nil, anglerNumber: nil)
+    let report = createReport(lat: nil, lon: nil, memberId: nil)
 
     let data = try encoder.encode(report)
     let decoded = try decoder.decode(FarmedReport.self, from: data)
@@ -194,7 +194,7 @@ final class FarmedReportTests: XCTestCase {
     XCTAssertEqual(decoded.guideName, report.guideName)
     XCTAssertNil(decoded.lat)
     XCTAssertNil(decoded.lon)
-    XCTAssertNil(decoded.anglerNumber)
+    XCTAssertNil(decoded.memberId)
   }
 
   func testEncodeDecode_statusPreserved() throws {
@@ -226,16 +226,16 @@ final class FarmedReportTests: XCTestCase {
   func testEquatable_sameValues_areEqual() {
     let id = UUID()
     let now = Date()
-    let a = FarmedReport(id: id, createdAt: now, status: .savedLocally, guideName: "G", lat: 1.0, lon: 2.0, anglerNumber: nil)
-    let b = FarmedReport(id: id, createdAt: now, status: .savedLocally, guideName: "G", lat: 1.0, lon: 2.0, anglerNumber: nil)
+    let a = FarmedReport(id: id, createdAt: now, status: .savedLocally, guideName: "G", lat: 1.0, lon: 2.0, memberId: nil)
+    let b = FarmedReport(id: id, createdAt: now, status: .savedLocally, guideName: "G", lat: 1.0, lon: 2.0, memberId: nil)
 
     XCTAssertEqual(a, b)
   }
 
   func testEquatable_differentIds_areNotEqual() {
     let now = Date()
-    let a = FarmedReport(id: UUID(), createdAt: now, status: .savedLocally, guideName: "G", lat: 1.0, lon: 2.0, anglerNumber: nil)
-    let b = FarmedReport(id: UUID(), createdAt: now, status: .savedLocally, guideName: "G", lat: 1.0, lon: 2.0, anglerNumber: nil)
+    let a = FarmedReport(id: UUID(), createdAt: now, status: .savedLocally, guideName: "G", lat: 1.0, lon: 2.0, memberId: nil)
+    let b = FarmedReport(id: UUID(), createdAt: now, status: .savedLocally, guideName: "G", lat: 1.0, lon: 2.0, memberId: nil)
 
     XCTAssertNotEqual(a, b)
   }

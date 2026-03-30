@@ -15,7 +15,7 @@ final class OfflineProfileCacheTests: XCTestCase {
     defaults.removeObject(forKey: "OfflineRememberMeEnabled")
     defaults.removeObject(forKey: "CachedFirstName")
     defaults.removeObject(forKey: "CachedUserType")
-    defaults.removeObject(forKey: "CachedAnglerNumber")
+    defaults.removeObject(forKey: "CachedMemberId")
     AuthService.resetSharedForTests()
   }
 
@@ -28,7 +28,7 @@ final class OfflineProfileCacheTests: XCTestCase {
     defaults.removeObject(forKey: "OfflineRememberMeEnabled")
     defaults.removeObject(forKey: "CachedFirstName")
     defaults.removeObject(forKey: "CachedUserType")
-    defaults.removeObject(forKey: "CachedAnglerNumber")
+    defaults.removeObject(forKey: "CachedMemberId")
     super.tearDown()
   }
 
@@ -56,7 +56,7 @@ final class OfflineProfileCacheTests: XCTestCase {
     return status == errSecSuccess
   }
 
-  private func mockOnlineSignInAndProfile(email: String, firstName: String, userType: String, anglerNumber: String? = nil) throws {
+  private func mockOnlineSignInAndProfile(email: String, firstName: String, userType: String, memberId: String? = nil) throws {
     let tokenJSON: [String: Any] = [
       "access_token": "tok-\(email)",
       "refresh_token": "ref-\(email)",
@@ -66,7 +66,7 @@ final class OfflineProfileCacheTests: XCTestCase {
     let tokenData = try JSONSerialization.data(withJSONObject: tokenJSON)
 
     var userMetadata: [String: Any] = ["first_name": firstName, "user_type": userType]
-    if let ang = anglerNumber { userMetadata["angler_number"] = ang }
+    if let ang = memberId { userMetadata["member_id"] = ang }
 
     let userJSON: [String: Any] = [
       "id": "u-\(email)",

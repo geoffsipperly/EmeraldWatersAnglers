@@ -15,7 +15,7 @@ final class RoleBasedRememberMeTests: XCTestCase {
     d.removeObject(forKey: "OfflineRememberMeEnabled")
     d.removeObject(forKey: "CachedFirstName")
     d.removeObject(forKey: "CachedUserType")
-    d.removeObject(forKey: "CachedAnglerNumber")
+    d.removeObject(forKey: "CachedMemberId")
     AuthService.resetSharedForTests()
   }
 
@@ -28,7 +28,7 @@ final class RoleBasedRememberMeTests: XCTestCase {
     d.removeObject(forKey: "OfflineRememberMeEnabled")
     d.removeObject(forKey: "CachedFirstName")
     d.removeObject(forKey: "CachedUserType")
-    d.removeObject(forKey: "CachedAnglerNumber")
+    d.removeObject(forKey: "CachedMemberId")
     super.tearDown()
   }
 

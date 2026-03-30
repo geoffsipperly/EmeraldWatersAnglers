@@ -17,7 +17,7 @@ struct RosterAnglerDTO: Decodable, Identifiable, Hashable, Equatable {
   let angler_id: String
   let last_name: String
   let first_name: String
-  let angler_number: String
+  let member_id: String
   var id: String { angler_id }
 }
 
@@ -62,7 +62,7 @@ struct GearDTO: Decodable {
 // New detailed DTOs for Angler Details API
 struct AnglerDetailsResponse: Decodable {
   let angler_id: String
-  let angler_number: String
+  let member_id: String
   let first_name: String
   let last_name: String
   let preferences: PreferencesDTO?
@@ -264,7 +264,7 @@ struct AnglerProfilesView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List(vm.anglers, id: \.id) { a in
-                    NavigationLink(destination: AnglerDetailsSheetView(anglerID: a.angler_id, displayName: "\(a.first_name) \(a.last_name)", anglerNumber: a.angler_number, community: vm.community, lodge: vm.lodge)) {
+                    NavigationLink(destination: AnglerDetailsSheetView(anglerID: a.angler_id, displayName: "\(a.first_name) \(a.last_name)", memberId: a.member_id, community: vm.community, lodge: vm.lodge)) {
                         Text("\(a.last_name), \(a.first_name)")
                             .foregroundColor(.white)
                     }
@@ -330,16 +330,16 @@ final class AnglerDetailsVM: ObservableObject {
 struct AnglerDetailsSheetView: View {
   let anglerID: String
   let displayName: String
-  let anglerNumber: String
+  let memberId: String
   let community: String
   let lodge: String
 
   @StateObject private var vm: AnglerDetailsVM
 
-  init(anglerID: String, displayName: String, anglerNumber: String, community: String, lodge: String) {
+  init(anglerID: String, displayName: String, memberId: String, community: String, lodge: String) {
     self.anglerID = anglerID
     self.displayName = displayName
-    self.anglerNumber = anglerNumber
+    self.memberId = memberId
     self.community = community
     self.lodge = lodge
     _vm = StateObject(wrappedValue: AnglerDetailsVM(anglerID: anglerID, community: community, lodge: lodge))

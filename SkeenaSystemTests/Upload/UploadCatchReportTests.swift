@@ -27,7 +27,7 @@ final class UploadCatchReportTests: XCTestCase {
   /// Creates a minimal CatchReportPicMemo for testing
   private func createReport(
     id: UUID = UUID(),
-    anglerNumber: String = "12345",
+    memberId: String = "12345",
     species: String? = "Steelhead",
     sex: String? = "Female",
     origin: String? = "Wild",
@@ -40,7 +40,7 @@ final class UploadCatchReportTests: XCTestCase {
       id: id,
       createdAt: Date(),
       status: status,
-      anglerNumber: anglerNumber,
+      memberId: memberId,
       species: species,
       sex: sex,
       origin: origin,
@@ -97,27 +97,27 @@ final class UploadCatchReportTests: XCTestCase {
     }
   }
 
-  func testValidation_failsForEmptyAnglerNumber() {
+  func testValidation_failsForEmptyMemberId() {
     let error = UploadCatchPicMemo.validateForUpload(
-      reports: [createReport(anglerNumber: "")],
+      reports: [createReport(memberId: "")],
       jwt: "test-token"
     )
     XCTAssertNotNil(error)
     if case .localValidationFailed(let messages) = error {
-      XCTAssertTrue(messages.contains { $0.contains("anglerNumber is required") })
+      XCTAssertTrue(messages.contains { $0.contains("memberId is required") })
     } else {
       XCTFail("Expected localValidationFailed, got: \(String(describing: error))")
     }
   }
 
-  func testValidation_failsForWhitespaceOnlyAnglerNumber() {
+  func testValidation_failsForWhitespaceOnlyMemberId() {
     let error = UploadCatchPicMemo.validateForUpload(
-      reports: [createReport(anglerNumber: "   ")],
+      reports: [createReport(memberId: "   ")],
       jwt: "test-token"
     )
     XCTAssertNotNil(error)
     if case .localValidationFailed(let messages) = error {
-      XCTAssertTrue(messages.contains { $0.contains("anglerNumber is required") })
+      XCTAssertTrue(messages.contains { $0.contains("memberId is required") })
     } else {
       XCTFail("Expected localValidationFailed, got: \(String(describing: error))")
     }
@@ -151,13 +151,13 @@ final class UploadCatchReportTests: XCTestCase {
 
   func testValidation_collectsMultipleErrors() {
     let error = UploadCatchPicMemo.validateForUpload(
-      reports: [createReport(anglerNumber: "", lengthInches: 0)],
+      reports: [createReport(memberId: "", lengthInches: 0)],
       jwt: "test-token"
     )
     XCTAssertNotNil(error)
     if case .localValidationFailed(let messages) = error {
-      XCTAssertEqual(messages.count, 2, "Should collect both angler number and length errors")
-      XCTAssertTrue(messages.contains { $0.contains("anglerNumber is required") })
+      XCTAssertEqual(messages.count, 2, "Should collect both member ID and length errors")
+      XCTAssertTrue(messages.contains { $0.contains("memberId is required") })
       XCTAssertTrue(messages.contains { $0.contains("lengthInches must be at least 1") })
     } else {
       XCTFail("Expected localValidationFailed, got: \(String(describing: error))")
@@ -166,7 +166,7 @@ final class UploadCatchReportTests: XCTestCase {
 
   func testValidation_collectsErrorsAcrossMultipleReports() {
     let reports = [
-      createReport(anglerNumber: ""),
+      createReport(memberId: ""),
       createReport(lengthInches: 0)
     ]
     let error = UploadCatchPicMemo.validateForUpload(reports: reports, jwt: "test-token")
@@ -188,7 +188,7 @@ final class UploadCatchReportTests: XCTestCase {
 
   func testValidation_passesWithMinimalValidReport() {
     let error = UploadCatchPicMemo.validateForUpload(
-      reports: [createReport(anglerNumber: "1", lengthInches: 1)],
+      reports: [createReport(memberId: "1", lengthInches: 1)],
       jwt: "test-token"
     )
     XCTAssertNil(error, "Expected no validation error for minimal valid report")
@@ -228,10 +228,10 @@ final class UploadCatchReportTests: XCTestCase {
     XCTAssertTrue(errors.isEmpty, "Valid report should have no errors")
   }
 
-  func testValidateReport_emptyAnglerNumber() {
-    let errors = UploadCatchPicMemo.validateReport(createReport(anglerNumber: ""))
+  func testValidateReport_emptyMemberId() {
+    let errors = UploadCatchPicMemo.validateReport(createReport(memberId: ""))
     XCTAssertEqual(errors.count, 1)
-    XCTAssertTrue(errors[0].contains("anglerNumber is required"))
+    XCTAssertTrue(errors[0].contains("memberId is required"))
   }
 
   func testValidateReport_zeroLength() {
@@ -241,13 +241,13 @@ final class UploadCatchReportTests: XCTestCase {
   }
 
   func testValidateReport_multipleErrors() {
-    let errors = UploadCatchPicMemo.validateReport(createReport(anglerNumber: "", lengthInches: -1))
+    let errors = UploadCatchPicMemo.validateReport(createReport(memberId: "", lengthInches: -1))
     XCTAssertEqual(errors.count, 2)
   }
 
   func testValidateReport_includesReportId() {
     let id = UUID()
-    let errors = UploadCatchPicMemo.validateReport(createReport(id: id, anglerNumber: ""))
+    let errors = UploadCatchPicMemo.validateReport(createReport(id: id, memberId: ""))
     XCTAssertTrue(errors[0].contains(id.uuidString), "Error message should include report ID")
   }
 

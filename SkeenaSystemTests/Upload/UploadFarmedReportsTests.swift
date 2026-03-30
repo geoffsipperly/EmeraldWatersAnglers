@@ -39,7 +39,7 @@ final class UploadFarmedReportsTests: XCTestCase {
     guideName: String = "Test Guide",
     lat: Double? = 54.5,
     lon: Double? = -128.6,
-    anglerNumber: String? = nil
+    memberId: String? = nil
   ) -> FarmedReport {
     FarmedReport(
       id: id,
@@ -48,7 +48,7 @@ final class UploadFarmedReportsTests: XCTestCase {
       guideName: guideName,
       lat: lat,
       lon: lon,
-      anglerNumber: anglerNumber
+      memberId: memberId
     )
   }
 

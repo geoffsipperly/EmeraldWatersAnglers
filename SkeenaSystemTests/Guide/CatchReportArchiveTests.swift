@@ -29,7 +29,7 @@ final class CatchReportArchiveTests: XCTestCase {
       createdAt: createdAt,
       catchDate: catchDate,
       status: status,
-      anglerNumber: "12345",
+      memberId: "12345",
       lengthInches: 30
     )
   }
