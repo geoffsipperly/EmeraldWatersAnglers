@@ -132,17 +132,16 @@ struct LandingView: View {
 
       // FEATURE TILES: evenly distributed
       VStack(spacing: 0) {
-        // Farmed tile
-        Button(action: logFarmedReport) {
-          featureTile(
-            icon: "leaf.arrow.circlepath",
-            title: showFarmedSaved ? "Saved!" : "Farmed",
-            subtitle: nil,
-            isPrimary: false
-          )
+        // No-catch event tiles
+        HStack(spacing: 8) {
+          ForEach(NoCatchEventType.allCases, id: \.self) { eventType in
+            Button { logNoCatchReport(eventType: eventType) } label: {
+              noCatchTile(eventType: eventType)
+            }
+            .disabled(showFarmedSaved)
+            .accessibilityIdentifier("\(eventType.rawValue)Tile")
+          }
         }
-        .accessibilityIdentifier("farmedTile")
-        .disabled(showFarmedSaved)
 
         Spacer().frame(height: 12)
 
@@ -210,11 +209,12 @@ struct LandingView: View {
 
   // MARK: - Actions
 
-  private func logFarmedReport() {
+  private func logNoCatchReport(eventType: NoCatchEventType) {
     let report = FarmedReport(
       id: UUID(),
       createdAt: Date(),
       status: .savedLocally,
+      eventType: eventType,
       guideName: auth.currentFirstName ?? "Guide",
       lat: locationManager.lastLocation?.coordinate.latitude,
       lon: locationManager.lastLocation?.coordinate.longitude,
@@ -228,6 +228,29 @@ struct LandingView: View {
     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
       showFarmedSaved = false
     }
+  }
+
+  private func noCatchTile(eventType: NoCatchEventType) -> some View {
+    let icon: String = {
+      switch eventType {
+      case .active:    return "eye"
+      case .farmed:    return "leaf.arrow.circlepath"
+      case .promising: return "sparkles"
+      case .passed:    return "xmark.circle"
+      }
+    }()
+    return VStack(spacing: 6) {
+      Image(systemName: icon)
+        .font(.title3)
+        .foregroundColor(.white)
+      Text(showFarmedSaved ? "Saved!" : eventType.displayName)
+        .font(.caption.weight(.semibold))
+        .foregroundColor(.white)
+        .lineLimit(1)
+    }
+    .frame(maxWidth: .infinity)
+    .padding(.vertical, 12)
+    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
   }
 
   private func logoutTapped() {

@@ -35,11 +35,12 @@ final class UploadFarmedReports {
 
   // MARK: - DTOs (match API contract)
 
-  private struct FarmedReportDTO: Codable {
+  private struct NoCatchReportDTO: Codable {
     let reportId: String
     let createdAt: String
     let latitude: Double
     let longitude: Double
+    let eventType: String
     let memberId: String?
     let guideName: String?
     let river: String
@@ -65,7 +66,8 @@ final class UploadFarmedReports {
   private nonisolated struct ResponseResultDTO: Decodable {
     let reportId: String
     let status: String
-    let farmedReportId: String?
+    let noCatchReportId: String?
+    let eventType: String?
   }
 
   // MARK: - Properties
@@ -83,7 +85,7 @@ final class UploadFarmedReports {
   // MARK: - Constants
 
   private static var endpoint: URL {
-    AppEnvironment.shared.projectURL.appendingPathComponent("functions/v1/upload-farmed-reports")
+    AppEnvironment.shared.projectURL.appendingPathComponent("functions/v1/upload-no-catch-reports")
   }
 
   private static var apiKey: String {
@@ -169,13 +171,14 @@ final class UploadFarmedReports {
     let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
     let device = "\(UIDevice.current.model) \(UIDevice.current.systemVersion)"
 
-    let dtos: [FarmedReportDTO] = withGPS.map { report in
+    let dtos: [NoCatchReportDTO] = withGPS.map { report in
       let river = Self.resolveRiverName(lat: report.lat!, lon: report.lon!)
-      return FarmedReportDTO(
+      return NoCatchReportDTO(
         reportId: report.id.uuidString,
         createdAt: isoFormatter.string(from: report.createdAt),
         latitude: report.lat!,
         longitude: report.lon!,
+        eventType: report.eventType.rawValue,
         memberId: report.memberId,
         guideName: report.guideName,
         river: river,

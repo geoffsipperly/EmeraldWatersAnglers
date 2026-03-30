@@ -10,6 +10,24 @@ public enum FarmedReportStatus: String, Codable, CaseIterable {
   case uploaded = "Uploaded"
 }
 
+// MARK: - Event Type
+
+public enum NoCatchEventType: String, Codable, CaseIterable {
+  case active    // Fish seen/active but not hooked
+  case farmed    // Hooked but not landed
+  case promising // Promising conditions observed
+  case passed    // Spot checked, nothing observed
+
+  public var displayName: String {
+    switch self {
+    case .active:    return "Active"
+    case .farmed:    return "Farmed"
+    case .promising: return "Promising"
+    case .passed:    return "Passed"
+    }
+  }
+}
+
 // MARK: - Model
 
 public struct FarmedReport: Identifiable, Codable, Equatable {
@@ -20,6 +38,9 @@ public struct FarmedReport: Identifiable, Codable, Equatable {
   // Status
   public var status: FarmedReportStatus
 
+  // Event type (defaults to .farmed for backward compatibility)
+  public var eventType: NoCatchEventType
+
   // Guide info
   public var guideName: String
 
@@ -29,6 +50,43 @@ public struct FarmedReport: Identifiable, Codable, Equatable {
 
   // Optional angler
   public var memberId: String?
+
+  // Coding keys with default for backward compatibility with existing JSON on disk
+  enum CodingKeys: String, CodingKey {
+    case id, createdAt, status, eventType, guideName, lat, lon, memberId
+  }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    id = try container.decode(UUID.self, forKey: .id)
+    createdAt = try container.decode(Date.self, forKey: .createdAt)
+    status = try container.decode(FarmedReportStatus.self, forKey: .status)
+    eventType = try container.decodeIfPresent(NoCatchEventType.self, forKey: .eventType) ?? .farmed
+    guideName = try container.decode(String.self, forKey: .guideName)
+    lat = try container.decodeIfPresent(Double.self, forKey: .lat)
+    lon = try container.decodeIfPresent(Double.self, forKey: .lon)
+    memberId = try container.decodeIfPresent(String.self, forKey: .memberId)
+  }
+
+  public init(
+    id: UUID,
+    createdAt: Date,
+    status: FarmedReportStatus,
+    eventType: NoCatchEventType = .farmed,
+    guideName: String,
+    lat: Double? = nil,
+    lon: Double? = nil,
+    memberId: String? = nil
+  ) {
+    self.id = id
+    self.createdAt = createdAt
+    self.status = status
+    self.eventType = eventType
+    self.guideName = guideName
+    self.lat = lat
+    self.lon = lon
+    self.memberId = memberId
+  }
 
   // Convenience
   public var isUploaded: Bool { status == .uploaded }

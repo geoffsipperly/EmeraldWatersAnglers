@@ -248,4 +248,90 @@ final class FarmedReportTests: XCTestCase {
 
     XCTAssertNotEqual(a, b)
   }
+
+  // MARK: - NoCatchEventType Tests
+
+  func testNoCatchEventType_allCases() {
+    XCTAssertEqual(NoCatchEventType.allCases.count, 4)
+    XCTAssertTrue(NoCatchEventType.allCases.contains(.active))
+    XCTAssertTrue(NoCatchEventType.allCases.contains(.farmed))
+    XCTAssertTrue(NoCatchEventType.allCases.contains(.promising))
+    XCTAssertTrue(NoCatchEventType.allCases.contains(.passed))
+  }
+
+  func testNoCatchEventType_rawValues() {
+    XCTAssertEqual(NoCatchEventType.active.rawValue, "active")
+    XCTAssertEqual(NoCatchEventType.farmed.rawValue, "farmed")
+    XCTAssertEqual(NoCatchEventType.promising.rawValue, "promising")
+    XCTAssertEqual(NoCatchEventType.passed.rawValue, "passed")
+  }
+
+  func testNoCatchEventType_displayNames() {
+    XCTAssertEqual(NoCatchEventType.active.displayName, "Active")
+    XCTAssertEqual(NoCatchEventType.farmed.displayName, "Farmed")
+    XCTAssertEqual(NoCatchEventType.promising.displayName, "Promising")
+    XCTAssertEqual(NoCatchEventType.passed.displayName, "Passed")
+  }
+
+  func testNoCatchEventType_codableRoundTrip() throws {
+    for eventType in NoCatchEventType.allCases {
+      let data = try JSONEncoder().encode(eventType)
+      let decoded = try JSONDecoder().decode(NoCatchEventType.self, from: data)
+      XCTAssertEqual(decoded, eventType, "Round-trip failed for \(eventType.rawValue)")
+    }
+  }
+
+  // MARK: - eventType on FarmedReport
+
+  func testInit_eventTypeDefaultsToFarmed() {
+    let report = createReport()
+    XCTAssertEqual(report.eventType, .farmed, "eventType should default to .farmed")
+  }
+
+  func testInit_eventTypeCanBeSet() {
+    let report = FarmedReport(
+      id: UUID(), createdAt: Date(), status: .savedLocally,
+      eventType: .promising, guideName: "Guide"
+    )
+    XCTAssertEqual(report.eventType, .promising)
+  }
+
+  func testEncodeDecode_eventTypePreserved() throws {
+    for eventType in NoCatchEventType.allCases {
+      let report = FarmedReport(
+        id: UUID(), createdAt: Date(), status: .savedLocally,
+        eventType: eventType, guideName: "Guide", lat: 54.0, lon: -128.0
+      )
+      let data = try encoder.encode(report)
+      let decoded = try decoder.decode(FarmedReport.self, from: data)
+      XCTAssertEqual(decoded.eventType, eventType,
+                     "eventType \(eventType.rawValue) should survive round-trip")
+    }
+  }
+
+  func testDecode_missingEventType_defaultsToFarmed() throws {
+    // Simulate legacy JSON without eventType field
+    let json = """
+    {
+      "id": "\(UUID().uuidString)",
+      "createdAt": "2026-03-30T10:00:00Z",
+      "status": "Saved locally",
+      "guideName": "Legacy Guide",
+      "lat": 54.5,
+      "lon": -128.6
+    }
+    """.data(using: .utf8)!
+
+    let decoded = try decoder.decode(FarmedReport.self, from: json)
+    XCTAssertEqual(decoded.eventType, .farmed,
+                   "Missing eventType should default to .farmed for backward compatibility")
+  }
+
+  func testEquatable_differentEventType_areNotEqual() {
+    let id = UUID()
+    let now = Date()
+    let a = FarmedReport(id: id, createdAt: now, status: .savedLocally, eventType: .farmed, guideName: "G")
+    let b = FarmedReport(id: id, createdAt: now, status: .savedLocally, eventType: .active, guideName: "G")
+    XCTAssertNotEqual(a, b)
+  }
 }

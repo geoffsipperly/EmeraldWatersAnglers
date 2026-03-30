@@ -67,7 +67,7 @@ struct FarmedReportsListView: View {
         .frame(maxHeight: .infinity)
       }
     }
-    .navigationTitle("Farmed Reports")
+    .navigationTitle("No-Catch Reports")
     .navigationBarTitleDisplayMode(.inline)
     .navigationBarBackButtonHidden(true)
     .toolbar {
@@ -187,6 +187,7 @@ private struct FarmedReportRow: View {
           .lineLimit(1)
 
         Spacer()
+        NoCatchEventTypeChip(eventType: report.eventType)
         FarmedStatusChip(status: report.status)
       }
 
@@ -244,6 +245,40 @@ private struct FarmedStatusChip: View {
     switch status {
     case .savedLocally: return .blue
     case .uploaded: return .green
+    }
+  }
+}
+
+// MARK: - Event type chip
+
+private struct NoCatchEventTypeChip: View {
+  let eventType: NoCatchEventType
+
+  var body: some View {
+    Text(eventType.displayName)
+      .font(.caption2)
+      .padding(.horizontal, 8)
+      .padding(.vertical, 3)
+      .background(background)
+      .foregroundColor(foreground)
+      .clipShape(Capsule())
+  }
+
+  private var background: Color {
+    switch eventType {
+    case .active:    return Color.orange.opacity(0.12)
+    case .farmed:    return Color.purple.opacity(0.12)
+    case .promising: return Color.yellow.opacity(0.12)
+    case .passed:    return Color.gray.opacity(0.12)
+    }
+  }
+
+  private var foreground: Color {
+    switch eventType {
+    case .active:    return .orange
+    case .farmed:    return .purple
+    case .promising: return .yellow
+    case .passed:    return .gray
     }
   }
 }
