@@ -14,7 +14,6 @@ struct LandingView: View {
   // Reactive entitlement — driven by backend config with xcconfig fallback
   private var E_MANAGE_OPS: Bool { communityService.activeCommunityConfig.flag("E_MANAGE_OPS") }
   @State private var goToAssistant = false
-  @State private var showRecordObservation = false
 
   // Farmed button state
   @StateObject private var locationManager = LocationManager()
@@ -95,12 +94,6 @@ struct LandingView: View {
           showGuideLocationOnboarding = false
         }
       }
-      // Record observation sheet
-      .fullScreenCover(isPresented: $showRecordObservation) {
-        RecordObservationSheet { _ in
-          showRecordObservation = false
-        }
-      }
       // Decide when to show the onboarding
       .onAppear {
         if auth.currentUserType == .guide,
@@ -130,26 +123,27 @@ struct LandingView: View {
       AppHeader(subtitle: "Welcome, \(auth.currentFirstName ?? "Guide")!")
         .padding(.top, 20)
 
-      // FEATURE TILES: evenly distributed
-      VStack(spacing: 0) {
-        // Landed + No-catch event tiles
-        HStack(spacing: 6) {
-          Button { goToAssistant = true } label: {
-            VStack(spacing: 6) {
-              Image(systemName: "fish.fill")
-                .font(.title3)
-                .foregroundColor(.blue)
-              Text("Landed")
-                .font(.caption.weight(.semibold))
-                .foregroundColor(.blue)
-                .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+      // FEATURE TILES
+      VStack(spacing: 12) {
+        // Landed — primary call-to-action
+        Button { goToAssistant = true } label: {
+          HStack(spacing: 12) {
+            Image(systemName: "square.and.pencil")
+              .font(.title2.weight(.semibold))
+              .foregroundColor(.white)
+            Text("Record a Catch")
+              .font(.title3.weight(.bold))
+              .foregroundColor(.white)
           }
-          .accessibilityIdentifier("landedTile")
+          .frame(maxWidth: .infinity)
+          .padding(.vertical, 14)
+          .background(Color.blue, in: RoundedRectangle(cornerRadius: 16))
+        }
+        .padding(.top, 16)
+        .accessibilityIdentifier("landedTile")
 
+        // No-catch tiles — 2×2 grid
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
           ForEach(NoCatchEventType.allCases, id: \.self) { eventType in
             Button { logNoCatchReport(eventType: eventType) } label: {
               noCatchTile(eventType: eventType)
@@ -158,8 +152,6 @@ struct LandingView: View {
             .accessibilityIdentifier("\(eventType.rawValue)Tile")
           }
         }
-
-        Spacer().frame(height: 24)
 
         // Get Current Conditions tile
         Button { handleGuideNavigateTo(.conditions) } label: {
@@ -172,23 +164,8 @@ struct LandingView: View {
         }
         .accessibilityIdentifier("fishingForecastTile")
 
-        Spacer().frame(height: 12)
-
-        // Record observation tile
-        Button { showRecordObservation = true } label: {
-          featureTile(
-            icon: "mic.circle",
-            title: "Record observation",
-            subtitle: nil,
-            isPrimary: false
-          )
-        }
-        .accessibilityIdentifier("recordObservationTile")
-
         // Manage tickets tile (entitlement-gated)
         if E_MANAGE_OPS {
-          Spacer().frame(height: 12)
-
           NavigationLink {
             OpsTicketsListView()
           } label: {
@@ -201,7 +178,6 @@ struct LandingView: View {
           }
           .accessibilityIdentifier("manageTicketsTile")
         }
-
       }
       .padding(.horizontal, 16)
 
@@ -252,8 +228,8 @@ struct LandingView: View {
         .lineLimit(1)
     }
     .frame(maxWidth: .infinity)
-    .padding(.vertical, 12)
-    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+    .padding(.vertical, 11)
+    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
   }
 
   private func logoutTapped() {

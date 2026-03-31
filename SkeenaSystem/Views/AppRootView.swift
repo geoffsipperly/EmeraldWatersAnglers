@@ -46,6 +46,8 @@ struct AppRootView: View {
             LandingView()
           case .angler:
             AnglerLandingView()
+          case .public:
+            PublicLandingView()
           }
         }
       } else {

@@ -10,6 +10,20 @@ struct ReportChatView: View {
   @Environment(\.managedObjectContext) private var context
   @Environment(\.dismiss) private var dismiss
 
+  /// When true the view is permanently in solo mode with no toggle shown.
+  /// Used for public-role users who always fish solo.
+  let alwaysSolo: Bool
+
+  /// When true the "Record a catch" setup screen is skipped and the user
+  /// lands directly on "Record Catch Details". Requires alwaysSolo: true.
+  let directToChat: Bool
+
+  init(alwaysSolo: Bool = false, directToChat: Bool = false) {
+    self.alwaysSolo = alwaysSolo
+    self.directToChat = directToChat
+    self._isSoloMode = State(initialValue: alwaysSolo)
+  }
+
   @StateObject private var vm = ReportFormViewModel()
   @StateObject private var loc = LocationManager()
 
@@ -27,7 +41,7 @@ struct ReportChatView: View {
   @State private var selectedLicenseNumber: String?
 
   // Solo mode
-  @State private var isSoloMode = false
+  @State private var isSoloMode: Bool
   @State private var showSoloAnglerPrompt = false
   @State private var soloMemberIdInput = ""
   @State private var soloSaving = false
@@ -126,6 +140,11 @@ struct ReportChatView: View {
     chatVM.updateGuideContext(guide: loggedInGuide)
     chatVM.updateAnglerContext(angler: currentClientText())
     chatVM.updateTripContext(trip: currentTripText())
+
+    // Public users are always in solo mode — configure immediately
+    if alwaysSolo {
+      handleSoloActivated()
+    }
   }
 
   private func handleOnDisappear() {
@@ -136,7 +155,9 @@ struct ReportChatView: View {
 
   private var header: some View {
     VStack(spacing: 12) {
-      soloToggleCard
+      if !alwaysSolo {
+        soloToggleCard
+      }
       if !isSoloMode {
         tripCard
         clientCard
@@ -405,6 +426,10 @@ struct ReportChatView: View {
     } else {
       // Already have a number — pre-populate and activate
       configureSoloState(memberId: existingNumber)
+      // Skip the setup screen when directToChat is set
+      if directToChat {
+        DispatchQueue.main.async { self.startCaptureFlow() }
+      }
     }
   }
 
@@ -426,6 +451,9 @@ struct ReportChatView: View {
       try await AuthService.shared.updateMemberId(trimmed)
       await MainActor.run {
         configureSoloState(memberId: trimmed)
+        if directToChat {
+          startCaptureFlow()
+        }
       }
     } catch {
       await MainActor.run {

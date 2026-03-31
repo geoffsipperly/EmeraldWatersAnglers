@@ -10,7 +10,7 @@ import SwiftUI
 
 /// Distinguishes angler vs guide context so shared views (e.g. Conditions, Community)
 /// can render the appropriate toolbar without duplication.
-enum AppUserRole { case angler, guide }
+enum AppUserRole { case angler, guide, `public` }
 
 private struct UserRoleKey: EnvironmentKey {
   static let defaultValue: AppUserRole = .angler // backward-compatible default
@@ -74,6 +74,8 @@ struct RoleAwareToolbar: View {
       anglerToolbar
     case .guide:
       guideToolbar
+    case .public:
+      publicToolbar
     }
   }
 
@@ -93,6 +95,25 @@ struct RoleAwareToolbar: View {
     }
     ToolbarTab(icon: "message", label: "Social") {
       if activeTab != "community" { navigateTo(.community) }
+    }
+  }
+
+  // MARK: Public tabs — Home, Catches, Conditions, Social, Observations (no Trips)
+  @ViewBuilder private var publicToolbar: some View {
+    ToolbarTab(icon: "house", label: "Home") {
+      guideNavigateTo(nil)
+    }
+    ToolbarTab(icon: "camera.viewfinder", label: "Catches") {
+      if activeTab != "catches" { guideNavigateTo(.catches) }
+    }
+    ToolbarTab(icon: "cloud.sun", label: "Conditions") {
+      if activeTab != "conditions" { guideNavigateTo(.conditions) }
+    }
+    ToolbarTab(icon: "message", label: "Social") {
+      if activeTab != "community" { guideNavigateTo(.community) }
+    }
+    ToolbarTab(icon: "waveform", label: "Observations") {
+      if activeTab != "observations" { guideNavigateTo(.observations) }
     }
   }
 

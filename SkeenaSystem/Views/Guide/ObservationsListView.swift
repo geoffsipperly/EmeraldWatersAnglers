@@ -50,6 +50,7 @@ struct ObservationsListView: View {
   @State private var uploadError: String?
   @State private var showUploadAlert = false
   @State private var uploadResultMessage = ""
+  @State private var showRecordObservation = false
 
   private let uploader = UploadObservations()
 
@@ -229,12 +230,25 @@ struct ObservationsListView: View {
     .toolbar {
       ToolbarItem(placement: .navigationBarTrailing) {
         Button {
+          showRecordObservation = true
+        } label: {
+          Image(systemName: "plus")
+            .font(.title3)
+        }
+      }
+      ToolbarItem(placement: .navigationBarTrailing) {
+        Button {
           startUpload()
         } label: {
           Image(systemName: "arrow.up.circle")
             .font(.title3)
         }
         .disabled(pendingObservations.isEmpty || isUploading)
+      }
+    }
+    .fullScreenCover(isPresented: $showRecordObservation) {
+      RecordObservationSheet { _ in
+        showRecordObservation = false
       }
     }
     .alert("Upload", isPresented: $showUploadAlert) {
