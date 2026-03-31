@@ -43,7 +43,7 @@ extension EnvironmentValues {
 
 /// Destinations the guide toolbar can navigate to.
 enum GuideDestination: Hashable {
-  case trips, catches, community, observations, conditions
+  case trips, catches, community, observations, conditions, learn
 }
 
 private struct GuideNavigateToKey: EnvironmentKey {
@@ -98,7 +98,7 @@ struct RoleAwareToolbar: View {
     }
   }
 
-  // MARK: Public tabs — Home, Catches, Conditions, Social, Observations (no Trips)
+  // MARK: Public tabs — Home, Catches, Conditions, Social, Learn (no Trips)
   @ViewBuilder private var publicToolbar: some View {
     ToolbarTab(icon: "house", label: "Home") {
       guideNavigateTo(nil)
@@ -112,8 +112,8 @@ struct RoleAwareToolbar: View {
     ToolbarTab(icon: "message", label: "Social") {
       if activeTab != "community" { guideNavigateTo(.community) }
     }
-    ToolbarTab(icon: "waveform", label: "Observations") {
-      if activeTab != "observations" { guideNavigateTo(.observations) }
+    ToolbarTab(icon: "book", label: "Learn") {
+      if activeTab != "learn" { guideNavigateTo(.learn) }
     }
   }
 
@@ -145,7 +145,7 @@ struct LegacyNavBarStyle: ViewModifier {
       .onAppear {
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = UIColor.black
+        appearance.backgroundColor = UIColor.systemGray6
         appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
         appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
 
@@ -170,7 +170,7 @@ struct VisibleToolbarBackground: ViewModifier {
       return AnyView(
         content
           .toolbarBackground(.visible, for: .navigationBar)
-          .toolbarBackground(Color.black, for: .navigationBar)
+          .toolbarBackground(Color(UIColor.systemGray6), for: .navigationBar)
           .toolbarColorScheme(.dark, for: .navigationBar)
       )
     } else {
@@ -294,7 +294,7 @@ struct BottomToolbar<Content: View>: View {
       .padding(.top, 8)
       .padding(.bottom, 4)
     }
-    .background(Color.black)
+    .background(Color(UIColor.systemGray6))
   }
 }
 

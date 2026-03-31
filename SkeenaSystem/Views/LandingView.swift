@@ -66,6 +66,9 @@ struct LandingView: View {
           ObservationsListView()
             .environment(\.userRole, .guide)
             .environment(\.guideNavigateTo, handleGuideNavigateTo)
+        case .learn:
+          // Guides don't use Learn — should not be reached
+          EmptyView()
         }
       }
       .toolbar {
@@ -119,69 +122,56 @@ struct LandingView: View {
 
   private var content: some View {
     ScrollView {
-      VStack(spacing: 20) {
-      AppHeader(subtitle: "Welcome, \(auth.currentFirstName ?? "Guide")!")
-        .padding(.top, 20)
+      VStack(spacing: 16) {
+        AppHeader()
+          .padding(.top, 20)
 
-      // FEATURE TILES
-      VStack(spacing: 12) {
-        // Landed — primary call-to-action
-        Button { goToAssistant = true } label: {
-          HStack(spacing: 12) {
-            Image(systemName: "square.and.pencil")
-              .font(.title2.weight(.semibold))
-              .foregroundColor(.white)
-            Text("Record a Catch")
-              .font(.title3.weight(.bold))
-              .foregroundColor(.white)
-          }
-          .frame(maxWidth: .infinity)
-          .padding(.vertical, 14)
-          .background(Color.blue, in: RoundedRectangle(cornerRadius: 16))
-        }
-        .padding(.top, 16)
-        .accessibilityIdentifier("landedTile")
-
-        // No-catch tiles — 2×2 grid
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-          ForEach(NoCatchEventType.allCases, id: \.self) { eventType in
-            Button { logNoCatchReport(eventType: eventType) } label: {
-              noCatchTile(eventType: eventType)
+        // Greeting row — ticket icon appears only when E_MANAGE_OPS
+        HStack(alignment: .center) {
+          Text("Welcome, \(auth.currentFirstName ?? "Guide")!")
+            .font(.title3.weight(.semibold))
+            .foregroundColor(.white)
+          Spacer()
+          if E_MANAGE_OPS {
+            NavigationLink { OpsTicketsListView() } label: {
+              Image(systemName: "ticket")
+                .font(.title3)
+                .foregroundColor(.white.opacity(0.7))
             }
-            .disabled(savedEventType != nil)
-            .accessibilityIdentifier("\(eventType.rawValue)Tile")
+            .accessibilityIdentifier("manageTicketsTile")
           }
         }
+        .padding(.horizontal, 20)
 
-        // Get Current Conditions tile
-        Button { handleGuideNavigateTo(.conditions) } label: {
-          featureTile(
-            icon: "cloud.sun.rain",
-            title: "Get current conditions",
-            subtitle: nil,
-            isPrimary: false
-          )
-        }
-        .accessibilityIdentifier("fishingForecastTile")
+        // FEATURE TILES
+        VStack(spacing: 12) {
+          // Top row: action tiles (blue)
+          HStack(spacing: 12) {
+            Button { goToAssistant = true } label: {
+              actionTile(icon: "square.and.pencil", label: "Record a Catch")
+            }
+            .accessibilityIdentifier("landedTile")
 
-        // Manage tickets tile (entitlement-gated)
-        if E_MANAGE_OPS {
-          NavigationLink {
-            OpsTicketsListView()
-          } label: {
-            featureTile(
-              icon: "ticket",
-              title: "Manage tickets",
-              subtitle: nil,
-              isPrimary: false
-            )
+            Button { handleGuideNavigateTo(.conditions) } label: {
+              actionTile(icon: "cloud.sun.rain", label: "Conditions")
+            }
+            .accessibilityIdentifier("fishingForecastTile")
           }
-          .accessibilityIdentifier("manageTicketsTile")
-        }
-      }
-      .padding(.horizontal, 16)
 
-      Spacer(minLength: 8)
+          // No-catch tiles — 2×2 grid
+          LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            ForEach(NoCatchEventType.allCases, id: \.self) { eventType in
+              Button { logNoCatchReport(eventType: eventType) } label: {
+                noCatchTile(eventType: eventType)
+              }
+              .disabled(savedEventType != nil)
+              .accessibilityIdentifier("\(eventType.rawValue)Tile")
+            }
+          }
+        }
+        .padding(.horizontal, 16)
+
+        Spacer(minLength: 8)
       }
     }
   }
@@ -259,57 +249,20 @@ struct LandingView: View {
     navPath = newPath
   }
 
-  // MARK: - Feature Tile
+  // MARK: - Action Tile (blue — Record a Catch, Conditions)
 
-  private func featureTile(
-    icon: String,
-    title: String,
-    subtitle: String?,
-    isPrimary: Bool
-  ) -> some View {
-    HStack(alignment: .center, spacing: 10) {
-      // ICON
+  private func actionTile(icon: String, label: String) -> some View {
+    VStack(spacing: 6) {
       Image(systemName: icon)
-        .font(.body.weight(.semibold))
+        .font(.title3)
         .foregroundColor(.blue)
-        .frame(width: 30, height: 30)
-        .padding(6)
-        .background(Color.white.opacity(0.12))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-
-      // TEXT TO THE RIGHT
-      VStack(alignment: .leading, spacing: 2) {
-        Text(title)
-          .font(.subheadline.weight(.semibold))
-
-        if let subtitle, !subtitle.isEmpty {
-          Text(subtitle)
-            .font(.caption)
-            .foregroundColor(.white.opacity(0.7))
-        }
-      }
-
-      Spacer(minLength: 0)
+      Text(label)
+        .font(.caption.weight(.semibold))
+        .foregroundColor(.blue)
+        .lineLimit(1)
     }
-    .padding(.horizontal, 12)
-    .padding(.vertical, 8)
-    .background(
-      RoundedRectangle(cornerRadius: 14)
-        .fill(
-          isPrimary
-            ? Color.blue.opacity(0.25)
-            : Color.white.opacity(0.04)
-        )
-    )
-    .overlay(
-      RoundedRectangle(cornerRadius: 14)
-        .stroke(Color.white.opacity(0.10), lineWidth: 1)
-    )
-    .shadow(
-      color: Color.black.opacity(0.35),
-      radius: 4,
-      x: 0,
-      y: 2
-    )
+    .frame(maxWidth: .infinity)
+    .padding(.vertical, 11)
+    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
   }
 }

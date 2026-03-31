@@ -162,6 +162,12 @@ final class CommunityService: ObservableObject {
                             self.activeCommunityTypeId = membership.communities.communityTypeId
                             self.activeCommunityConfig = membership.communities.config
                             persistActiveState()
+
+                            // Sync role to AuthService so AppRootView routes to the correct landing view
+                            if let userType = AuthService.UserType(rawValue: membership.role) {
+                                AuthService.shared.updateUserType(userType)
+                            }
+
                             let typeName = membership.communities.communityTypes?.name ?? "nil"
                             AppLogging.log("[CommunityService] Refreshed cached community: id=\(cachedId) role=\(membership.role) type=\(typeName) flags=\(self.activeCommunityConfig.entitlements.count)", level: .debug, category: .auth)
                         }

@@ -7,7 +7,6 @@ struct LearnTacticsView: View {
   @EnvironmentObject private var communityService: CommunityService
 
   @Environment(\.dismiss) private var dismiss
-  @Environment(\.navigateTo) private var navigateTo
 
   private var lessonsURL: URL {
     URL(string: communityService.activeCommunityConfig.resolvedLearnUrl)
@@ -16,21 +15,7 @@ struct LearnTacticsView: View {
 
   var body: some View {
     DarkPageTemplate(bottomToolbar: {
-      ToolbarTab(icon: "house", label: "Home") {
-        navigateTo(nil)
-      }
-      ToolbarTab(icon: "suitcase", label: "My Trip") {
-        navigateTo(.trip)
-      }
-      ToolbarTab(icon: "cloud.sun", label: "Conditions") {
-        navigateTo(.conditions)
-      }
-      ToolbarTab(icon: "book", label: "Learn") {
-        // Already on Learn — no-op
-      }
-      ToolbarTab(icon: "message", label: "Social") {
-        navigateTo(.community)
-      }
+      RoleAwareToolbar(activeTab: "learn")
     }) {
       WebView(url: lessonsURL)
         .ignoresSafeArea(edges: .bottom)
