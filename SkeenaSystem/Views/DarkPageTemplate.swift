@@ -43,7 +43,7 @@ extension EnvironmentValues {
 
 /// Destinations the guide toolbar can navigate to.
 enum GuideDestination: Hashable {
-  case trips, catches, community, observations, conditions, learn
+  case trips, catches, community, observations, conditions, learn, explore
 }
 
 private struct GuideNavigateToKey: EnvironmentKey {
@@ -112,8 +112,8 @@ struct RoleAwareToolbar: View {
     ToolbarTab(icon: "message", label: "Social") {
       if activeTab != "community" { guideNavigateTo(.community) }
     }
-    ToolbarTab(icon: "book", label: "Learn") {
-      if activeTab != "learn" { guideNavigateTo(.learn) }
+    ToolbarTab(icon: "safari", label: "Explore") {
+      if activeTab != "explore" { guideNavigateTo(.explore) }
     }
   }
 

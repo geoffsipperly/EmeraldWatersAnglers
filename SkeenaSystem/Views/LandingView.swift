@@ -97,6 +97,9 @@ struct LandingView: View {
         case .learn:
           // Guides don't use Learn — should not be reached
           EmptyView()
+        case .explore:
+          // Guides don't use Explore — should not be reached
+          EmptyView()
         }
       }
       .toolbar {

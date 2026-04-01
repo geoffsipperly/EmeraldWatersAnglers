@@ -43,14 +43,14 @@ final class PublicRoleViewTests: XCTestCase {
   // MARK: - Public toolbar snapshot
 
   func testSnapshot_publicToolbarTabs_fiveTabsNoTrips() {
-    // SNAPSHOT: Public toolbar — Home, Catches, Conditions, Social, Observations.
+    // SNAPSHOT: Public toolbar — Home, Catches, Conditions, Social, Explore.
     // Must NOT contain a Trips tab.
     let tabs: [(icon: String, label: String)] = [
       ("house", "Home"),
       ("camera.viewfinder", "Catches"),
       ("cloud.sun", "Conditions"),
       ("message", "Social"),
-      ("waveform", "Observations")
+      ("safari", "Explore")
     ]
     XCTAssertEqual(tabs.count, 5,
                    "SNAPSHOT: Public toolbar must have exactly 5 tabs")
@@ -60,7 +60,7 @@ final class PublicRoleViewTests: XCTestCase {
     XCTAssertEqual(tabs[1].label, "Catches",     "SNAPSHOT: Tab 2 is Catches")
     XCTAssertEqual(tabs[2].label, "Conditions",  "SNAPSHOT: Tab 3 is Conditions")
     XCTAssertEqual(tabs[3].label, "Social",      "SNAPSHOT: Tab 4 is Social")
-    XCTAssertEqual(tabs[4].label, "Observations","SNAPSHOT: Tab 5 is Observations")
+    XCTAssertEqual(tabs[4].label, "Explore",     "SNAPSHOT: Tab 5 is Explore")
   }
 
   func testSnapshot_publicToolbarTabs_iconsMatchDesign() {
@@ -69,18 +69,18 @@ final class PublicRoleViewTests: XCTestCase {
       ("camera.viewfinder", "Catches"),
       ("cloud.sun", "Conditions"),
       ("message", "Social"),
-      ("waveform", "Observations")
+      ("safari", "Explore")
     ]
     XCTAssertEqual(tabs[0].icon, "house")
     XCTAssertEqual(tabs[1].icon, "camera.viewfinder")
     XCTAssertEqual(tabs[2].icon, "cloud.sun")
     XCTAssertEqual(tabs[3].icon, "message")
-    XCTAssertEqual(tabs[4].icon, "waveform")
+    XCTAssertEqual(tabs[4].icon, "safari")
   }
 
   func testSnapshot_publicToolbarDiffersFromGuideToolbar() {
     let guideTabs: Set<String>  = ["Home", "Trips", "Catches", "Community", "Observations"]
-    let publicTabs: Set<String> = ["Home", "Catches", "Conditions", "Social", "Observations"]
+    let publicTabs: Set<String> = ["Home", "Catches", "Conditions", "Social", "Explore"]
     XCTAssertNotEqual(guideTabs, publicTabs,
                       "Public and guide toolbars must be distinct tab sets")
     XCTAssertFalse(publicTabs.contains("Trips"),
@@ -89,6 +89,8 @@ final class PublicRoleViewTests: XCTestCase {
                   "Public toolbar must contain Conditions")
     XCTAssertTrue(publicTabs.contains("Social"),
                   "Public toolbar must contain Social (maps to Community forum)")
+    XCTAssertTrue(publicTabs.contains("Explore"),
+                  "Public toolbar must contain Explore")
   }
 
   // MARK: - ReportChatView alwaysSolo

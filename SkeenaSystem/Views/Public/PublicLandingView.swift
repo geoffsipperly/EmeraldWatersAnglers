@@ -169,6 +169,10 @@ struct PublicLandingView: View {
             .environment(\.userRole, .public)
             .environment(\.guideNavigateTo, handleNavigateTo)
             .environmentObject(communityService)
+        case .explore:
+          ExploreView()
+            .environment(\.userRole, .public)
+            .environment(\.guideNavigateTo, handleNavigateTo)
         }
       }
       .toolbar {
@@ -323,6 +327,35 @@ struct PublicLandingView: View {
         .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal, 16)
 
+        // ── Fisheries Conditions ───────────────────────────────────────
+        Button { handleNavigateTo(.conditions) } label: {
+          HStack(spacing: 8) {
+            Image(systemName: "water.waves")
+              .font(.caption)
+              .foregroundColor(.white)
+            Text("Fisheries Conditions")
+              .font(.caption.weight(.semibold))
+              .foregroundColor(.white)
+            Spacer()
+            Image(systemName: "chevron.right")
+              .font(.caption.weight(.semibold))
+              .foregroundColor(.white.opacity(0.4))
+          }
+          .padding(.horizontal, 16)
+          .padding(.vertical, 10)
+          .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+        .accessibilityIdentifier("fishingForecastTile")
+
+        // Section divider
+        Rectangle()
+          .fill(Color.white.opacity(0.12))
+          .frame(height: 0.5)
+          .padding(.vertical, 2)
+
         // Catch photo carousel
         if E_CATCH_CAROUSEL {
           VStack(alignment: .leading, spacing: 8) {
@@ -378,57 +411,7 @@ struct PublicLandingView: View {
             .padding(.horizontal, 16)
         }
 
-        // Section divider
-        Rectangle()
-          .fill(Color.white.opacity(0.12))
-          .frame(height: 0.5)
-          .padding(.vertical, 2)
-
-        // Explore section (placeholder)
-        VStack(alignment: .leading, spacing: 12) {
-          Text("Explore")
-            .font(.subheadline.weight(.semibold))
-            .foregroundColor(.white)
-            .padding(.horizontal, 16)
-
-          // Citizen Scientists video tile
-          Button { } label: {
-            ZStack(alignment: .bottomLeading) {
-              Image("CitizenScientists")
-                .resizable()
-                .scaledToFill()
-                .frame(height: 120)
-                .clipped()
-                .overlay(
-                  LinearGradient(
-                    colors: [.clear, .black.opacity(0.7)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                  )
-                )
-
-              HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 2) {
-                  Text("Citizen Scientists")
-                    .font(.subheadline.weight(.bold))
-                    .foregroundColor(.white)
-                  Text("Learn how you can contribute")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.8))
-                }
-                Spacer()
-                Image(systemName: "play.circle.fill")
-                  .font(.title)
-                  .foregroundColor(.white.opacity(0.9))
-              }
-              .padding(12)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-          }
-          .buttonStyle(.plain)
-          .padding(.horizontal, 16)
-        }
-        .padding(.bottom, 16)
+        Spacer(minLength: 8)
       }
     }
   }
@@ -465,7 +448,7 @@ struct PublicLandingView: View {
           Color.white.opacity(0.08)
         }
       }
-      .frame(width: 115, height: 115)
+      .frame(width: 140, height: 140)
       .clipped()
 
       HStack {
@@ -485,7 +468,7 @@ struct PublicLandingView: View {
       .padding(.vertical, 5)
       .background(Color.white.opacity(0.06))
     }
-    .frame(width: 115)
+    .frame(width: 140)
     .clipShape(RoundedRectangle(cornerRadius: 10))
   }
 
