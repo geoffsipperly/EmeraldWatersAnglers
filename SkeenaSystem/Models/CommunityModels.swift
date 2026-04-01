@@ -14,7 +14,7 @@ import Foundation
 struct CommunityMembership: Codable, Identifiable {
     let id: String
     let communityId: String
-    let role: String  // "guide" or "angler"
+    let role: String  // "guide", "angler", or "public"
     let communities: CommunityInfo
 
     enum CodingKeys: String, CodingKey {
@@ -42,6 +42,9 @@ struct CommunityInfo: Codable, Identifiable {
     // Geography (JSONB from communities table)
     let geography: CommunityGeography?
 
+    // Unit system: "metric" or "imperial" (defaults to "metric" if absent)
+    let units: String?
+
     // Nested join to community_types (singular — 1:1 via community_type_id FK)
     let communityTypes: CommunityTypeInfo?
 
@@ -55,6 +58,7 @@ struct CommunityInfo: Codable, Identifiable {
         case displayName = "display_name"
         case learnUrl = "learn_url"
         case geography
+        case units
         case communityTypes = "community_types"
     }
 
@@ -68,7 +72,8 @@ struct CommunityInfo: Codable, Identifiable {
             displayName: displayName,
             learnUrl: learnUrl,
             entitlements: communityTypes?.entitlements ?? [:],
-            geography: geography ?? .empty
+            geography: geography ?? .empty,
+            units: units
         )
     }
 }

@@ -84,6 +84,33 @@ struct PublicLandingView: View {
   @State private var errorText: String?
   @State private var goToCatchMap = false
 
+  // Map reports (same data source as guide LandingView)
+  @State private var mapReports: [MapReportDTO] = []
+
+  // Location (for weather)
+  @StateObject private var locationManager = LocationManager()
+
+  // Live weather
+  private struct LiveWeather {
+    let locationName: String
+    let condition: String
+    let icon: String
+    let temp: Int
+    let windDir: String
+    let windSpeed: Int
+    let pressureVal: Int
+    let pressureTrend: WeatherPressureTrend
+    struct HourlySlot: Identifiable {
+      var id: String { hour }
+      let hour: String
+      let icon: String
+      let temp: Int
+      let precipChance: Int
+    }
+    let hourly: [HourlySlot]
+  }
+  @State private var liveWeather: LiveWeather? = nil
+
   // Path-based nav for toolbar navigation
   @State private var navPath = NavigationPath()
 
@@ -105,7 +132,15 @@ struct PublicLandingView: View {
           .environmentObject(auth)
       }
       .navigationDestination(isPresented: $goToCatchMap) {
-        AnglerCatchMapView(reports: reports)
+        DarkPageTemplate {
+          VStack(spacing: 4) {
+            GuideLandingMapView(reports: mapReports)
+              .ignoresSafeArea(edges: .bottom)
+            GuideLandingMapLegend()
+              .padding(.bottom, 8)
+          }
+        }
+        .navigationTitle("Catch Map")
       }
       .navigationDestination(for: GuideDestination.self) { dest in
         switch dest {
@@ -152,9 +187,17 @@ struct PublicLandingView: View {
           .accessibilityIdentifier("logoutCapsule")
         }
       }
-      .onAppear { }
+      .onAppear {
+        locationManager.request()
+        locationManager.start()
+      }
+      .onChange(of: locationManager.lastLocation) { loc in
+        guard liveWeather == nil, let loc else { return }
+        Task { await fetchWeather(location: loc) }
+      }
       .task {
         if reports.isEmpty { await fetchReports() }
+        await fetchMapReports()
       }
     }
     .environment(\.userRole, .public)
@@ -166,17 +209,22 @@ struct PublicLandingView: View {
 
   private var content: some View {
     ScrollView {
-      VStack(spacing: 12) {
-        // Compact logo
-        CommunityLogoView(config: communityService.activeCommunityConfig, size: 100)
-          .padding(.top, 12)
+      VStack(spacing: 8) {
 
-        // Welcome row — greeting + Record capsule
-        HStack(alignment: .center) {
-          Text("Welcome, \(auth.currentFirstName ?? "")!")
-            .font(.title3.weight(.semibold))
+        // ── Header: name → logo → record ──────────────────────────────
+        VStack(spacing: 0) {
+          // User name — left aligned
+          Text("\(auth.currentFirstName ?? "") \(auth.currentLastName ?? "")")
+            .font(.caption.weight(.semibold))
             .foregroundColor(.white)
-          Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
+
+          // Community logo — centred
+          CommunityLogoView(config: communityService.activeCommunityConfig, size: 160)
+            .frame(maxWidth: .infinity)
+
+          // Record capsule — right aligned, directly below logo
           Button { showRecordActivity = true } label: {
             Text("Record")
               .font(.caption.weight(.bold))
@@ -186,64 +234,94 @@ struct PublicLandingView: View {
               .background(Color.blue, in: Capsule())
           }
           .buttonStyle(.plain)
+          .frame(maxWidth: .infinity, alignment: .trailing)
+          .padding(.horizontal, 20)
+          .padding(.top, 4)
           .accessibilityIdentifier("recordActivityButton")
         }
-        .padding(.horizontal, 20)
+        .padding(.top, 12)
 
-        // Weather tile (compact, placeholder)
-        HStack(alignment: .center, spacing: 12) {
-          // Location + condition
-          VStack(alignment: .leading, spacing: 1) {
-            Text("Smithers, BC")
-              .font(.caption.weight(.semibold))
+        // ── Weather tile ───────────────────────────────────────────────
+        VStack(spacing: 0) {
+          // Current conditions row: location | temp | wind | pressure
+          HStack(spacing: 0) {
+            Text(liveWeather?.locationName ?? "\u{2013}")
+              .font(.system(size: 11, weight: .semibold))
               .foregroundColor(.white)
-            Text("Sunny")
-              .font(.caption2)
-              .foregroundColor(.white.opacity(0.7))
+              .lineLimit(1)
+              .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(spacing: 3) {
+              Image(systemName: liveWeather?.icon ?? "thermometer")
+                .font(.caption)
+                .foregroundColor(weatherIconColor(liveWeather?.icon))
+              Text(liveWeather.map { "\(communityService.activeCommunityConfig.temperature(Double($0.temp)))\(communityService.activeCommunityConfig.tempUnit)" } ?? "\u{2013}")
+                .font(.caption.weight(.bold))
+                .foregroundColor(.white)
+            }
+            .frame(width: 56, alignment: .center)
+
+            HStack(spacing: 3) {
+              Image(systemName: "wind")
+                .font(.caption2)
+                .foregroundColor(.gray)
+              Text(liveWeather.map { "\($0.windDir) \(communityService.activeCommunityConfig.windSpeed(Double($0.windSpeed)))" } ?? "\u{2013}")
+                .font(.caption2.weight(.medium))
+                .foregroundColor(.white)
+            }
+            .frame(width: 56, alignment: .center)
+
+            HStack(spacing: 3) {
+              Image(systemName: "barometer")
+                .font(.caption2)
+                .foregroundColor(.gray)
+              Text(liveWeather.map { "\($0.pressureVal)" } ?? "\u{2013}")
+                .font(.caption2.weight(.medium))
+                .foregroundColor(.white)
+              Image(systemName: liveWeather?.pressureTrend.sfSymbol ?? "minus")
+                .font(.system(size: 8))
+                .foregroundColor(pressureTrendColor(liveWeather?.pressureTrend))
+            }
+            .frame(width: 64, alignment: .center)
           }
+          .padding(.horizontal, 14)
+          .padding(.top, 8)
+          .padding(.bottom, 6)
 
-          Spacer()
+          // Hourly strip
+          if let hourly = liveWeather?.hourly, !hourly.isEmpty {
+            Rectangle()
+              .fill(Color.white.opacity(0.12))
+              .frame(height: 0.5)
+              .padding(.horizontal, 14)
 
-          // Wind
-          HStack(spacing: 3) {
-            Image(systemName: "wind")
-              .font(.caption2)
-              .foregroundColor(.gray)
-            Text("W 10")
-              .font(.caption2.weight(.medium))
-              .foregroundColor(.white)
-          }
-
-          // Pressure
-          HStack(spacing: 3) {
-            Image(systemName: "barometer")
-              .font(.caption2)
-              .foregroundColor(.gray)
-            Image(systemName: "arrow.up.right")
-              .font(.caption2)
-              .foregroundColor(.green)
-          }
-
-          // Temp
-          HStack(spacing: 3) {
-            Image(systemName: "sun.max.fill")
-              .font(.caption)
-              .foregroundColor(.yellow)
-            Text("8\u{00B0}C")
-              .font(.caption.weight(.bold))
-              .foregroundColor(.white)
+            HStack(spacing: 0) {
+              ForEach(hourly) { slot in
+                VStack(alignment: .center, spacing: 2) {
+                  Text(slot.hour)
+                    .font(.system(size: 9))
+                    .foregroundColor(.gray)
+                  Image(systemName: slot.icon)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 16, height: 16)
+                    .foregroundColor(weatherIconColor(slot.icon))
+                  Text("\(communityService.activeCommunityConfig.temperature(Double(slot.temp)))\u{00B0}")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundColor(.white)
+                  Text(slot.precipChance > 0 ? "\(slot.precipChance)%" : " ")
+                    .font(.system(size: 9))
+                    .foregroundColor(.cyan)
+                }
+                .frame(maxWidth: .infinity)
+              }
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 6)
           }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
         .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal, 16)
-
-        // Section divider
-        Rectangle()
-          .fill(Color.white.opacity(0.12))
-          .frame(height: 0.5)
-          .padding(.vertical, 2)
 
         // Catch photo carousel
         if E_CATCH_CAROUSEL {
@@ -319,7 +397,7 @@ struct PublicLandingView: View {
               Image("CitizenScientists")
                 .resizable()
                 .scaledToFill()
-                .frame(height: 160)
+                .frame(height: 120)
                 .clipped()
                 .overlay(
                   LinearGradient(
@@ -459,6 +537,83 @@ struct PublicLandingView: View {
       AppLogging.log("[PublicLanding] Network error fetching catches: \(error.localizedDescription)", level: .error, category: .catch)
       errorText = "Unable to load catch reports. Please check your connection and try again."
     }
+  }
+
+  // MARK: - Map reports
+
+  private func fetchMapReports() async {
+    guard let communityId = CommunityService.shared.activeCommunityId else { return }
+    do {
+      let reports = try await MapReportService.fetch(communityId: communityId, memberId: auth.currentMemberId)
+      await MainActor.run { mapReports = reports }
+    } catch {
+      AppLogging.log("[PublicLanding] Map reports fetch failed: \(error.localizedDescription)", level: .error, category: .network)
+    }
+  }
+
+  // MARK: - Weather
+
+  private func fetchWeather(location: CLLocation) async {
+    let lat = location.coordinate.latitude
+    let lon = location.coordinate.longitude
+
+    // Reverse geocode for city name
+    let geocoder = CLGeocoder()
+    let locationName: String
+    if let placemark = try? await geocoder.reverseGeocodeLocation(location).first {
+      let city = placemark.locality
+        ?? placemark.subLocality
+        ?? placemark.subAdministrativeArea
+        ?? ""
+      let state = placemark.administrativeArea ?? ""
+      locationName = [city, state].filter { !$0.isEmpty }.joined(separator: ", ")
+    } else {
+      locationName = ""
+    }
+
+    do {
+      let response = try await WeatherSnapshotService.fetch(lat: lat, lon: lon)
+      let w = response.current
+      let slots = response.hourlyForecast.map { h in
+        LiveWeather.HourlySlot(
+          hour: WeatherSnapshotService.hourLabel(from: h.time),
+          icon: WeatherSnapshotService.conditionIcon(for: h.weatherCode),
+          temp: Int(h.temperature.rounded()),
+          precipChance: h.precipitationProbability
+        )
+      }
+      await MainActor.run {
+        liveWeather = LiveWeather(
+          locationName: locationName,
+          condition: WeatherSnapshotService.conditionText(for: w.weatherCode),
+          icon: WeatherSnapshotService.conditionIcon(for: w.weatherCode),
+          temp: Int(w.temperature.rounded()),
+          windDir: WeatherSnapshotService.windCardinal(from: w.windDirection),
+          windSpeed: Int(w.windSpeed.rounded()),
+          pressureVal: Int(w.pressure.rounded()),
+          pressureTrend: WeatherSnapshotService.pressureTrend(current: w.pressure, hourly: response.hourlyForecast),
+          hourly: slots
+        )
+      }
+    } catch {
+      AppLogging.log("[Weather] Fetch failed: \(error.localizedDescription)", level: .error, category: .network)
+    }
+  }
+
+  private func pressureTrendColor(_ trend: WeatherPressureTrend?) -> Color {
+    switch trend {
+    case .rising:  return .green
+    case .falling: return .red
+    default:       return .gray
+    }
+  }
+
+  private func weatherIconColor(_ icon: String?) -> Color {
+    guard let icon else { return .gray }
+    if icon.contains("sun") { return .yellow }
+    if icon.contains("snow") { return .cyan }
+    if icon.contains("bolt") { return .yellow }
+    return .gray
   }
 
   private func logoutTapped() {

@@ -264,6 +264,7 @@ final class AnglerLandingViewTests: XCTestCase {
     switch t {
     case .guide: return "LandingView"
     case .angler: return "AnglerLandingView"
+    case .public: return "PublicLandingView"
     }
   }
 

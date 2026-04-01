@@ -24,7 +24,7 @@ struct MapReportsResponse: Decodable {
 
 enum MapReportService {
 
-  static func fetch(communityId: String) async throws -> [MapReportDTO] {
+  static func fetch(communityId: String, memberId: String? = nil) async throws -> [MapReportDTO] {
     let base = AppEnvironment.shared.projectURL
     guard var comps = URLComponents(url: base, resolvingAgainstBaseURL: false) else {
       throw URLError(.badURL)
@@ -34,11 +34,15 @@ enum MapReportService {
     let iso = ISO8601DateFormatter()
     let toDate = iso.string(from: Date())
     let fromDate = iso.string(from: Calendar.current.date(byAdding: .year, value: -1, to: Date()) ?? Date())
-    comps.queryItems = [
+    var queryItems = [
       URLQueryItem(name: "community_id", value: communityId),
       URLQueryItem(name: "from_date",    value: fromDate),
       URLQueryItem(name: "to_date",      value: toDate),
     ]
+    if let memberId {
+      queryItems.append(URLQueryItem(name: "member_id", value: memberId))
+    }
+    comps.queryItems = queryItems
     guard let url = comps.url else { throw URLError(.badURL) }
 
     AppLogging.log("[MapReports] REQUEST → \(url.absoluteString)", level: .debug, category: .network)

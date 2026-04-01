@@ -122,8 +122,13 @@ final class CommunityServiceTests: XCTestCase {
     await svc.fetchMemberships()
 
     XCTAssertEqual(svc.memberships.count, 1)
-    // No longer auto-selects — picker is always shown so users can join more communities
-    XCTAssertNil(svc.activeCommunityId, "Should leave selection nil so picker is shown")
+    // Single community auto-selects and skips the picker
+    XCTAssertEqual(svc.activeCommunityId, "comm-uuid-1",
+                   "Single community should auto-select")
+    XCTAssertEqual(svc.activeRole, "guide",
+                   "Role should be set from the auto-selected community")
+    XCTAssertEqual(svc.defaultCommunityId, "comm-uuid-1",
+                   "Auto-selected community should be set as default")
     XCTAssertFalse(svc.hasMultipleCommunities)
   }
 
@@ -565,8 +570,10 @@ final class CommunityServiceTests: XCTestCase {
 
   func testFetchMemberships_withInvalidDefault_clearsDefaultAndShowsPicker() async {
     setAccessToken("valid-token")
+    // Use TWO communities so single-community auto-select does not kick in
     let m1 = makeSingleMembership(communityId: "c-1", communityName: "Comm A", role: "guide", code: "AAA111")
-    let data = makeMembershipsJSON([m1])
+    let m2 = makeSingleMembership(communityId: "c-2", communityName: "Comm B", role: "angler", code: "BBB222")
+    let data = makeMembershipsJSON([m1, m2])
 
     MockURLProtocol.requestHandler = { request in
       guard let url = request.url else { throw URLError(.badURL) }
@@ -856,5 +863,171 @@ final class CommunityServiceTests: XCTestCase {
     XCTAssertFalse(svc.hasMultipleCommunities,
                    "Should not count inactive communities — only 1 active")
     XCTAssertEqual(svc.memberships.count, 1)
+    // Single active community auto-selects
+    XCTAssertEqual(svc.activeCommunityId, "c-1",
+                   "Single remaining active community should auto-select")
+  }
+
+  // MARK: - Tests: Single community auto-select (regression)
+
+  func testFetchMemberships_singleCommunity_publicRole_autoSelects() async {
+    setAccessToken("valid-token")
+    let membership = makeSingleMembership(communityId: "pub-comm-1", communityName: "Public Community", role: "public", code: "PUB001")
+    let data = makeMembershipsJSON([membership])
+
+    MockURLProtocol.requestHandler = { request in
+      guard let url = request.url else { throw URLError(.badURL) }
+      if url.path.contains("/rest/v1/user_communities") {
+        return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+      }
+      return (HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!, nil)
+    }
+
+    let svc = CommunityService.shared
+    await svc.fetchMemberships()
+
+    XCTAssertEqual(svc.activeCommunityId, "pub-comm-1",
+                   "Single public community should auto-select")
+    XCTAssertEqual(svc.activeRole, "public",
+                   "Role should be 'public' from the auto-selected community")
+    XCTAssertEqual(svc.defaultCommunityId, "pub-comm-1",
+                   "Auto-selected community should be set as default")
+  }
+
+  func testFetchMemberships_singleCommunity_anglerRole_autoSelects() async {
+    setAccessToken("valid-token")
+    let membership = makeSingleMembership(communityId: "ang-comm-1", communityName: "Angler Community", role: "angler", code: "ANG001")
+    let data = makeMembershipsJSON([membership])
+
+    MockURLProtocol.requestHandler = { request in
+      guard let url = request.url else { throw URLError(.badURL) }
+      if url.path.contains("/rest/v1/user_communities") {
+        return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+      }
+      return (HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!, nil)
+    }
+
+    let svc = CommunityService.shared
+    await svc.fetchMemberships()
+
+    XCTAssertEqual(svc.activeCommunityId, "ang-comm-1",
+                   "Single angler community should auto-select")
+    XCTAssertEqual(svc.activeRole, "angler",
+                   "Role should be 'angler' from the auto-selected community")
+  }
+
+  func testFetchMemberships_singleCommunity_autoSelectSyncsRoleToAuthService() async {
+    setAccessToken("valid-token")
+    let membership = makeSingleMembership(communityId: "pub-comm-1", communityName: "Public Community", role: "public", code: "PUB001")
+    let data = makeMembershipsJSON([membership])
+
+    MockURLProtocol.requestHandler = { request in
+      guard let url = request.url else { throw URLError(.badURL) }
+      if url.path.contains("/rest/v1/user_communities") {
+        return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+      }
+      return (HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!, nil)
+    }
+
+    let svc = CommunityService.shared
+    await svc.fetchMemberships()
+
+    // Give MainActor time to process the updateUserType call
+    try? await Task.sleep(nanoseconds: 100_000_000)
+
+    XCTAssertEqual(AuthService.shared.currentUserType, .public,
+                   "Single-community auto-select should sync public role to AuthService")
+  }
+
+  func testFetchMemberships_singleCommunity_withExistingDefault_usesDefault() async {
+    setAccessToken("valid-token")
+    let membership = makeSingleMembership(communityId: "comm-1", communityName: "Only Community", role: "guide", code: "ONL001")
+    let data = makeMembershipsJSON([membership])
+
+    MockURLProtocol.requestHandler = { request in
+      guard let url = request.url else { throw URLError(.badURL) }
+      if url.path.contains("/rest/v1/user_communities") {
+        return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+      }
+      return (HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!, nil)
+    }
+
+    let svc = CommunityService.shared
+    // User previously set this as default
+    svc.setDefaultCommunity(id: "comm-1")
+    svc.clear() // logout
+
+    await svc.fetchMemberships()
+
+    // Should auto-select via default path (not single-community path)
+    XCTAssertEqual(svc.activeCommunityId, "comm-1",
+                   "Should auto-select via default community")
+    XCTAssertEqual(svc.activeRole, "guide")
+  }
+
+  func testFetchMemberships_multipleCommunities_noDefault_showsPicker() async {
+    setAccessToken("valid-token")
+    let m1 = makeSingleMembership(communityId: "c-1", communityName: "Comm A", role: "guide", code: "AAA111")
+    let m2 = makeSingleMembership(communityId: "c-2", communityName: "Comm B", role: "public", code: "BBB222")
+    let data = makeMembershipsJSON([m1, m2])
+
+    MockURLProtocol.requestHandler = { request in
+      guard let url = request.url else { throw URLError(.badURL) }
+      if url.path.contains("/rest/v1/user_communities") {
+        return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+      }
+      return (HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!, nil)
+    }
+
+    let svc = CommunityService.shared
+    await svc.fetchMemberships()
+
+    XCTAssertNil(svc.activeCommunityId,
+                 "Multiple communities with no default should show picker")
+    XCTAssertEqual(svc.memberships.count, 2)
+  }
+
+  // MARK: - Tests: MapReportService member_id parameter
+
+  func testMapReportService_includesMemberIdQueryParam() async {
+    var capturedURL: URL?
+
+    MockURLProtocol.requestHandler = { request in
+      capturedURL = request.url
+      guard let url = request.url else { throw URLError(.badURL) }
+      let response: [String: Any] = ["reports": [], "count": 0]
+      let data = try! JSONSerialization.data(withJSONObject: response)
+      return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+    }
+
+    setAccessToken("valid-token")
+    _ = try? await MapReportService.fetch(communityId: "test-comm", memberId: "test-member-123")
+
+    XCTAssertNotNil(capturedURL, "Should have made a network request")
+    let components = URLComponents(url: capturedURL!, resolvingAgainstBaseURL: false)
+    let memberIdParam = components?.queryItems?.first(where: { $0.name == "member_id" })
+    XCTAssertEqual(memberIdParam?.value, "test-member-123",
+                   "Should include member_id query parameter when provided")
+  }
+
+  func testMapReportService_omitsMemberIdWhenNil() async {
+    var capturedURL: URL?
+
+    MockURLProtocol.requestHandler = { request in
+      capturedURL = request.url
+      guard let url = request.url else { throw URLError(.badURL) }
+      let response: [String: Any] = ["reports": [], "count": 0]
+      let data = try! JSONSerialization.data(withJSONObject: response)
+      return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+    }
+
+    setAccessToken("valid-token")
+    _ = try? await MapReportService.fetch(communityId: "test-comm")
+
+    XCTAssertNotNil(capturedURL, "Should have made a network request")
+    let components = URLComponents(url: capturedURL!, resolvingAgainstBaseURL: false)
+    let memberIdParam = components?.queryItems?.first(where: { $0.name == "member_id" })
+    XCTAssertNil(memberIdParam,
+                 "Should not include member_id query parameter when nil")
   }
 }

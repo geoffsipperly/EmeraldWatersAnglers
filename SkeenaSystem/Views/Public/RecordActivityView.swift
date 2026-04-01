@@ -58,6 +58,36 @@ struct RecordActivityView: View {
             }
           }
           .padding(.horizontal, 16)
+
+          Spacer(minLength: 24)
+
+          // Explanatory text
+          VStack(alignment: .leading, spacing: 12) {
+            ForEach([
+              ("eye",                  "Active",     "You saw signs of fish but didn't hook up."),
+              ("leaf.arrow.circlepath","Farmed",     "You hooked a fish but lost it before landing."),
+              ("sparkles",             "Promising",  "The spot looked promising and you want to remember it."),
+              ("xmark.circle",         "Passed",     "You checked the spot and decided to move on."),
+            ], id: \.1) { icon, title, description in
+              HStack(alignment: .top, spacing: 10) {
+                Image(systemName: icon)
+                  .font(.caption)
+                  .foregroundColor(.white.opacity(0.5))
+                  .frame(width: 16, alignment: .center)
+                  .padding(.top, 1)
+                VStack(alignment: .leading, spacing: 2) {
+                  Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.white)
+                  Text(description)
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.55))
+                }
+              }
+            }
+          }
+          .padding(.horizontal, 20)
+          .padding(.bottom, 24)
         }
       }
     }

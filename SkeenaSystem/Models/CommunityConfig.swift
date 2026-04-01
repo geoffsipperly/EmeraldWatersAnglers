@@ -28,6 +28,39 @@ struct CommunityConfig: Codable, Equatable {
 
     let geography: CommunityGeography
 
+    // MARK: - Units ("imperial" | "metric", defaults to "metric")
+
+    let units: String?
+
+    /// True when the community uses imperial measurements (°F, mph, in, mi).
+    var isImperial: Bool { units == "imperial" }
+
+    // MARK: - Unit conversion helpers
+
+    /// °C → °F (or passthrough for metric)
+    func temperature(_ celsius: Double) -> Int {
+        isImperial ? Int((celsius * 9 / 5 + 32).rounded()) : Int(celsius.rounded())
+    }
+
+    /// Temperature unit label
+    var tempUnit: String { isImperial ? "°F" : "°C" }
+
+    /// km/h → mph (or passthrough for metric)
+    func windSpeed(_ kmh: Double) -> Int {
+        isImperial ? Int((kmh * 0.621371).rounded()) : Int(kmh.rounded())
+    }
+
+    /// Wind speed unit label
+    var windUnit: String { isImperial ? "mph" : "km/h" }
+
+    /// inches → cm (or passthrough for imperial)
+    func length(_ inches: Double) -> Double {
+        isImperial ? inches : inches * 2.54
+    }
+
+    /// Length unit label
+    var lengthUnit: String { isImperial ? "in" : "cm" }
+
     // MARK: - Entitlement accessor with xcconfig fallback
 
     /// Returns the backend entitlement value if present, otherwise falls back to
@@ -107,6 +140,7 @@ struct CommunityConfig: Codable, Equatable {
         displayName: nil,
         learnUrl: nil,
         entitlements: [:],
-        geography: .empty
+        geography: .empty,
+        units: nil
     )
 }

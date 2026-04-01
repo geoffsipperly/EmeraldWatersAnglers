@@ -11,7 +11,8 @@ final class CommunityConfigTests: XCTestCase {
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: nil, learnUrl: nil,
             entitlements: ["E_TEST_FLAG": true],
-            geography: .empty
+            geography: .empty,
+            units: nil
         )
         XCTAssertTrue(config.flag("E_TEST_FLAG"),
                       "Should return backend value when key is present")
@@ -21,7 +22,8 @@ final class CommunityConfigTests: XCTestCase {
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: nil, learnUrl: nil,
             entitlements: ["E_TEST_FLAG": false],
-            geography: .empty
+            geography: .empty,
+            units: nil
         )
         XCTAssertFalse(config.flag("E_TEST_FLAG"),
                        "Should return false when backend explicitly sets it to false")
@@ -46,7 +48,8 @@ final class CommunityConfigTests: XCTestCase {
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: nil, learnUrl: nil,
             entitlements: ["E_CATCH_CAROUSEL": false],
-            geography: .empty
+            geography: .empty,
+            units: nil
         )
         XCTAssertFalse(config.flag("E_CATCH_CAROUSEL"),
                        "Backend value should override xcconfig value")
@@ -58,7 +61,8 @@ final class CommunityConfigTests: XCTestCase {
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: "BendFlyShopLogo", tagline: nil, displayName: nil, learnUrl: nil,
             entitlements: [:],
-            geography: .empty
+            geography: .empty,
+            units: nil
         )
         XCTAssertEqual(config.resolvedLogoAssetName, "BendFlyShopLogo")
     }
@@ -73,7 +77,8 @@ final class CommunityConfigTests: XCTestCase {
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: "", tagline: nil, displayName: nil, learnUrl: nil,
             entitlements: [:],
-            geography: .empty
+            geography: .empty,
+            units: nil
         )
         XCTAssertEqual(config.resolvedLogoAssetName, AppEnvironment.shared.appLogoAsset,
                        "Should fall back to xcconfig when asset name is empty string")
@@ -83,7 +88,8 @@ final class CommunityConfigTests: XCTestCase {
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: "Custom Name", learnUrl: nil,
             entitlements: [:],
-            geography: .empty
+            geography: .empty,
+            units: nil
         )
         XCTAssertEqual(config.resolvedDisplayName, "Custom Name")
     }
@@ -97,7 +103,8 @@ final class CommunityConfigTests: XCTestCase {
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: "Custom Tagline", displayName: nil, learnUrl: nil,
             entitlements: [:],
-            geography: .empty
+            geography: .empty,
+            units: nil
         )
         XCTAssertEqual(config.resolvedTagline, "Custom Tagline")
     }
@@ -156,7 +163,8 @@ final class CommunityConfigTests: XCTestCase {
                 defaultRiver: "Hoh River", lodgeRivers: ["Hoh River"],
                 defaultWaterBody: "Puget Sound", lodgeWaterBodies: ["Puget Sound"],
                 forecastLocation: "Western WA", defaultMapLatitude: 47.9, defaultMapLongitude: -122.8
-            )
+            ),
+            units: nil
         )
 
         let data = try JSONEncoder().encode(original)
@@ -190,6 +198,7 @@ final class CommunityConfigTests: XCTestCase {
                 defaultWaterBody: nil, lodgeWaterBodies: nil,
                 forecastLocation: "Western WA", defaultMapLatitude: 47.9, defaultMapLongitude: -122.8
             ),
+            units: nil,
             communityTypes: typeInfo
         )
 
@@ -219,6 +228,7 @@ final class CommunityConfigTests: XCTestCase {
             displayName: nil,
             learnUrl: nil,
             geography: nil,
+            units: nil,
             communityTypes: nil
         )
 
@@ -233,11 +243,11 @@ final class CommunityConfigTests: XCTestCase {
     func testEquatable_sameValues_areEqual() {
         let a = CommunityConfig(
             logoUrl: "url", logoAssetName: "asset", tagline: "tag", displayName: "name", learnUrl: nil,
-            entitlements: ["E_A": true], geography: .empty
+            entitlements: ["E_A": true], geography: .empty, units: nil
         )
         let b = CommunityConfig(
             logoUrl: "url", logoAssetName: "asset", tagline: "tag", displayName: "name", learnUrl: nil,
-            entitlements: ["E_A": true], geography: .empty
+            entitlements: ["E_A": true], geography: .empty, units: nil
         )
         XCTAssertEqual(a, b)
     }
@@ -245,11 +255,11 @@ final class CommunityConfigTests: XCTestCase {
     func testEquatable_differentFlags_areNotEqual() {
         let a = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: nil, learnUrl: nil,
-            entitlements: ["E_A": true], geography: .empty
+            entitlements: ["E_A": true], geography: .empty, units: nil
         )
         let b = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: nil, learnUrl: nil,
-            entitlements: ["E_A": false], geography: .empty
+            entitlements: ["E_A": false], geography: .empty, units: nil
         )
         XCTAssertNotEqual(a, b)
     }
@@ -268,7 +278,8 @@ final class CommunityConfigTests: XCTestCase {
         )
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: nil, learnUrl: nil,
-            entitlements: [:], geography: geo
+            entitlements: [:], geography: geo,
+            units: nil
         )
 
         XCTAssertEqual(config.resolvedDefaultRiver, "Skeena River")
@@ -299,7 +310,8 @@ final class CommunityConfigTests: XCTestCase {
         )
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: nil, learnUrl: nil,
-            entitlements: [:], geography: geo
+            entitlements: [:], geography: geo,
+            units: nil
         )
         XCTAssertTrue(config.hasGeography)
     }
@@ -310,7 +322,7 @@ final class CommunityConfigTests: XCTestCase {
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: nil,
             learnUrl: "https://community.example.com/learn",
-            entitlements: [:], geography: .empty
+            entitlements: [:], geography: .empty, units: nil
         )
         XCTAssertEqual(config.resolvedLearnUrl, "https://community.example.com/learn")
     }
@@ -318,7 +330,7 @@ final class CommunityConfigTests: XCTestCase {
     func testResolvedLearnUrl_fallsBackToXcconfig_whenNil() {
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: nil, learnUrl: nil,
-            entitlements: [:], geography: .empty
+            entitlements: [:], geography: .empty, units: nil
         )
         XCTAssertEqual(config.resolvedLearnUrl, AppEnvironment.shared.defaultLearnURL,
                        "Should fall back to xcconfig DEFAULT_LEARN_URL when learnUrl is nil")
@@ -327,7 +339,7 @@ final class CommunityConfigTests: XCTestCase {
     func testResolvedLearnUrl_fallsBackToXcconfig_whenEmpty() {
         let config = CommunityConfig(
             logoUrl: nil, logoAssetName: nil, tagline: nil, displayName: nil, learnUrl: "",
-            entitlements: [:], geography: .empty
+            entitlements: [:], geography: .empty, units: nil
         )
         XCTAssertEqual(config.resolvedLearnUrl, AppEnvironment.shared.defaultLearnURL,
                        "Should fall back to xcconfig DEFAULT_LEARN_URL when learnUrl is empty string")
@@ -346,6 +358,7 @@ final class CommunityConfigTests: XCTestCase {
             displayName: nil,
             learnUrl: "https://custom.example.com/tutorials",
             geography: nil,
+            units: nil,
             communityTypes: nil
         )
         XCTAssertEqual(communityInfo.config.resolvedLearnUrl, "https://custom.example.com/tutorials")

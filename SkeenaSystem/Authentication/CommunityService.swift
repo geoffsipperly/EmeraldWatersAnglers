@@ -17,7 +17,7 @@ final class CommunityService: ObservableObject {
 
     @Published private(set) var memberships: [CommunityMembership] = []
     @Published var activeCommunityId: String?
-    @Published private(set) var activeRole: String?  // "guide" or "angler"
+    @Published private(set) var activeRole: String?  // "guide", "angler", or "public"
     @Published private(set) var activeCommunityTypeId: String?
     @Published private(set) var activeCommunityConfig: CommunityConfig = .default
     /// The user's chosen default community. Survives logout so subsequent logins
@@ -110,7 +110,7 @@ final class CommunityService: ObservableObject {
         // Build URL: GET /rest/v1/user_communities with nested joins for branding, geography + entitlements
         var comps = URLComponents(url: projectURL.appendingPathComponent("/rest/v1/user_communities"), resolvingAgainstBaseURL: false)!
         comps.queryItems = [
-            URLQueryItem(name: "select", value: "id,community_id,role,communities(id,name,code,is_active,community_type_id,logo_url,logo_asset_name,tagline,display_name,learn_url,geography,community_types(id,name,entitlements))")
+            URLQueryItem(name: "select", value: "id,community_id,role,communities(id,name,code,is_active,community_type_id,logo_url,logo_asset_name,tagline,display_name,learn_url,geography,units,community_types(id,name,entitlements))")
         ]
 
         var request = URLRequest(url: comps.url!)
@@ -185,6 +185,11 @@ final class CommunityService: ObservableObject {
                     // No active selection but user has a valid default — auto-select it
                     AppLogging.log("[CommunityService] Auto-selecting default community: id=\(defaultId)", level: .info, category: .auth)
                     self.setActiveCommunity(id: defaultId)
+                } else if fetched.count == 1, let only = fetched.first {
+                    // Single community — auto-select and skip the picker
+                    AppLogging.log("[CommunityService] Single community — auto-selecting: \(only.communities.name) role=\(only.role)", level: .info, category: .auth)
+                    self.setActiveCommunity(id: only.communityId)
+                    self.setDefaultCommunity(id: only.communityId)
                 } else {
                     // No cached selection and no valid default — show picker
                     if let defaultId = self.defaultCommunityId {

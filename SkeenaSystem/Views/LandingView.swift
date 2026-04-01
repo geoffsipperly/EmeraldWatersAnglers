@@ -167,24 +167,22 @@ struct LandingView: View {
 
   private var content: some View {
     ScrollView {
-      VStack(spacing: 12) {
-        // Name + logo lockup
-        VStack(alignment: .leading, spacing: 6) {
+      VStack(spacing: 8) {
+
+        // ── Header: name → logo → record ──────────────────────────────
+        VStack(spacing: 0) {
+          // Guide name — left aligned
           Text("\(auth.currentFirstName ?? "") \(auth.currentLastName ?? "")")
             .font(.caption.weight(.semibold))
             .foregroundColor(.white)
-          CommunityLogoView(config: communityService.activeCommunityConfig, size: 150)
-            .frame(maxWidth: .infinity)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
 
-        // "Current Conditions" label + Record capsule
-        HStack {
-          Text("Current Conditions")
-            .font(.caption.weight(.semibold))
-            .foregroundColor(.white)
-          Spacer()
+          // Community logo — centred
+          CommunityLogoView(config: communityService.activeCommunityConfig, size: 160)
+            .frame(maxWidth: .infinity)
+
+          // Record capsule — right aligned, directly below logo
           Button { showRecordActivity = true } label: {
             Text("Record")
               .font(.caption.weight(.bold))
@@ -194,45 +192,43 @@ struct LandingView: View {
               .background(Color.blue, in: Capsule())
           }
           .buttonStyle(.plain)
+          .frame(maxWidth: .infinity, alignment: .trailing)
+          .padding(.horizontal, 20)
+          .padding(.top, 4)
           .accessibilityIdentifier("recordActivityButton")
         }
-        .padding(.horizontal, 20)
-        .padding(.bottom, -4)
+        .padding(.top, 12)
 
-        // Weather tile
+        // ── Weather tile ───────────────────────────────────────────────
         VStack(spacing: 0) {
           // Current conditions row: location | temp | wind | pressure
           HStack(spacing: 0) {
-            // Location — gets remaining space, slightly smaller to stay single-line
             Text(liveWeather?.locationName ?? "–")
               .font(.system(size: 11, weight: .semibold))
               .foregroundColor(.white)
               .lineLimit(1)
               .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Temp
             HStack(spacing: 3) {
               Image(systemName: liveWeather?.icon ?? "thermometer")
                 .font(.caption)
                 .foregroundColor(weatherIconColor(liveWeather?.icon))
-              Text(liveWeather.map { "\($0.temp)\u{00B0}C" } ?? "–")
+              Text(liveWeather.map { "\(communityService.activeCommunityConfig.temperature(Double($0.temp)))\(communityService.activeCommunityConfig.tempUnit)" } ?? "–")
                 .font(.caption.weight(.bold))
                 .foregroundColor(.white)
             }
             .frame(width: 56, alignment: .center)
 
-            // Wind
             HStack(spacing: 3) {
               Image(systemName: "wind")
                 .font(.caption2)
                 .foregroundColor(.gray)
-              Text(liveWeather.map { "\($0.windDir) \($0.windSpeed)" } ?? "–")
+              Text(liveWeather.map { "\($0.windDir) \(communityService.activeCommunityConfig.windSpeed(Double($0.windSpeed)))" } ?? "–")
                 .font(.caption2.weight(.medium))
                 .foregroundColor(.white)
             }
             .frame(width: 56, alignment: .center)
 
-            // Pressure: value + trend arrow
             HStack(spacing: 3) {
               Image(systemName: "barometer")
                 .font(.caption2)
@@ -247,10 +243,10 @@ struct LandingView: View {
             .frame(width: 64, alignment: .center)
           }
           .padding(.horizontal, 14)
-          .padding(.top, 10)
-          .padding(.bottom, 8)
+          .padding(.top, 8)
+          .padding(.bottom, 6)
 
-          // Hourly forecast strip — evenly distributed
+          // Hourly strip
           if let hourly = liveWeather?.hourly, !hourly.isEmpty {
             Rectangle()
               .fill(Color.white.opacity(0.12))
@@ -259,15 +255,17 @@ struct LandingView: View {
 
             HStack(spacing: 0) {
               ForEach(hourly) { slot in
-                VStack(spacing: 3) {
+                VStack(alignment: .center, spacing: 2) {
                   Text(slot.hour)
-                    .font(.caption2)
+                    .font(.system(size: 9))
                     .foregroundColor(.gray)
                   Image(systemName: slot.icon)
-                    .font(.caption)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 16, height: 16)
                     .foregroundColor(weatherIconColor(slot.icon))
-                  Text("\(slot.temp)°")
-                    .font(.caption2.weight(.semibold))
+                  Text("\(communityService.activeCommunityConfig.temperature(Double(slot.temp)))°")
+                    .font(.system(size: 9, weight: .semibold))
                     .foregroundColor(.white)
                   Text(slot.precipChance > 0 ? "\(slot.precipChance)%" : " ")
                     .font(.system(size: 9))
@@ -276,14 +274,14 @@ struct LandingView: View {
                 .frame(maxWidth: .infinity)
               }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 6)
           }
         }
         .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal, 16)
 
-        // Fisheries Conditions button
+        // ── Fisheries Conditions ───────────────────────────────────────
         Button { handleGuideNavigateTo(.conditions) } label: {
           HStack(spacing: 8) {
             Image(systemName: "water.waves")
@@ -298,42 +296,35 @@ struct LandingView: View {
               .foregroundColor(.white.opacity(0.4))
           }
           .padding(.horizontal, 16)
-          .padding(.vertical, 14)
+          .padding(.vertical, 10)
           .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 16)
+        .padding(.bottom, 8)
         .accessibilityIdentifier("fishingForecastTile")
 
-        // Section divider
-        Rectangle()
-          .fill(Color.white.opacity(0.12))
-          .frame(height: 0.5)
-          .padding(.vertical, 4)
-
-        // Map — only rendered once reports have loaded so initialViewport
-        // is computed with real coordinates rather than the fallback defaults.
+        // ── Map ────────────────────────────────────────────────────────
         if mapReports.isEmpty {
           ZStack {
             RoundedRectangle(cornerRadius: 14)
               .fill(Color.white.opacity(0.06))
-            ProgressView()
-              .tint(.white)
+            ProgressView().tint(.white)
           }
-          .frame(height: 300)
+          .frame(height: 230)
           .padding(.horizontal, 16)
         } else {
-          GuideLandingMapView(reports: mapReports)
-            .frame(height: 300)
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .padding(.horizontal, 16)
+          VStack(spacing: 4) {
+            GuideLandingMapView(reports: mapReports)
+              .frame(height: 230)
+              .clipShape(RoundedRectangle(cornerRadius: 14))
 
-          // Legend
-          GuideLandingMapLegend()
-            .padding(.horizontal, 16)
+            GuideLandingMapLegend()
+          }
+          .padding(.horizontal, 16)
         }
 
-        Spacer(minLength: 16)
+        Spacer(minLength: 8)
       }
     }
   }
