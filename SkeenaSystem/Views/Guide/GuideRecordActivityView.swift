@@ -3,15 +3,19 @@
 import CoreLocation
 import SwiftUI
 
-// MARK: - RecordActivityView
+// MARK: - GuideRecordActivityView
 //
-// Pushed from PublicLandingView when the user taps "Record new activity".
-// Presents all activity tiles: Record a Catch, Observations, and the four
-// no-catch event types (Active, Farmed, Promising, Passed).
+// Pushed from LandingView when the guide taps "Record".
+// Presents: Record a Catch (→ full trip/angler/chat flow) and the four
+// no-catch event tiles (Active, Farmed, Promising, Passed).
 
-struct RecordActivityView: View {
+struct GuideRecordActivityView: View {
   @StateObject private var auth = AuthService.shared
-  @Environment(\.guideNavigateTo) private var guideNavigateTo
+  @Environment(\.dismiss) private var dismiss
+
+  /// Called after a catch is successfully saved — used by LandingView to pop
+  /// all the way back to root.
+  var onCatchSaved: (() -> Void)? = nil
 
   // Location for no-catch reports
   @StateObject private var locationManager = LocationManager()
@@ -26,18 +30,11 @@ struct RecordActivityView: View {
     DarkPageTemplate {
       ScrollView {
         VStack(spacing: 12) {
-          // Action tiles — Record a Catch + Record Observation (blue)
-          LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-            Button { goToAssistant = true } label: {
-              actionTile(icon: "square.and.pencil", label: "Record a Catch")
-            }
-            .accessibilityIdentifier("landedTile")
-
-            Button { guideNavigateTo(.observations) } label: {
-              actionTile(icon: "waveform", label: "Record Observation")
-            }
-            .accessibilityIdentifier("observationsTile")
+          // Record a Catch tile (blue)
+          Button { goToAssistant = true } label: {
+            actionTile(icon: "square.and.pencil", label: "Record a Catch")
           }
+          .accessibilityIdentifier("landedTile")
           .padding(.horizontal, 16)
           .padding(.top, 16)
 
@@ -63,8 +60,11 @@ struct RecordActivityView: View {
     }
     .navigationTitle("New Activity")
     .navigationDestination(isPresented: $goToAssistant) {
-      ReportChatView(alwaysSolo: true, directToChat: true)
-        .navigationBarTitleDisplayMode(.inline)
+      ReportChatView(onSaved: {
+        dismiss()              // pop GuideRecordActivityView
+        onCatchSaved?()        // let LandingView reset its nav stack
+      })
+      .navigationBarTitleDisplayMode(.inline)
     }
     .onAppear {
       locationManager.request()
@@ -96,16 +96,15 @@ struct RecordActivityView: View {
   // MARK: - Tile views
 
   private func actionTile(icon: String, label: String) -> some View {
-    VStack(spacing: 6) {
+    HStack(spacing: 10) {
       Image(systemName: icon)
         .font(.title3)
         .foregroundColor(.blue)
       Text(label)
-        .font(.caption.weight(.semibold))
+        .font(.subheadline.weight(.semibold))
         .foregroundColor(.blue)
-        .lineLimit(1)
     }
-    .frame(maxWidth: .infinity, minHeight: 70)
+    .frame(maxWidth: .infinity, minHeight: 56)
     .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
   }
 

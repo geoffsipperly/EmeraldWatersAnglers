@@ -13,12 +13,37 @@ struct LandingView: View {
 
   // Reactive entitlement — driven by backend config with xcconfig fallback
   private var E_MANAGE_OPS: Bool { communityService.activeCommunityConfig.flag("E_MANAGE_OPS") }
-  @State private var goToAssistant = false
 
-  // Farmed button state
+  // Navigation
+  @State private var showRecordActivity = false
+
+  // Location (for weather)
   @StateObject private var locationManager = LocationManager()
-  @State private var savedEventType: NoCatchEventType? = nil
   @State private var showFarmedList = false
+
+  // Map reports
+  @State private var mapReports: [MapReportDTO] = []
+
+  // Live weather
+  private struct LiveWeather {
+    let locationName: String
+    let condition: String
+    let icon: String
+    let temp: Int
+    let windDir: String
+    let windSpeed: Int
+    let pressureVal: Int
+    let pressureTrend: WeatherPressureTrend
+    struct HourlySlot: Identifiable {
+      var id: String { hour }
+      let hour: String
+      let icon: String
+      let temp: Int
+      let precipChance: Int
+    }
+    let hourly: [HourlySlot]
+  }
+  @State private var liveWeather: LiveWeather? = nil
 
   // Path-based nav for guide toolbar navigation
   @State private var navPath = NavigationPath()
@@ -36,9 +61,12 @@ struct LandingView: View {
       }) {
         content
       }
-      .navigationDestination(isPresented: $goToAssistant) {
-        ReportChatView()
-          .navigationBarTitleDisplayMode(.inline)
+      .navigationDestination(isPresented: $showRecordActivity) {
+        GuideRecordActivityView(onCatchSaved: {
+          showRecordActivity = false
+          navPath = NavigationPath()
+        })
+        .environmentObject(auth)
       }
       .navigationDestination(isPresented: $showFarmedList) {
         FarmedReportsListView()
@@ -76,6 +104,17 @@ struct LandingView: View {
         ToolbarItem(placement: .navigationBarLeading) {
           CommunityToolbarButton()
         }
+        // Leading ops tickets button (guides only, when E_MANAGE_OPS)
+        if E_MANAGE_OPS {
+          ToolbarItem(placement: .navigationBarLeading) {
+            NavigationLink { OpsTicketsListView() } label: {
+              Image(systemName: "wrench.and.screwdriver")
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.white)
+            }
+            .accessibilityIdentifier("manageTicketsTile")
+          }
+        }
         // Trailing logout
         ToolbarItem(placement: .navigationBarTrailing) {
           Button(action: logoutTapped) {
@@ -107,10 +146,16 @@ struct LandingView: View {
         locationManager.request()
         locationManager.start()
       }
+      // Fetch weather once location is available
+      .onChange(of: locationManager.lastLocation) { loc in
+        guard liveWeather == nil, let loc else { return }
+        Task { await fetchWeather(location: loc) }
+      }
       // Sync server trips into Core Data so they're available
       // when the guide taps "Record a Catch".
       .task {
         await TripSyncService.shared.syncTripsIfNeeded(context: context)
+        await fetchMapReports()
       }
     }
     .environment(\.userRole, .guide)
@@ -122,104 +167,252 @@ struct LandingView: View {
 
   private var content: some View {
     ScrollView {
-      VStack(spacing: 16) {
-        AppHeader()
-          .padding(.top, 20)
-
-        // Greeting row — ticket icon appears only when E_MANAGE_OPS
-        HStack(alignment: .center) {
-          Text("Welcome, \(auth.currentFirstName ?? "Guide")!")
-            .font(.title3.weight(.semibold))
+      VStack(spacing: 12) {
+        // Name + logo lockup
+        VStack(alignment: .leading, spacing: 6) {
+          Text("\(auth.currentFirstName ?? "") \(auth.currentLastName ?? "")")
+            .font(.caption.weight(.semibold))
             .foregroundColor(.white)
-          Spacer()
-          if E_MANAGE_OPS {
-            NavigationLink { OpsTicketsListView() } label: {
-              Image(systemName: "ticket")
-                .font(.title3)
-                .foregroundColor(.white.opacity(0.7))
-            }
-            .accessibilityIdentifier("manageTicketsTile")
-          }
+          CommunityLogoView(config: communityService.activeCommunityConfig, size: 150)
+            .frame(maxWidth: .infinity)
         }
         .padding(.horizontal, 20)
+        .padding(.top, 12)
 
-        // FEATURE TILES
-        VStack(spacing: 12) {
-          // Top row: action tiles (blue)
-          HStack(spacing: 12) {
-            Button { goToAssistant = true } label: {
-              actionTile(icon: "square.and.pencil", label: "Record a Catch")
-            }
-            .accessibilityIdentifier("landedTile")
-
-            Button { handleGuideNavigateTo(.conditions) } label: {
-              actionTile(icon: "cloud.sun.rain", label: "Conditions")
-            }
-            .accessibilityIdentifier("fishingForecastTile")
+        // "Current Conditions" label + Record capsule
+        HStack {
+          Text("Current Conditions")
+            .font(.caption.weight(.semibold))
+            .foregroundColor(.white)
+          Spacer()
+          Button { showRecordActivity = true } label: {
+            Text("Record")
+              .font(.caption.weight(.bold))
+              .foregroundColor(.white)
+              .padding(.horizontal, 14)
+              .padding(.vertical, 7)
+              .background(Color.blue, in: Capsule())
           }
+          .buttonStyle(.plain)
+          .accessibilityIdentifier("recordActivityButton")
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, -4)
 
-          // No-catch tiles — 2×2 grid
-          LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-            ForEach(NoCatchEventType.allCases, id: \.self) { eventType in
-              Button { logNoCatchReport(eventType: eventType) } label: {
-                noCatchTile(eventType: eventType)
-              }
-              .disabled(savedEventType != nil)
-              .accessibilityIdentifier("\(eventType.rawValue)Tile")
+        // Weather tile
+        VStack(spacing: 0) {
+          // Current conditions row: location | temp | wind | pressure
+          HStack(spacing: 0) {
+            // Location — gets remaining space, slightly smaller to stay single-line
+            Text(liveWeather?.locationName ?? "–")
+              .font(.system(size: 11, weight: .semibold))
+              .foregroundColor(.white)
+              .lineLimit(1)
+              .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Temp
+            HStack(spacing: 3) {
+              Image(systemName: liveWeather?.icon ?? "thermometer")
+                .font(.caption)
+                .foregroundColor(weatherIconColor(liveWeather?.icon))
+              Text(liveWeather.map { "\($0.temp)\u{00B0}C" } ?? "–")
+                .font(.caption.weight(.bold))
+                .foregroundColor(.white)
             }
+            .frame(width: 56, alignment: .center)
+
+            // Wind
+            HStack(spacing: 3) {
+              Image(systemName: "wind")
+                .font(.caption2)
+                .foregroundColor(.gray)
+              Text(liveWeather.map { "\($0.windDir) \($0.windSpeed)" } ?? "–")
+                .font(.caption2.weight(.medium))
+                .foregroundColor(.white)
+            }
+            .frame(width: 56, alignment: .center)
+
+            // Pressure: value + trend arrow
+            HStack(spacing: 3) {
+              Image(systemName: "barometer")
+                .font(.caption2)
+                .foregroundColor(.gray)
+              Text(liveWeather.map { "\($0.pressureVal)" } ?? "–")
+                .font(.caption2.weight(.medium))
+                .foregroundColor(.white)
+              Image(systemName: liveWeather?.pressureTrend.sfSymbol ?? "minus")
+                .font(.system(size: 8))
+                .foregroundColor(pressureTrendColor(liveWeather?.pressureTrend))
+            }
+            .frame(width: 64, alignment: .center)
+          }
+          .padding(.horizontal, 14)
+          .padding(.top, 10)
+          .padding(.bottom, 8)
+
+          // Hourly forecast strip — evenly distributed
+          if let hourly = liveWeather?.hourly, !hourly.isEmpty {
+            Rectangle()
+              .fill(Color.white.opacity(0.12))
+              .frame(height: 0.5)
+              .padding(.horizontal, 14)
+
+            HStack(spacing: 0) {
+              ForEach(hourly) { slot in
+                VStack(spacing: 3) {
+                  Text(slot.hour)
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+                  Image(systemName: slot.icon)
+                    .font(.caption)
+                    .foregroundColor(weatherIconColor(slot.icon))
+                  Text("\(slot.temp)°")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundColor(.white)
+                  Text(slot.precipChance > 0 ? "\(slot.precipChance)%" : " ")
+                    .font(.system(size: 9))
+                    .foregroundColor(.cyan)
+                }
+                .frame(maxWidth: .infinity)
+              }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 8)
           }
         }
+        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal, 16)
 
-        Spacer(minLength: 8)
+        // Fisheries Conditions button
+        Button { handleGuideNavigateTo(.conditions) } label: {
+          HStack(spacing: 8) {
+            Image(systemName: "water.waves")
+              .font(.caption)
+              .foregroundColor(.white)
+            Text("Fisheries Conditions")
+              .font(.caption.weight(.semibold))
+              .foregroundColor(.white)
+            Spacer()
+            Image(systemName: "chevron.right")
+              .font(.caption.weight(.semibold))
+              .foregroundColor(.white.opacity(0.4))
+          }
+          .padding(.horizontal, 16)
+          .padding(.vertical, 14)
+          .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .accessibilityIdentifier("fishingForecastTile")
+
+        // Section divider
+        Rectangle()
+          .fill(Color.white.opacity(0.12))
+          .frame(height: 0.5)
+          .padding(.vertical, 4)
+
+        // Map — only rendered once reports have loaded so initialViewport
+        // is computed with real coordinates rather than the fallback defaults.
+        if mapReports.isEmpty {
+          ZStack {
+            RoundedRectangle(cornerRadius: 14)
+              .fill(Color.white.opacity(0.06))
+            ProgressView()
+              .tint(.white)
+          }
+          .frame(height: 300)
+          .padding(.horizontal, 16)
+        } else {
+          GuideLandingMapView(reports: mapReports)
+            .frame(height: 300)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .padding(.horizontal, 16)
+
+          // Legend
+          GuideLandingMapLegend()
+            .padding(.horizontal, 16)
+        }
+
+        Spacer(minLength: 16)
       }
     }
   }
 
-  // MARK: - Actions
+  // MARK: - Map reports
 
-  private func logNoCatchReport(eventType: NoCatchEventType) {
-    let report = FarmedReport(
-      id: UUID(),
-      createdAt: Date(),
-      status: .savedLocally,
-      eventType: eventType,
-      guideName: auth.currentFirstName ?? "Guide",
-      lat: locationManager.lastLocation?.coordinate.latitude,
-      lon: locationManager.lastLocation?.coordinate.longitude,
-      memberId: nil
-    )
-
-    FarmedReportStore.shared.add(report)
-
-    // Brief visual confirmation on the tapped tile only
-    savedEventType = eventType
-    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-      savedEventType = nil
+  private func fetchMapReports() async {
+    guard let communityId = CommunityService.shared.activeCommunityId else { return }
+    do {
+      let reports = try await MapReportService.fetch(communityId: communityId)
+      await MainActor.run { mapReports = reports }
+    } catch {
+      AppLogging.log("[LandingMap] Fetch failed: \(error.localizedDescription)", level: .error, category: .network)
     }
   }
 
-  private func noCatchTile(eventType: NoCatchEventType) -> some View {
-    let icon: String = {
-      switch eventType {
-      case .active:    return "eye"
-      case .farmed:    return "leaf.arrow.circlepath"
-      case .promising: return "sparkles"
-      case .passed:    return "xmark.circle"
-      }
-    }()
-    return VStack(spacing: 6) {
-      Image(systemName: icon)
-        .font(.title3)
-        .foregroundColor(.white)
-      Text(savedEventType == eventType ? "Saved!" : eventType.displayName)
-        .font(.caption.weight(.semibold))
-        .foregroundColor(.white)
-        .lineLimit(1)
+  // MARK: - Weather
+
+  private func fetchWeather(location: CLLocation) async {
+    let lat = location.coordinate.latitude
+    let lon = location.coordinate.longitude
+
+    // Reverse geocode for city name — try multiple placemark fields for robustness
+    let geocoder = CLGeocoder()
+    let locationName: String
+    if let placemark = try? await geocoder.reverseGeocodeLocation(location).first {
+      let city = placemark.locality
+        ?? placemark.subLocality
+        ?? placemark.subAdministrativeArea
+        ?? ""
+      let state = placemark.administrativeArea ?? ""
+      locationName = [city, state].filter { !$0.isEmpty }.joined(separator: ", ")
+    } else {
+      locationName = ""
     }
-    .frame(maxWidth: .infinity)
-    .padding(.vertical, 11)
-    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+
+    do {
+      let response = try await WeatherSnapshotService.fetch(lat: lat, lon: lon)
+      let w = response.current
+      let slots = response.hourlyForecast.map { h in
+        LiveWeather.HourlySlot(
+          hour: WeatherSnapshotService.hourLabel(from: h.time),
+          icon: WeatherSnapshotService.conditionIcon(for: h.weatherCode),
+          temp: Int(h.temperature.rounded()),
+          precipChance: h.precipitationProbability
+        )
+      }
+      await MainActor.run {
+        liveWeather = LiveWeather(
+          locationName: locationName,
+          condition: WeatherSnapshotService.conditionText(for: w.weatherCode),
+          icon: WeatherSnapshotService.conditionIcon(for: w.weatherCode),
+          temp: Int(w.temperature.rounded()),
+          windDir: WeatherSnapshotService.windCardinal(from: w.windDirection),
+          windSpeed: Int(w.windSpeed.rounded()),
+          pressureVal: Int(w.pressure.rounded()),
+          pressureTrend: WeatherSnapshotService.pressureTrend(current: w.pressure, hourly: response.hourlyForecast),
+          hourly: slots
+        )
+      }
+    } catch {
+      AppLogging.log("[Weather] Fetch failed: \(error.localizedDescription)", level: .error, category: .network)
+    }
+  }
+
+  private func pressureTrendColor(_ trend: WeatherPressureTrend?) -> Color {
+    switch trend {
+    case .rising:  return .green
+    case .falling: return .red
+    default:       return .gray
+    }
+  }
+
+  private func weatherIconColor(_ icon: String?) -> Color {
+    guard let icon else { return .gray }
+    if icon.contains("sun") { return .yellow }
+    if icon.contains("snow") { return .cyan }
+    if icon.contains("bolt") { return .yellow }
+    return .gray
   }
 
   private func logoutTapped() {
@@ -249,20 +442,4 @@ struct LandingView: View {
     navPath = newPath
   }
 
-  // MARK: - Action Tile (blue — Record a Catch, Conditions)
-
-  private func actionTile(icon: String, label: String) -> some View {
-    VStack(spacing: 6) {
-      Image(systemName: icon)
-        .font(.title3)
-        .foregroundColor(.blue)
-      Text(label)
-        .font(.caption.weight(.semibold))
-        .foregroundColor(.blue)
-        .lineLimit(1)
-    }
-    .frame(maxWidth: .infinity)
-    .padding(.vertical, 11)
-    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
-  }
 }

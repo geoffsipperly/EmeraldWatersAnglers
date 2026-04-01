@@ -18,9 +18,14 @@ struct ReportChatView: View {
   /// lands directly on "Record Catch Details". Requires alwaysSolo: true.
   let directToChat: Bool
 
-  init(alwaysSolo: Bool = false, directToChat: Bool = false) {
+  /// Optional callback invoked after a catch is successfully saved.
+  /// Use this to pop to root from a deeper navigation stack.
+  var onSaved: (() -> Void)? = nil
+
+  init(alwaysSolo: Bool = false, directToChat: Bool = false, onSaved: (() -> Void)? = nil) {
     self.alwaysSolo = alwaysSolo
     self.directToChat = directToChat
+    self.onSaved = onSaved
     self._isSoloMode = State(initialValue: alwaysSolo)
   }
 
@@ -110,6 +115,7 @@ struct ReportChatView: View {
         onCatchSaved: {
           // On save, go back to landing (original behavior)
           dismiss()
+          onSaved?()
         },
         onCancel: {
           // User cancelled from "Record Catch Details":
