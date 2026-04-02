@@ -24,6 +24,7 @@ E_MEET_STAFF = true
 E_GEAR_CHECKLIST = false
 E_MANAGE_LICENSES = false
 E_SELF_ASSESSMENT = true
+E_PREFERENCES = true
 E_CATCH_CAROUSEL = true
 E_THE_BUZZ = true
 E_CATCH_MAP = true
@@ -45,6 +46,7 @@ ANGLER_DETAILS_URL = /functions/v1/angler-details
 MY_PROFILE_URL = /functions/v1/my-profile
 PROFICIENCY_URL = /functions/v1/proficiency
 GEAR_URL = /functions/v1/gear
+MEMBER_PROFILE_FIELDS_URL = /functions/v1/member-profile-fields
 CLASSIFIED_LICENSES_URL = /functions/v1/classified-licenses
 CATCH_STORY_URL = /functions/v1/catch-story
 // Host+path only (no protocol) — xcconfig treats // as a comment.

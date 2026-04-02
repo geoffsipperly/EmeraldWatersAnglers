@@ -17,6 +17,7 @@ struct AnglerTripPrepView: View {
   private var E_GEAR_CHECKLIST: Bool { communityService.activeCommunityConfig.flag("E_GEAR_CHECKLIST") }
   private var E_MANAGE_LICENSES: Bool { communityService.activeCommunityConfig.flag("E_MANAGE_LICENSES") }
   private var E_SELF_ASSESSMENT: Bool { communityService.activeCommunityConfig.flag("E_SELF_ASSESSMENT") }
+  private var E_PREFERENCES: Bool { communityService.activeCommunityConfig.flag("E_PREFERENCES") }
 
   /// When in overlay mode, close the panel first then navigate centrally.
   /// When pushed (no onClose), just use navigateTo directly.
@@ -99,6 +100,14 @@ struct AnglerTripPrepView: View {
                 AnglerAboutYou()
               } label: {
                 prepRow(icon: "person.crop.circle", title: "Self-assessment")
+              }
+            }
+
+            if E_PREFERENCES {
+              NavigationLink {
+                ManagePreferencesView()
+              } label: {
+                prepRow(icon: "slider.horizontal.3", title: "Preferences")
               }
             }
 

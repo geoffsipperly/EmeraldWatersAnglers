@@ -52,6 +52,8 @@
 	<string>$(E_MEET_STAFF)</string>
 	<key>E_SELF_ASSESSMENT</key>
 	<string>$(E_SELF_ASSESSMENT)</string>
+	<key>E_PREFERENCES</key>
+	<string>$(E_PREFERENCES)</string>
 	<key>E_THE_BUZZ</key>
 	<string>$(E_THE_BUZZ)</string>
 	<key>FISH_BOX_SCALE_FACTOR</key>
@@ -100,6 +102,8 @@
 	<string>$(MAPBOX_ACCESS_TOKEN)</string>
 	<key>MANAGE_TRIP_URL</key>
 	<string>$(MANAGE_TRIP_URL)</string>
+	<key>MEMBER_PROFILE_FIELDS_URL</key>
+	<string>$(MEMBER_PROFILE_FIELDS_URL)</string>
 	<key>MY_PROFILE_URL</key>
 	<string>$(MY_PROFILE_URL)</string>
 	<key>NOTES_UPLOAD_URL</key>
