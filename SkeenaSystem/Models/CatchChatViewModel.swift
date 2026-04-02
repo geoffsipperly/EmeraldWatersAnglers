@@ -64,15 +64,24 @@ final class CatchChatViewModel: ObservableObject {
   // Photo analyzer (modular)
     private let analyzer = CatchPhotoAnalyzer()
 
+  // Scientist flow manager (nil for non-scientist roles)
+  @Published var scientistFlow: ScientistCatchFlowManager?
+
   // Simple dialog flow
   private enum Step {
     case idle
-    case reviewAnalysis // analysis shown, user may edit or go to memo
-    case offerVoiceMemo // (kept for possible future use)
+    case reviewAnalysis   // analysis shown, user may edit or go to memo
+    case scientistFlow    // delegates to ScientistCatchFlowManager
+    case offerVoiceMemo   // (kept for possible future use)
     case complete
   }
 
   private var step: Step = .idle
+
+  /// Whether the current user is a scientist (checked once at photo analysis time).
+  private var isScientistRole: Bool {
+    AuthService.shared.currentUserType == .scientist
+  }
 
   // MARK: - Context updates
 
@@ -107,6 +116,11 @@ final class CatchChatViewModel: ObservableObject {
     step = .idle
   }
 
+  /// Whether the chat should use the scientific visual style.
+  var isScientistMode: Bool {
+    isScientistRole
+  }
+
     // MARK: - Photo analysis entry point
 
     func handlePhotoSelected(_ picked: PickedPhoto) {
@@ -136,7 +150,7 @@ final class CatchChatViewModel: ObservableObject {
       initialAnalysis = nil
       currentAnalysis = nil
 
-      // 6. We’re now analyzing – show typing indicator
+      // 6. We're now analyzing – show typing indicator
       isAssistantTyping = true
 
       Task {
@@ -157,29 +171,183 @@ final class CatchChatViewModel: ObservableObject {
             self.initialAnalysis = analysis
           }
 
-          self.step = .reviewAnalysis
-
-          let summary = self.formattedSummary(from: analysis)
-
-          let anglerPart: String = self.currentAnglerName.isEmpty
-            ? "your angler"
-            : self.currentAnglerName
-
-          // First message: the structured summary
-          self.appendAssistant("""
-          Here’s what I see in the photo for \(anglerPart):
-          \(summary)
-          """)
-
-          // Second message: invite edits OR memo (Record / Later buttons)
-          let prompt = self.appendAssistant(
-            "Let me know any changes, or you can record a memo using the mic — or record later."
-          )
-          self.voiceMemoAnchorMessageID = prompt.id
-          self.confirmAnalysisMessageID = nil
+          if self.isScientistRole {
+            self.beginScientistFlow(analysis: analysis)
+          } else {
+            self.beginStandardFlow(analysis: analysis)
+          }
         }
       }
     }
+
+  // MARK: - Flow branching
+
+  private func beginStandardFlow(analysis: CatchPhotoAnalysis) {
+    step = .reviewAnalysis
+
+    let summary = formattedSummary(from: analysis)
+
+    let anglerPart: String = currentAnglerName.isEmpty
+      ? "your angler"
+      : currentAnglerName
+
+    appendAssistant("""
+    Here's what I see in the photo for \(anglerPart):
+    \(summary)
+    """)
+
+    let prompt = appendAssistant(
+      "Let me know any changes, or you can record a memo using the mic — or record later."
+    )
+    voiceMemoAnchorMessageID = prompt.id
+    confirmAnalysisMessageID = nil
+  }
+
+  private func beginScientistFlow(analysis: CatchPhotoAnalysis) {
+    step = .scientistFlow
+
+    // Parse species/stage from analysis
+    let (speciesName, stage) = splitSpecies(analysis.species)
+    let sexValue = stripLeadingLabel(analysis.sex, label: "sex")
+    let prettySexValue = prettySex(sexValue)
+
+    // Extract numeric length
+    let rawLen = cleanedField(analysis.estimatedLength ?? "")
+    let lengthValue: Double? = extractLengthInches(from: rawLen).map(Double.init)
+
+    // Create and initialize the scientist flow manager
+    let flow = ScientistCatchFlowManager()
+    flow.initialize(
+      species: speciesName.isEmpty || speciesName == "-" ? nil : speciesName,
+      lifecycleStage: stage,
+      sex: prettySexValue.isEmpty ? nil : prettySexValue,
+      lengthInches: lengthValue,
+      riverName: cleanedField(analysis.riverName ?? "")
+    )
+    scientistFlow = flow
+
+    // Build location line for context
+    let locationLine: String
+    let cleanedRiver = cleanedField(analysis.riverName ?? "")
+    if !cleanedRiver.isEmpty
+        && !cleanedRiver.hasPrefix("No river detected for")
+        && !cleanedRiver.hasPrefix("No rivers configured for") {
+      locationLine = "Location: \(cleanedRiver)"
+    } else if let loc = currentLocation {
+      locationLine = String(format: "Location: %.4f, %.4f", loc.coordinate.latitude, loc.coordinate.longitude)
+    } else {
+      locationLine = "Location: No GPS coordinates available"
+    }
+
+    // Step 1: Show identification only (species, lifecycle, sex) — no measurements yet.
+    // Measurements will be shown after species/sex are confirmed.
+    let identificationText = flow.identificationSummary()
+
+    let msg = appendAssistant("""
+    Here's what I identified:
+    \(locationLine)
+    \(identificationText)
+
+    Confirm the species and sex, or type corrections.
+    """)
+
+    flow.confirmAnchorID = msg.id
+  }
+
+  // MARK: - Scientist flow actions (called from CatchChatView)
+
+  /// Scientist confirms the current step.
+  func scientistConfirm() {
+    guard let flow = scientistFlow else { return }
+
+    // If confirming identification and species was corrected, re-estimate length
+    // using the corrected species before advancing to measurements.
+    if flow.currentStep == .identification && flow.speciesWasCorrected {
+      reEstimateLengthForCorrectedSpecies(flow: flow)
+    }
+
+    flow.confirmAnchorID = nil
+
+    let nextMessage = flow.confirm()
+
+    if flow.currentStep == .voiceMemo {
+      // Show voice memo buttons
+      let msg = appendAssistant(nextMessage)
+      voiceMemoAnchorMessageID = msg.id
+      confirmAnalysisMessageID = nil
+    } else if flow.currentStep == .complete {
+      // Trigger save
+      triggerSave()
+    } else {
+      // Show next step (Next button for intermediate steps, Confirm for final summary)
+      let msg = appendAssistant(nextMessage)
+      flow.confirmAnchorID = msg.id
+    }
+  }
+
+  /// Scientist edits the current step value via text input.
+  func scientistApplyEdit(_ text: String) {
+    guard let flow = scientistFlow else { return }
+
+    flow.confirmAnchorID = nil
+
+    let (updatedPrompt, autoAdvanced) = flow.applyEdit(text)
+
+    if autoAdvanced {
+      // Value entry auto-confirmed the step and advanced
+      if flow.currentStep == .finalSummary {
+        // Show final analysis with Confirm button
+        let msg = appendAssistant(updatedPrompt)
+        flow.confirmAnchorID = msg.id
+      } else {
+        let msg = appendAssistant(updatedPrompt)
+        flow.confirmAnchorID = msg.id
+      }
+    } else {
+      let msg = appendAssistant("Got it, updated:\n\(updatedPrompt)")
+      flow.confirmAnchorID = msg.id
+    }
+  }
+
+  /// Scientist skips voice memo from the voice memo step.
+  func scientistSkipVoiceMemo() {
+    guard let flow = scientistFlow else { return }
+
+    voiceMemoAnchorMessageID = nil
+    flow.currentStep = .complete
+
+    // Show final summary then save
+    let summaryText = flow.finalSummaryText()
+    appendAssistant(summaryText)
+    appendAssistant("Saving catch now...")
+    triggerSave()
+  }
+
+  /// Re-estimate length when the scientist corrects the species during identification.
+  /// The regressor uses species index as an input feature, and some species (e.g. sea_run_trout)
+  /// bypass the regressor entirely. Changing species can dramatically affect the length estimate.
+  private func reEstimateLengthForCorrectedSpecies(flow: ScientistCatchFlowManager) {
+    guard let fv = initialAnalysis?.featureVector else {
+      AppLogging.log("reEstimateLength: no feature vector available, keeping original length", level: .warn, category: .ml)
+      return
+    }
+
+    let result = analyzer.reEstimateLength(
+      originalFV: fv,
+      correctedSpecies: flow.species,
+      correctedLifecycleStage: flow.lifecycleStage
+    )
+
+    if let newLength = result.lengthInches {
+      let oldLength = flow.lengthInches
+      flow.lengthInches = newLength
+      flow.lengthSource = result.source
+      AppLogging.log({
+        "Species corrected: re-estimated length from \(oldLength.map { String(format: "%.1f", $0) } ?? "nil") " +
+        "to \(String(format: "%.1f", newLength)) inches (source: \(result.source.rawValue))"
+      }, level: .info, category: .ml)
+    }
+  }
 
   // MARK: - Sending user messages
 
@@ -204,18 +372,18 @@ final class CatchChatViewModel: ObservableObject {
     }
 
     switch step {
+    case .scientistFlow:
+      // In scientist flow, user text is treated as an edit for the current step
+      scientistApplyEdit(text)
+
     case .reviewAnalysis:
       // Any user text is treated as corrections (including bare numbers like "38").
       applyCorrections(from: text)
       let updated = formattedSummary(from: currentAnalysis)
       appendAssistant(
-        "Got it, I’ve updated the details to:\n\(updated)"
+        "Got it, I've updated the details to:\n\(updated)"
       )
 
-      // 🔑 Behavior split:
-      // - If we've already shown Confirm before (confirmAnalysisMessageID != nil),
-      //   keep the user in the "confirm" loop.
-      // - If not, we’re still in the “memo or later” phase.
       if confirmAnalysisMessageID != nil {
         let confirmMsg = appendAssistant(
           "If this looks good, tap Confirm to save this catch."
@@ -260,10 +428,10 @@ final class CatchChatViewModel: ObservableObject {
     let finalSummary = formattedSummary(from: currentAnalysis)
 
     appendAssistant(
-      "No problem, you can always record a memo for this catch later. I’ll go ahead and prepare the summary now."
+      "No problem, you can always record a memo for this catch later. I'll go ahead and prepare the summary now."
     )
 
-    appendAssistant("Here’s the summary I’ll use:\n\(finalSummary)")
+    appendAssistant("Here's the summary I'll use:\n\(finalSummary)")
 
     let confirmMsg = appendAssistant("If this looks good, tap Confirm to save this catch.")
     confirmAnalysisMessageID = confirmMsg.id
@@ -469,6 +637,18 @@ final class CatchChatViewModel: ObservableObject {
       }
     }
 
+    // Include girth/weight for scientist flow
+    if let flow = scientistFlow {
+      if let g = flow.girthInches {
+        let prefix = flow.girthIsEstimated ? "~" : ""
+        parts.append("Estimated girth: \(prefix)\(String(format: "%.1f inches", g))")
+      }
+      if let w = flow.weightLbs {
+        let prefix = flow.weightIsEstimated ? "~" : ""
+        parts.append("Estimated weight: \(prefix)\(String(format: "%.1f lbs", w))")
+      }
+    }
+
     return parts.isEmpty ? "No details yet." : parts.joined(separator: "\n")
   }
 
@@ -654,6 +834,18 @@ final class CatchChatViewModel: ObservableObject {
       lines.append("Lifecycle stage: \(stage ?? "-")")
       lines.append("Sex: \(prettySexValue.isEmpty ? "-" : prettySexValue)")
       lines.append("Estimated length: \(length.isEmpty ? "-" : length)")
+
+      // Include girth/weight for scientist flow
+      if let flow = scientistFlow {
+        if let g = flow.girthInches {
+          let prefix = flow.girthIsEstimated ? "~" : ""
+          lines.append("Estimated girth: \(prefix)\(String(format: "%.1f inches", g))")
+        }
+        if let w = flow.weightLbs {
+          let prefix = flow.weightIsEstimated ? "~" : ""
+          lines.append("Estimated weight: \(prefix)\(String(format: "%.1f lbs", w))")
+        }
+      }
     } else {
       lines.append("River: -")
       lines.append("Species: -")
@@ -687,7 +879,7 @@ final class CatchChatViewModel: ObservableObject {
 
     appendAssistant(
       """
-      Got it, here’s the catch summary I’m saving:
+      Got it, here's the catch summary I'm saving:
 
       \(logText)
 
@@ -710,17 +902,29 @@ final class CatchChatViewModel: ObservableObject {
 
     Task { @MainActor in
       self.appendAssistant(
-        "🎙 Voice memo recorded. You can also re-record later — I’ll always use the latest version."
+        "🎙 Voice memo recorded. You can also re-record later — I'll always use the latest version."
       )
 
       try? await Task.sleep(nanoseconds: 1_000_000_000)
 
-      let finalSummary = self.formattedSummary(from: self.currentAnalysis)
-      self.appendAssistant("Here’s the final summary I’ll use:\n\(finalSummary)")
+      if let flow = self.scientistFlow {
+        // Scientist flow: memo recorded → show final summary → save
+        self.voiceMemoAnchorMessageID = nil
+        flow.currentStep = .complete
 
-      let confirmMsg = self.appendAssistant("If this looks good, tap Confirm to save this catch.")
-      self.confirmAnalysisMessageID = confirmMsg.id
-      self.voiceMemoAnchorMessageID = nil
+        let summaryText = flow.finalSummaryText()
+        self.appendAssistant(summaryText)
+        self.appendAssistant("Saving catch now...")
+        self.triggerSave()
+      } else {
+        // Standard flow: show summary → confirm button
+        let finalSummary = self.formattedSummary(from: self.currentAnalysis)
+        self.appendAssistant("Here's the final summary I'll use:\n\(finalSummary)")
+
+        let confirmMsg = self.appendAssistant("If this looks good, tap Confirm to save this catch.")
+        self.confirmAnalysisMessageID = confirmMsg.id
+        self.voiceMemoAnchorMessageID = nil
+      }
     }
   }
 
@@ -753,6 +957,27 @@ final class CatchChatViewModel: ObservableObject {
     var lengthSource: String?
     /// Version of the LengthRegressor model that produced the estimate.
     var modelVersion: String?
+
+    // Girth & weight estimation (scientist flow) — final confirmed values
+    var girthInches: Double?
+    var weightLbs: Double?
+    var girthIsEstimated: Bool?
+    var weightIsEstimated: Bool?
+    var weightDivisor: Int?
+    var weightDivisorSource: String?
+    var girthRatio: Double?
+    var girthRatioSource: String?
+
+    // Initial measurement estimates (calculated with confirmed species, before user edits length/girth)
+    var initialLengthForMeasurements: Double?
+    var initialGirthInches: Double?
+    var initialWeightLbs: Double?
+    var initialGirthIsEstimated: Bool?
+    var initialWeightIsEstimated: Bool?
+    var initialWeightDivisor: Int?
+    var initialWeightDivisorSource: String?
+    var initialGirthRatio: Double?
+    var initialGirthRatioSource: String?
   }
 
   func makePicMemoSnapshot() -> CatchPicMemoSnapshot? {
@@ -777,14 +1002,32 @@ final class CatchChatViewModel: ObservableObject {
     let initRawLen = cleanedField(initialAnalysis?.estimatedLength ?? "")
     let initLengthInches = extractLengthInches(from: initRawLen)
 
+    // Use scientist flow values if available (overrides ML-only analysis)
+    let finalSpecies: String?
+    let finalStage: String?
+    let finalSex: String?
+    let finalLength: Int?
+
+    if let flow = scientistFlow {
+      finalSpecies = flow.species
+      finalStage = flow.lifecycleStage
+      finalSex = flow.sex
+      finalLength = flow.lengthInches.map { Int(round($0)) }
+    } else {
+      finalSpecies = species.isEmpty || species == "-" ? nil : species
+      finalStage = stage
+      finalSex = prettySexValue.isEmpty ? nil : prettySexValue
+      finalLength = lengthInches
+    }
+
     return CatchPicMemoSnapshot(
       guideName: guideName,
       anglerName: currentAnglerName,
       riverName: finalRiver,
-      species: species.isEmpty || species == "-" ? nil : species,
-      lifecycleStage: stage,
-      sex: prettySexValue.isEmpty ? nil : prettySexValue,
-      lengthInches: lengthInches,
+      species: finalSpecies,
+      lifecycleStage: finalStage,
+      sex: finalSex,
+      lengthInches: finalLength,
       latitude: currentLocation?.coordinate.latitude,
       longitude: currentLocation?.coordinate.longitude,
       voiceNoteId: attachedVoiceNotes.last?.id,
@@ -795,8 +1038,26 @@ final class CatchChatViewModel: ObservableObject {
       initialSex: initPrettySex.isEmpty ? nil : initPrettySex,
       initialLengthInches: initLengthInches,
       mlFeatureVector: initialAnalysis?.featureVector.flatMap { try? JSONEncoder().encode($0) },
-      lengthSource: (currentAnalysis?.lengthSource ?? initialAnalysis?.lengthSource)?.rawValue,
-      modelVersion: initialAnalysis?.modelVersion
+      lengthSource: scientistFlow?.lengthSource?.rawValue
+        ?? (currentAnalysis?.lengthSource ?? initialAnalysis?.lengthSource)?.rawValue,
+      modelVersion: initialAnalysis?.modelVersion,
+      girthInches: scientistFlow?.girthInches,
+      weightLbs: scientistFlow?.weightLbs,
+      girthIsEstimated: scientistFlow?.girthIsEstimated,
+      weightIsEstimated: scientistFlow?.weightIsEstimated,
+      weightDivisor: scientistFlow?.divisor,
+      weightDivisorSource: scientistFlow?.divisorSource,
+      girthRatio: scientistFlow?.girthRatio,
+      girthRatioSource: scientistFlow?.girthRatioSource,
+      initialLengthForMeasurements: scientistFlow?.initialLengthForMeasurements,
+      initialGirthInches: scientistFlow?.initialGirthInches,
+      initialWeightLbs: scientistFlow?.initialWeightLbs,
+      initialGirthIsEstimated: scientistFlow?.initialGirthIsEstimated,
+      initialWeightIsEstimated: scientistFlow?.initialWeightIsEstimated,
+      initialWeightDivisor: scientistFlow?.initialDivisor,
+      initialWeightDivisorSource: scientistFlow?.initialDivisorSource,
+      initialGirthRatio: scientistFlow?.initialGirthRatio,
+      initialGirthRatioSource: scientistFlow?.initialGirthRatioSource
     )
   }
 

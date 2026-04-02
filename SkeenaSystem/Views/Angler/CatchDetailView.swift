@@ -52,6 +52,32 @@ struct CatchDetailView: View {
             }
           }
 
+          // Catch measurements (displayed when available)
+          if report.species != nil || report.length_inches != nil
+              || report.girth_inches != nil || report.weight_lbs != nil {
+            VStack(alignment: .leading, spacing: 8) {
+              if let species = report.species, !species.isEmpty {
+                detailRow(label: "Species", value: species)
+              }
+              if let sex = report.sex, !sex.isEmpty {
+                detailRow(label: "Sex", value: sex)
+              }
+              if let length = report.length_inches {
+                detailRow(label: "Length", value: "\(length) inches")
+              }
+              if let girth = report.girth_inches {
+                detailRow(label: "Girth", value: String(format: "~%.1f inches", girth))
+              }
+              if let weight = report.weight_lbs {
+                detailRow(label: "Weight", value: String(format: "~%.1f lbs", weight))
+              }
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .background(Color.white.opacity(0.06))
+            .cornerRadius(12)
+          }
+
           // Summary / states
           Group {
             if isLoading {
@@ -117,6 +143,21 @@ struct CatchDetailView: View {
     .navigationBarHidden(false) // explicitly unhide on this screen
     .task { await loadStory() }
     .preferredColorScheme(.dark)
+  }
+
+  // MARK: - Detail Row Helper
+
+  private func detailRow(label: String, value: String) -> some View {
+    HStack {
+      Text(label)
+        .font(.subheadline)
+        .foregroundColor(.gray)
+        .frame(width: 70, alignment: .leading)
+      Text(value)
+        .font(.subheadline)
+        .foregroundColor(.white)
+      Spacer()
+    }
   }
 
   // Load (cached if possible; otherwise request and cache)

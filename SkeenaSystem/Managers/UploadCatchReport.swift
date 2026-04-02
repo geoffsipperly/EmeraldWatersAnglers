@@ -68,13 +68,14 @@ final class UploadCatchPicMemo {
     let tripName: String?
     let catchInfo: CatchDTO
     let initialAnalysis: InitialAnalysisDTO?
+    let weightEstimation: WeightEstimationDTO?
     let status: String
     let meta: MetaDTO
 
     enum CodingKeys: String, CodingKey {
       case reportId, createdAt, uploadedAt, tripId, communityId, tripName
       case catchInfo = "catch"
-      case initialAnalysis, status, meta
+      case initialAnalysis, weightEstimation, status, meta
     }
   }
 
@@ -87,6 +88,8 @@ final class UploadCatchPicMemo {
     let lifecycleStage: String?
     let river: String?
     let classifiedWatersLicenseNumber: String?
+    let girthInches: Double?
+    let weightLbs: Double?
     let location: Location?
     let photo: Photo?
     let voiceMemo: VoiceMemo?
@@ -123,6 +126,29 @@ final class UploadCatchPicMemo {
     let mlFeatures: [String: Double]?
     let lengthSource: String?
     let modelVersion: String?
+  }
+
+  private struct WeightEstimationDTO: Codable {
+    // Final confirmed values
+    let girthInches: Double?
+    let weightLbs: Double?
+    let girthIsEstimated: Bool?
+    let weightIsEstimated: Bool?
+    let divisor: Int?
+    let divisorSource: String?
+    let girthRatio: Double?
+    let girthRatioSource: String?
+
+    // Initial measurement estimates (calculated with confirmed species, before user edits)
+    let initialLengthInches: Double?
+    let initialGirthInches: Double?
+    let initialWeightLbs: Double?
+    let initialGirthIsEstimated: Bool?
+    let initialWeightIsEstimated: Bool?
+    let initialDivisor: Int?
+    let initialDivisorSource: String?
+    let initialGirthRatio: Double?
+    let initialGirthRatioSource: String?
   }
 
   private struct MetaDTO: Codable {
@@ -445,10 +471,38 @@ final class UploadCatchPicMemo {
       lifecycleStage: r.lifecycleStage,
       river: r.river,
       classifiedWatersLicenseNumber: r.classifiedWatersLicenseNumber,
+      girthInches: r.girthInches,
+      weightLbs: r.weightLbs,
       location: location,
       photo: photo,
       voiceMemo: voiceMemo
     )
+
+    // Weight estimation metadata (scientist flow only)
+    let weightEstimation: WeightEstimationDTO?
+    if r.girthInches != nil || r.weightLbs != nil {
+      weightEstimation = WeightEstimationDTO(
+        girthInches: r.girthInches,
+        weightLbs: r.weightLbs,
+        girthIsEstimated: r.girthIsEstimated,
+        weightIsEstimated: r.weightIsEstimated,
+        divisor: r.weightDivisor,
+        divisorSource: r.weightDivisorSource,
+        girthRatio: r.girthRatio,
+        girthRatioSource: r.girthRatioSource,
+        initialLengthInches: r.initialLengthForMeasurements,
+        initialGirthInches: r.initialGirthInches,
+        initialWeightLbs: r.initialWeightLbs,
+        initialGirthIsEstimated: r.initialGirthIsEstimated,
+        initialWeightIsEstimated: r.initialWeightIsEstimated,
+        initialDivisor: r.initialWeightDivisor,
+        initialDivisorSource: r.initialWeightDivisorSource,
+        initialGirthRatio: r.initialGirthRatio,
+        initialGirthRatioSource: r.initialGirthRatioSource
+      )
+    } else {
+      weightEstimation = nil
+    }
 
     return UploadCatchPicMemoDTO(
       reportId: r.id.uuidString,
@@ -459,6 +513,7 @@ final class UploadCatchPicMemo {
       tripName: tripNameToSend,
       catchInfo: catchDTO,
       initialAnalysis: initial,
+      weightEstimation: weightEstimation,
       status: r.status == .uploaded ? "Uploaded" : "Saved locally",
       meta: meta
     )

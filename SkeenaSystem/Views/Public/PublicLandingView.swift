@@ -122,7 +122,9 @@ struct PublicLandingView: View {
         content
       }
       .navigationDestination(isPresented: $goToAssistant) {
-        ReportChatView(alwaysSolo: true, directToChat: true)
+        ReportChatView(alwaysSolo: true, directToChat: true, onSaved: {
+          goToAssistant = false
+        })
           .navigationBarTitleDisplayMode(.inline)
       }
       .navigationDestination(isPresented: $showRecordActivity) {

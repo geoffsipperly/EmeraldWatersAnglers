@@ -12,6 +12,7 @@ import SwiftUI
 struct RecordActivityView: View {
   @StateObject private var auth = AuthService.shared
   @Environment(\.guideNavigateTo) private var guideNavigateTo
+  @Environment(\.dismiss) private var dismiss
 
   // Location for no-catch reports
   @StateObject private var locationManager = LocationManager()
@@ -93,7 +94,13 @@ struct RecordActivityView: View {
     }
     .navigationTitle("New Activity")
     .navigationDestination(isPresented: $goToAssistant) {
-      ReportChatView(alwaysSolo: true, directToChat: true)
+      ReportChatView(alwaysSolo: true, directToChat: true, onSaved: {
+        // Pop all the way back to the landing view after catch is saved
+        goToAssistant = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+          dismiss()
+        }
+      })
         .navigationBarTitleDisplayMode(.inline)
     }
     .onAppear {

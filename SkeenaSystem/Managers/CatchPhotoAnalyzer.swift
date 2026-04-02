@@ -666,7 +666,7 @@ final class CatchPhotoAnalyzer {
     let personBoxWidth: Double
     let personAspectRatio: Double
     let fishToPersonRatio: Double
-    let speciesIndex: Double
+    var speciesIndex: Double
     let speciesConfidence: Double
     let diagonalFraction: Double
     let handDetected: Double
@@ -1226,6 +1226,136 @@ final class CatchPhotoAnalyzer {
     )
 
     return (inches: clamped, display: display)
+  }
+
+  // MARK: - Species-corrected length re-estimation
+
+  /// Result of re-estimating length after species correction.
+  struct LengthReEstimate {
+    let lengthInches: Double?
+    let source: LengthEstimateSource
+  }
+
+  /// Maps user-facing species names (+ optional lifecycle stage) to model labels.
+  /// Used when re-estimating length after the scientist corrects species.
+  private static let speciesDisplayToLabel: [String: String] = [
+    "steelhead":       "steelhead_holding",
+    "sea-run trout":   "sea_run_trout",
+    "sea run trout":   "sea_run_trout",
+    "rainbow trout":   "rainbow_holding",
+    "brook trout":     "brook_holding",
+    "arctic char":     "articchar_holding",
+    "grayling":        "grayling",
+  ]
+
+  /// Maps model labels to their species index in the `speciesLabels` array.
+  private func speciesLabelToIndex(_ label: String) -> Int? {
+    speciesLabels.firstIndex(of: label)
+  }
+
+  /// Re-estimate length using the original feature vector but with a corrected species.
+  /// Called when the scientist changes species during the identification step,
+  /// because the regressor uses species index as an input feature, and some species
+  /// bypass the regressor entirely (e.g. sea_run_trout uses heuristic only).
+  ///
+  /// - Parameters:
+  ///   - originalFV: The feature vector from the initial ML analysis
+  ///   - correctedSpecies: The user-confirmed species display name (e.g. "Steelhead")
+  ///   - correctedLifecycleStage: Optional lifecycle stage (e.g. "Holding", "Traveler")
+  /// - Returns: Re-estimated length and source, or nil length if estimation fails
+  func reEstimateLength(
+    originalFV: LengthFeatureVector,
+    correctedSpecies: String?,
+    correctedLifecycleStage: String?
+  ) -> LengthReEstimate {
+    guard let species = correctedSpecies else {
+      return LengthReEstimate(lengthInches: nil, source: .heuristic)
+    }
+
+    // Build the model label from species + lifecycle stage
+    let lowerSpecies = species.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+    let lowerStage = correctedLifecycleStage?.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+
+    // Try direct lookup first (e.g. "steelhead" -> "steelhead_holding")
+    var modelLabel = Self.speciesDisplayToLabel[lowerSpecies]
+
+    // If we have a lifecycle stage, try species_stage combination
+    if let stage = lowerStage, !stage.isEmpty {
+      let combined = "\(lowerSpecies.replacingOccurrences(of: " ", with: "_"))_\(stage)"
+      if speciesLabels.contains(combined) {
+        modelLabel = combined
+      }
+    }
+
+    // Resolve species index
+    let speciesIdx: Int
+    if let label = modelLabel, let idx = speciesLabelToIndex(label) {
+      speciesIdx = idx
+    } else {
+      // Unknown species — use index 0 as fallback
+      speciesIdx = 0
+    }
+
+    let resolvedLabel = modelLabel ?? "unknown"
+    AppLogging.log({
+      "reEstimateLength: corrected species=\(species), stage=\(correctedLifecycleStage ?? "nil"), " +
+      "resolved label=\(resolvedLabel), index=\(speciesIdx)"
+    }, level: .info, category: .ml)
+
+    // Check if this species bypasses the regressor
+    let regressorBypassSpecies: Set<String> = ["sea_run_trout"]
+    let useRegressor = !regressorBypassSpecies.contains(resolvedLabel)
+
+    // Build updated feature vector with corrected species index
+    var updatedFV = originalFV
+    updatedFV.speciesIndex = Double(speciesIdx)
+
+    if useRegressor, AppEnvironment.shared.useLengthRegressor,
+       let predicted = predictLength(from: updatedFV) {
+      let clamped = max(
+        AppEnvironment.shared.fishMinLengthInches,
+        min(predicted, AppEnvironment.shared.fishMaxLengthInches)
+      )
+      AppLogging.log({
+        "reEstimateLength: regressor predicted=\(String(format: "%.1f", predicted)), " +
+        "clamped=\(String(format: "%.1f", clamped)) for \(resolvedLabel)"
+      }, level: .info, category: .ml)
+      return LengthReEstimate(lengthInches: clamped, source: .regressor)
+    }
+
+    // Fallback to species-scaled heuristic
+    // Reconstruct fish box dimensions from feature vector (in 640x640 model space)
+    let fw = originalFV.fishBoxWidth
+    let fh = originalFV.fishBoxHeight
+    let pixelLength = max(fw, fh)
+
+    let env = AppEnvironment.shared
+    let scaledPixelLength = pixelLength * env.fishBoxScaleFactor
+    let rawInches = scaledPixelLength / env.fishPixelsPerInch
+
+    // Check for species-specific range
+    if let range = Self.speciesLengthRanges[resolvedLabel] {
+      let heuristicMin = env.fishMinLengthInches
+      let heuristicMax = env.fishMaxLengthInches
+      let fraction = min(1.0, max(0.0,
+        (rawInches - heuristicMin) / (heuristicMax - heuristicMin)
+      ))
+      let scaled = range.min + fraction * (range.max - range.min)
+
+      AppLogging.log({
+        "reEstimateLength: heuristic species-scaled for \(resolvedLabel), " +
+        "raw=\(String(format: "%.1f", rawInches)), scaled=\(String(format: "%.1f", scaled))"
+      }, level: .info, category: .ml)
+      return LengthReEstimate(lengthInches: scaled, source: .heuristic)
+    }
+
+    // Default heuristic (steelhead range)
+    let clamped = max(env.fishMinLengthInches, min(rawInches, env.fishMaxLengthInches))
+    AppLogging.log({
+      "reEstimateLength: heuristic default, raw=\(String(format: "%.1f", rawInches)), " +
+      "clamped=\(String(format: "%.1f", clamped))"
+    }, level: .info, category: .ml)
+    return LengthReEstimate(lengthInches: clamped, source: .heuristic)
   }
 }
 

@@ -79,6 +79,27 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
   /// Version of the LengthRegressor model that produced the estimate.
   public var modelVersion: String?
 
+  // Girth & weight estimation (scientist flow) — final confirmed values
+  public var girthInches: Double?
+  public var weightLbs: Double?
+  public var girthIsEstimated: Bool?
+  public var weightIsEstimated: Bool?
+  public var weightDivisor: Int?
+  public var weightDivisorSource: String?
+  public var girthRatio: Double?
+  public var girthRatioSource: String?
+
+  // Initial measurement estimates (calculated with confirmed species, before user edits length/girth)
+  public var initialLengthForMeasurements: Double?
+  public var initialGirthInches: Double?
+  public var initialWeightLbs: Double?
+  public var initialGirthIsEstimated: Bool?
+  public var initialWeightIsEstimated: Bool?
+  public var initialWeightDivisor: Int?
+  public var initialWeightDivisorSource: String?
+  public var initialGirthRatio: Double?
+  public var initialGirthRatioSource: String?
+
   // Meta
   public var appVersion: String?
   public var deviceDescription: String?
@@ -123,6 +144,23 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
     mlFeatureVector: Data? = nil,
     lengthSource: String? = nil,
     modelVersion: String? = nil,
+    girthInches: Double? = nil,
+    weightLbs: Double? = nil,
+    girthIsEstimated: Bool? = nil,
+    weightIsEstimated: Bool? = nil,
+    weightDivisor: Int? = nil,
+    weightDivisorSource: String? = nil,
+    girthRatio: Double? = nil,
+    girthRatioSource: String? = nil,
+    initialLengthForMeasurements: Double? = nil,
+    initialGirthInches: Double? = nil,
+    initialWeightLbs: Double? = nil,
+    initialGirthIsEstimated: Bool? = nil,
+    initialWeightIsEstimated: Bool? = nil,
+    initialWeightDivisor: Int? = nil,
+    initialWeightDivisorSource: String? = nil,
+    initialGirthRatio: Double? = nil,
+    initialGirthRatioSource: String? = nil,
     appVersion: String? = nil,
     deviceDescription: String? = nil,
     platform: String? = nil
@@ -165,6 +203,23 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
     self.mlFeatureVector = mlFeatureVector
     self.lengthSource = lengthSource
     self.modelVersion = modelVersion
+    self.girthInches = girthInches
+    self.weightLbs = weightLbs
+    self.girthIsEstimated = girthIsEstimated
+    self.weightIsEstimated = weightIsEstimated
+    self.weightDivisor = weightDivisor
+    self.weightDivisorSource = weightDivisorSource
+    self.girthRatio = girthRatio
+    self.girthRatioSource = girthRatioSource
+    self.initialLengthForMeasurements = initialLengthForMeasurements
+    self.initialGirthInches = initialGirthInches
+    self.initialWeightLbs = initialWeightLbs
+    self.initialGirthIsEstimated = initialGirthIsEstimated
+    self.initialWeightIsEstimated = initialWeightIsEstimated
+    self.initialWeightDivisor = initialWeightDivisor
+    self.initialWeightDivisorSource = initialWeightDivisorSource
+    self.initialGirthRatio = initialGirthRatio
+    self.initialGirthRatioSource = initialGirthRatioSource
     self.appVersion = appVersion
     self.deviceDescription = deviceDescription
     self.platform = platform

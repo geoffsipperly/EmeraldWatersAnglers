@@ -65,11 +65,17 @@ struct ReportChatView: View {
     ZStack {
       Color.black.ignoresSafeArea()
 
-      VStack(spacing: 0) {
-        header
-        Spacer().frame(height: 40)
-        captureButton
-        Spacer()
+      if directToChat && !showChatFullScreen {
+        // Show nothing while auto-transitioning to the chat screen
+        ProgressView()
+          .tint(.white)
+      } else if !directToChat {
+        VStack(spacing: 0) {
+          header
+          Spacer().frame(height: 40)
+          captureButton
+          Spacer()
+        }
       }
     }
     .navigationTitle("Record a catch")
@@ -854,6 +860,23 @@ struct ReportChatView: View {
       mlFeatureVector: snapshot.mlFeatureVector,
       lengthSource: snapshot.lengthSource,
       modelVersion: snapshot.modelVersion,
+      girthInches: snapshot.girthInches,
+      weightLbs: snapshot.weightLbs,
+      girthIsEstimated: snapshot.girthIsEstimated,
+      weightIsEstimated: snapshot.weightIsEstimated,
+      weightDivisor: snapshot.weightDivisor,
+      weightDivisorSource: snapshot.weightDivisorSource,
+      girthRatio: snapshot.girthRatio,
+      girthRatioSource: snapshot.girthRatioSource,
+      initialLengthForMeasurements: snapshot.initialLengthForMeasurements,
+      initialGirthInches: snapshot.initialGirthInches,
+      initialWeightLbs: snapshot.initialWeightLbs,
+      initialGirthIsEstimated: snapshot.initialGirthIsEstimated,
+      initialWeightIsEstimated: snapshot.initialWeightIsEstimated,
+      initialWeightDivisor: snapshot.initialWeightDivisor,
+      initialWeightDivisorSource: snapshot.initialWeightDivisorSource,
+      initialGirthRatio: snapshot.initialGirthRatio,
+      initialGirthRatioSource: snapshot.initialGirthRatioSource,
       appVersion: appVersion,
       deviceDescription: deviceDescription,
       platform: "iOS",

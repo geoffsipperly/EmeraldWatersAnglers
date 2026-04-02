@@ -12,8 +12,22 @@ struct CatchChatView: View {
   // Voice memo sheet
   @State private var showVoiceNoteSheet = false
 
+  /// Whether the chat uses the scientific visual style ("Science mode" label).
+  private var isScientistMode: Bool { viewModel.isScientistMode }
+
   var body: some View {
     VStack(spacing: 0) {
+      // "Science mode" header for scientist role
+      if isScientistMode {
+        Text("Scientist mode")
+          .font(.caption)
+          .foregroundColor(.blue.opacity(0.7))
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(.horizontal, 8)
+          .padding(.top, 6)
+          .padding(.bottom, 2)
+      }
+
       // Messages + inline capture options
       ScrollViewReader { proxy in
         ScrollView {
@@ -178,8 +192,8 @@ struct CatchChatView: View {
         let showPhotoButton = viewModel.showCaptureOptions && index == 0
         let showVoiceButton = (viewModel.voiceMemoAnchorMessageID == message.id)
         let showConfirmButton = (viewModel.confirmAnalysisMessageID == message.id)
-
-        if showPhotoButton || showVoiceButton || showConfirmButton {
+        let showScientistButtons = (viewModel.scientistFlow?.confirmAnchorID == message.id)
+        if showPhotoButton || showVoiceButton || showConfirmButton || showScientistButtons {
           HStack(spacing: 16) {
             if showPhotoButton {
               Button {
@@ -196,25 +210,50 @@ struct CatchChatView: View {
             }
 
             if showVoiceButton {
-              Button {
-                showVoiceNoteSheet = true
-              } label: {
-                VStack(spacing: 4) {
-                  Image(systemName: "mic.fill")
-                    .font(.title2)
-                  Text("Memo")
-                    .font(.footnote)
+              // In scientist voice memo step, show Memo and Skip
+              if viewModel.scientistFlow?.currentStep == .voiceMemo {
+                Button {
+                  showVoiceNoteSheet = true
+                } label: {
+                  VStack(spacing: 4) {
+                    Image(systemName: "mic.fill")
+                      .font(.title2)
+                    Text("Memo")
+                      .font(.footnote)
+                  }
                 }
-              }
 
-              Button {
-                viewModel.deferVoiceMemoToLater()
-              } label: {
-                VStack(spacing: 4) {
-                  Image(systemName: "clock.arrow.circlepath")
-                    .font(.title2)
-                  Text("Later")
-                    .font(.footnote)
+                Button {
+                  viewModel.scientistSkipVoiceMemo()
+                } label: {
+                  VStack(spacing: 4) {
+                    Image(systemName: "forward.fill")
+                      .font(.title2)
+                    Text("Skip")
+                      .font(.footnote)
+                  }
+                }
+              } else {
+                Button {
+                  showVoiceNoteSheet = true
+                } label: {
+                  VStack(spacing: 4) {
+                    Image(systemName: "mic.fill")
+                      .font(.title2)
+                    Text("Memo")
+                      .font(.footnote)
+                  }
+                }
+
+                Button {
+                  viewModel.deferVoiceMemoToLater()
+                } label: {
+                  VStack(spacing: 4) {
+                    Image(systemName: "clock.arrow.circlepath")
+                      .font(.title2)
+                    Text("Later")
+                      .font(.footnote)
+                  }
                 }
               }
             }
@@ -231,6 +270,22 @@ struct CatchChatView: View {
                 }
               }
             }
+
+            if showScientistButtons {
+              let step = viewModel.scientistFlow?.currentStep
+              let useConfirmStyle = step == .identification || step == .finalSummary
+              Button {
+                viewModel.scientistConfirm()
+              } label: {
+                VStack(spacing: 4) {
+                  Image(systemName: useConfirmStyle ? "checkmark.circle.fill" : "arrow.right.circle.fill")
+                    .font(.title2)
+                  Text(useConfirmStyle ? "Confirm" : "Next")
+                    .font(.footnote)
+                }
+              }
+            }
+
           }
           .foregroundColor(.white)
         } else {
@@ -258,14 +313,40 @@ struct CatchChatView: View {
         )
         .padding(2)
     } else if let text = message.text {
-      Text(text)
-        .font(.subheadline)
-        .foregroundColor(.white)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(isUser ? Color.blue : Color.white.opacity(0.12))
-        .cornerRadius(16)
+      // Style "Final Analysis" title in blue when it's the first line
+      if !isUser && text.hasPrefix("Final Analysis") {
+        finalAnalysisBubble(text)
+      } else {
+        Text(text)
+          .font(.subheadline)
+          .foregroundColor(.white)
+          .padding(.horizontal, 12)
+          .padding(.vertical, 8)
+          .background(isUser ? Color.blue : Color.white.opacity(0.12))
+          .cornerRadius(16)
+      }
     }
+  }
+  /// Renders the final analysis bubble with a blue title line.
+  private func finalAnalysisBubble(_ text: String) -> some View {
+    let lines = text.components(separatedBy: "\n")
+    let title = lines.first ?? ""
+    let body = lines.dropFirst().joined(separator: "\n")
+
+    return VStack(alignment: .leading, spacing: 4) {
+      Text(title)
+        .font(.subheadline.weight(.semibold))
+        .foregroundColor(.blue)
+      if !body.isEmpty {
+        Text(body)
+          .font(.subheadline)
+          .foregroundColor(.white)
+      }
+    }
+    .padding(.horizontal, 12)
+    .padding(.vertical, 8)
+    .background(Color.white.opacity(0.12))
+    .cornerRadius(16)
   }
 }
 
