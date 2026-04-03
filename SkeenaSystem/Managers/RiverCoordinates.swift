@@ -439,6 +439,21 @@ enum RiverAtlas {
             CLLocationCoordinate2D(latitude: 59.6261, longitude: -159.6122),
         ],
 
+        "Kasilof River": [
+            // Mile 0 — Mouth: Kasilof River at Cook Inlet (Kasilof River Flats)
+            CLLocationCoordinate2D(latitude: 60.3400, longitude: -151.2800),
+            // Mile 5 — Lower river, Kasilof village / Sterling Highway bridge area
+            CLLocationCoordinate2D(latitude: 60.3350, longitude: -151.2340),
+            // Mile 8 — ADF&G Sonar site (RM 7.8) / Kasilof River State Rec Site
+            CLLocationCoordinate2D(latitude: 60.3280, longitude: -151.2200),
+            // Mile 10 — Crooked Creek confluence / Crooked Creek State Rec Site
+            CLLocationCoordinate2D(latitude: 60.3215, longitude: -151.2856),
+            // Mile 15 — Mid-river, approaching Tustumena Lake outlet
+            CLLocationCoordinate2D(latitude: 60.2800, longitude: -151.0800),
+            // Mile 18 — Tustumena Lake outlet (source)
+            CLLocationCoordinate2D(latitude: 60.2243, longitude: -150.9380),
+        ],
+
         // ─────────────────────────────────────────────
         // Northern BC — Skeena Region
         // ─────────────────────────────────────────────
@@ -534,10 +549,16 @@ enum RiverAtlas {
             CLLocationCoordinate2D(latitude: 55.6500, longitude: -127.6100),
             // Mile 10 — Lower canyon stretch, Babine River Corridor Park
             CLLocationCoordinate2D(latitude: 55.6150, longitude: -127.5200),
+            // Mile 13 — Mid-canyon, river bends east
+            CLLocationCoordinate2D(latitude: 55.6050, longitude: -127.4200),
             // Mile 15 — Mid-lower river, Silver Hilton Lodge vicinity (lower camp)
             CLLocationCoordinate2D(latitude: 55.5800, longitude: -127.4300),
+            // Mile 18 — Between Silver Hilton camps, river corridor
+            CLLocationCoordinate2D(latitude: 55.6000, longitude: -127.3000),
             // Mile 20 — Silver Hilton Lodge vicinity (upper camp, ~7 mi from lower)
             CLLocationCoordinate2D(latitude: 55.5500, longitude: -127.3500),
+            // Mile 23 — East bend, mid-wilderness corridor
+            CLLocationCoordinate2D(latitude: 55.5800, longitude: -127.1800),
             // Mile 25 — Mid-river, wilderness corridor
             CLLocationCoordinate2D(latitude: 55.5150, longitude: -127.2600),
             // Mile 30 — Mid-river, deep in Babine River Corridor Park
@@ -548,6 +569,8 @@ enum RiverAtlas {
             CLLocationCoordinate2D(latitude: 55.4200, longitude: -127.0000),
             // Mile 45 — Upper river, between lodge and Babine Norlakes Camp
             CLLocationCoordinate2D(latitude: 55.4000, longitude: -126.9200),
+            // Mile 48 — Upper river, Nilkitkwa Lake north end
+            CLLocationCoordinate2D(latitude: 55.5365, longitude: -126.7683),
             // Mile 50 — Babine Norlakes Camp vicinity (~3 mi below lake outlet)
             CLLocationCoordinate2D(latitude: 55.3850, longitude: -126.8400),
             // Mile 55 — DFO salmon counting fence (~1 km below Nilkitkwa Lake)

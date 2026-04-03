@@ -6,8 +6,8 @@
 // Simplified: Weight = Length^3 x 0.3364 / Divisor
 //
 // Divisor lookup follows a cascading hierarchy:
-//   1. River + species match (e.g. "Babine" + "steelhead" -> 775)
-//   2. Species-only match (e.g. "steelhead" -> 690)
+//   1. River + species match (e.g. "Babine" + "steelhead" -> 690)
+//   2. Species-only match (e.g. "steelhead" -> 775)
 //   3. Default: 800
 
 import Foundation
@@ -194,7 +194,7 @@ enum FishWeightEstimator {
 
   /// Species-level divisors (from the Fish Weight Estimation Brief).
   private static let speciesDivisors: [String: SpeciesEntry] = [
-    "steelhead":        SpeciesEntry(divisor: 690, source: "General steelhead"),
+    "steelhead":        SpeciesEntry(divisor: 775, source: "General steelhead"),
     "chinook":          SpeciesEntry(divisor: 740, source: "Chinook salmon"),
     "coho":             SpeciesEntry(divisor: 790, source: "Coho salmon"),
     "atlantic salmon":  SpeciesEntry(divisor: 800, source: "Atlantic salmon"),
@@ -251,13 +251,13 @@ enum FishWeightEstimator {
     RiverOverride(
       riverPatterns: ["babine"],
       speciesKey: "steelhead",
-      divisor: 775,
+      divisor: 690,
       source: "Babine River steelhead"
     ),
     RiverOverride(
       riverPatterns: ["skeena", "kispiox"],
       speciesKey: "steelhead",
-      divisor: 775,
+      divisor: 690,
       source: "Skeena/Kispiox steelhead"
     ),
     RiverOverride(

@@ -51,7 +51,12 @@ final class RiverLocator {
     let configuredRivers = CommunityService.shared.activeCommunityConfig.resolvedLodgeRivers
 
     return configuredRivers.compactMap { riverName in
-      guard let coords = RiverAtlas.all[riverName], !coords.isEmpty else {
+      let coords = RiverAtlas.all[riverName]
+        ?? RiverAtlas.all[riverName + " River"]
+        ?? RiverAtlas.all[riverName + " Creek"]
+        ?? RiverAtlas.all[riverName + " Lake"]
+        ?? RiverAtlas.all[riverName + " Stream"]
+      guard let coords, !coords.isEmpty else {
         return nil
       }
       return RiverDefinition(

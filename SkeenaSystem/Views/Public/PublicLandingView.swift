@@ -196,14 +196,14 @@ struct PublicLandingView: View {
       .onAppear {
         locationManager.request()
         locationManager.start()
+        Task {
+          await fetchReports()
+          await fetchMapReports()
+        }
       }
       .onChange(of: locationManager.lastLocation) { loc in
         guard liveWeather == nil, let loc else { return }
         Task { await fetchWeather(location: loc) }
-      }
-      .task {
-        if reports.isEmpty { await fetchReports() }
-        await fetchMapReports()
       }
     }
     .environment(\.userRole, .public)
@@ -455,10 +455,17 @@ struct PublicLandingView: View {
 
       HStack {
         VStack(alignment: .leading, spacing: 1) {
-          Text(r.displayLocation)
-            .font(.caption2.weight(.semibold))
-            .foregroundColor(.white)
-            .lineLimit(1)
+          if auth.currentUserType == .scientist {
+            Text(r.species ?? "Unknown Species")
+              .font(.caption2.weight(.semibold))
+              .foregroundColor(.white)
+              .lineLimit(1)
+          } else {
+            Text(r.displayLocation)
+              .font(.caption2.weight(.semibold))
+              .foregroundColor(.white)
+              .lineLimit(1)
+          }
           Text(Self.fmtDate(r.createdAt))
             .font(.caption2)
             .foregroundColor(.gray)

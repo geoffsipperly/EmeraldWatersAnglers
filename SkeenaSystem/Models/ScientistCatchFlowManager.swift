@@ -293,12 +293,12 @@ final class ScientistCatchFlowManager: ObservableObject {
   /// Identification prompt shown when user edits species/sex.
   func identificationPrompt() -> String {
     let summary = identificationSummary()
-    return "\(summary)\n\nConfirm the species and sex, or type corrections."
+    return "\(summary)\n§\nConfirm the species and sex, or type corrections."
   }
 
   private func lengthPrompt() -> String {
     let display = lengthInches.map { formatLength($0) } ?? "Unknown"
-    return "Estimated length: \(display)\n\nConfirm, or type a new value (e.g. \"32\")."
+    return "Estimated length: \(display)\n§\nConfirm, or type a new value (e.g. \"32\")."
   }
 
   private func girthPrompt() -> String {
@@ -309,7 +309,7 @@ final class ScientistCatchFlowManager: ObservableObject {
     lines.append("Length: \(lengthDisplay)")
     lines.append("Estimated girth: \(girthDisplay)")
 
-    lines.append("")
+    lines.append("§")
     if girthIsEstimated {
       lines.append("Girth estimated using \(girthRatio) x length ratio")
       lines.append("(\(girthRatioSource))")
@@ -353,7 +353,7 @@ final class ScientistCatchFlowManager: ObservableObject {
     }
 
     // Derivation details
-    lines.append("")
+    lines.append("§")
     lines.append("Calculation inputs:")
     lines.append("  Divisor: \(divisor) (\(divisorSource))")
     if girthIsEstimated {

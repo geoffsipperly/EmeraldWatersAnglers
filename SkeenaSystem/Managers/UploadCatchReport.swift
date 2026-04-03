@@ -231,7 +231,7 @@ final class UploadCatchPicMemo {
     } else {
       let configuration = URLSessionConfiguration.ephemeral
       configuration.timeoutIntervalForRequest = config.timeout
-      configuration.timeoutIntervalForResource = config.timeout
+      configuration.timeoutIntervalForResource = config.timeout * 4
       self.session = URLSession(configuration: configuration)
     }
   }
@@ -317,8 +317,56 @@ final class UploadCatchPicMemo {
 
     progress(0.1)
 
+    performUpload(request: request, attempt: 1, pending: pending, progress: progress, completion: completion)
+  }
+
+  // MARK: - Retry logic
+
+  /// Maximum number of upload attempts before surfacing the error.
+  private static let maxRetries = 3
+
+  /// Base delay in seconds for exponential backoff (1s, 2s, 4s).
+  private static let baseRetryDelay: TimeInterval = 1.0
+
+  /// Returns true for errors that are transient and worth retrying.
+  private static func isRetryableError(_ error: Error) -> Bool {
+    let nsError = error as NSError
+    let retryableCodes: Set<Int> = [
+      NSURLErrorNetworkConnectionLost,       // -1005
+      NSURLErrorTimedOut,                     // -1001
+      NSURLErrorNotConnectedToInternet,       // -1009
+      NSURLErrorCannotConnectToHost,          // -1004
+      NSURLErrorCannotFindHost,              // -1003
+      NSURLErrorDNSLookupFailed,             // -1006
+      NSURLErrorSecureConnectionFailed,      // -1200
+    ]
+    return nsError.domain == NSURLErrorDomain && retryableCodes.contains(nsError.code)
+  }
+
+  /// Returns true for HTTP status codes that are transient and worth retrying.
+  private static func isRetryableStatus(_ code: Int) -> Bool {
+    code == 408 || code == 429 || code == 502 || code == 503 || code == 504
+  }
+
+  private func performUpload(
+    request: URLRequest,
+    attempt: Int,
+    pending: [CatchReportPicMemo],
+    progress: @escaping (Double) -> Void,
+    completion: @escaping (Result<[UUID], Error>) -> Void
+  ) {
     let task = session.dataTask(with: request) { data, response, error in
+
+      // --- Network error ---
       if let error {
+        if Self.isRetryableError(error), attempt < Self.maxRetries {
+          let delay = Self.baseRetryDelay * pow(2.0, Double(attempt - 1))
+          AppLogging.log("[UploadCatchPicMemo] Retryable network error (attempt \(attempt)/\(Self.maxRetries)): \(error.localizedDescription). Retrying in \(delay)s…", level: .warn, category: .network)
+          DispatchQueue.global().asyncAfter(deadline: .now() + delay) {
+            self.performUpload(request: request, attempt: attempt + 1, pending: pending, progress: progress, completion: completion)
+          }
+          return
+        }
         DispatchQueue.main.async {
           completion(.failure(UploadError.network(error)))
         }
@@ -340,7 +388,16 @@ final class UploadCatchPicMemo {
       AppLogging.log({ "[UploadCatchPicMemo] Body:\n\(responseBody)" }, level: .debug, category: .network)
       #endif
 
-      guard (200 ... 299).contains(statusCode) else {
+      // --- Retryable HTTP status ---
+      if !((200 ... 299).contains(statusCode)) {
+        if Self.isRetryableStatus(statusCode), attempt < Self.maxRetries {
+          let delay = Self.baseRetryDelay * pow(2.0, Double(attempt - 1))
+          AppLogging.log("[UploadCatchPicMemo] Retryable HTTP \(statusCode) (attempt \(attempt)/\(Self.maxRetries)). Retrying in \(delay)s…", level: .warn, category: .network)
+          DispatchQueue.global().asyncAfter(deadline: .now() + delay) {
+            self.performUpload(request: request, attempt: attempt + 1, pending: pending, progress: progress, completion: completion)
+          }
+          return
+        }
         DispatchQueue.main.async {
           completion(.failure(UploadError.http(statusCode, responseBody)))
         }
@@ -381,6 +438,10 @@ final class UploadCatchPicMemo {
         }
       } else {
         uploadedIDs = pending.map(\.id)
+      }
+
+      if attempt > 1 {
+        AppLogging.log("[UploadCatchPicMemo] Upload succeeded on attempt \(attempt)/\(Self.maxRetries)", level: .info, category: .network)
       }
 
       DispatchQueue.main.async {

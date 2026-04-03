@@ -200,7 +200,7 @@ struct LoginView: View {
     .overlay(alignment: .topLeading) {
       if isBetaRelease {
         HStack {
-          Text("Beta")
+          Text("Pilot")
             .font(.caption.weight(.semibold))
             .padding(.horizontal, 10)
             .padding(.vertical, 6)

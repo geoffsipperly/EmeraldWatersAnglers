@@ -316,6 +316,8 @@ struct CatchChatView: View {
       // Style "Final Analysis" title in blue when it's the first line
       if !isUser && text.hasPrefix("Final Analysis") {
         finalAnalysisBubble(text)
+      } else if !isUser && isScientistMode && text.contains("§") {
+        scientistBubble(text)
       } else {
         Text(text)
           .font(.subheadline)
@@ -327,9 +329,37 @@ struct CatchChatView: View {
       }
     }
   }
+  /// Renders a scientist-mode bubble where text before "§" is primary (estimates/actuals)
+  /// and text after "§" is secondary (smaller, grey supporting text).
+  private func scientistBubble(_ text: String) -> some View {
+    let parts = text.components(separatedBy: "\n§\n")
+    let primary = parts.first ?? text
+    let secondary = parts.count > 1 ? parts.dropFirst().joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines) : nil
+
+    return VStack(alignment: .leading, spacing: 6) {
+      Text(primary)
+        .font(.subheadline)
+        .foregroundColor(.white)
+      if let secondary, !secondary.isEmpty {
+        Text(secondary)
+          .font(.caption)
+          .foregroundColor(.gray)
+      }
+    }
+    .padding(.horizontal, 12)
+    .padding(.vertical, 8)
+    .background(Color.white.opacity(0.12))
+    .cornerRadius(16)
+  }
+
   /// Renders the final analysis bubble with a blue title line.
+  /// In scientist mode, text after "§" is rendered as smaller grey supporting text.
   private func finalAnalysisBubble(_ text: String) -> some View {
-    let lines = text.components(separatedBy: "\n")
+    let sections = text.components(separatedBy: "\n§\n")
+    let mainSection = sections.first ?? text
+    let supporting = sections.count > 1 ? sections.dropFirst().joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines) : nil
+
+    let lines = mainSection.components(separatedBy: "\n")
     let title = lines.first ?? ""
     let body = lines.dropFirst().joined(separator: "\n")
 
@@ -341,6 +371,11 @@ struct CatchChatView: View {
         Text(body)
           .font(.subheadline)
           .foregroundColor(.white)
+      }
+      if isScientistMode, let supporting, !supporting.isEmpty {
+        Text(supporting)
+          .font(.caption)
+          .foregroundColor(.gray)
       }
     }
     .padding(.horizontal, 12)

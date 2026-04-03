@@ -33,7 +33,7 @@ enum MapReportService {
     comps.path = existingPath + "/functions/v1/map-reports"
     let iso = ISO8601DateFormatter()
     let toDate = iso.string(from: Date())
-    let fromDate = iso.string(from: Calendar.current.date(byAdding: .year, value: -1, to: Date()) ?? Date())
+    let fromDate = iso.string(from: Calendar.current.date(byAdding: .year, value: -3, to: Date()) ?? Date())
     var queryItems = [
       URLQueryItem(name: "community_id", value: communityId),
       URLQueryItem(name: "from_date",    value: fromDate),
