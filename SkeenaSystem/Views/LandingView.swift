@@ -23,6 +23,7 @@ struct LandingView: View {
 
   // Map reports
   @State private var mapReports: [MapReportDTO] = []
+  @State private var mapFetchDone = false
 
   // Live weather
   private struct LiveWeather {
@@ -78,10 +79,9 @@ struct LandingView: View {
             .environment(\.userRole, .guide)
             .environment(\.guideNavigateTo, handleGuideNavigateTo)
         case .community:
-          CommunityForumView()
+          SocialFeedView()
             .environment(\.userRole, .guide)
             .environment(\.guideNavigateTo, handleGuideNavigateTo)
-            .environmentObject(auth)
         case .trips:
           ManageTripsView(guideFirstName: auth.currentFirstName ?? "Guide")
             .environment(\.userRole, .guide)
@@ -172,7 +172,7 @@ struct LandingView: View {
     ScrollView {
       VStack(spacing: 8) {
 
-        // ── Header: name → logo → record ──────────────────────────────
+        // ── Header: name → logo → display name → tagline → record ─────
         VStack(spacing: 0) {
           // Guide name — left aligned
           Text("\(auth.currentFirstName ?? "") \(auth.currentLastName ?? "")")
@@ -184,6 +184,25 @@ struct LandingView: View {
           // Community logo — centred
           CommunityLogoView(config: communityService.activeCommunityConfig, size: 160)
             .frame(maxWidth: .infinity)
+
+          // Community display name
+          if let name = communityService.activeCommunityConfig.displayName, !name.isEmpty {
+            Text(name)
+              .font(.title2.weight(.bold))
+              .foregroundColor(.white)
+              .multilineTextAlignment(.center)
+              .padding(.top, -20)
+          }
+
+          // Community tagline
+          if let tagline = communityService.activeCommunityConfig.tagline, !tagline.isEmpty {
+            Text(tagline)
+              .font(.subheadline)
+              .foregroundColor(.gray)
+              .multilineTextAlignment(.center)
+              .padding(.top, -16)
+              .padding(.horizontal, 20)
+          }
 
           // Record capsule — right aligned, directly below logo
           Button { showRecordActivity = true } label: {
@@ -308,7 +327,7 @@ struct LandingView: View {
         .accessibilityIdentifier("fishingForecastTile")
 
         // ── Map ────────────────────────────────────────────────────────
-        if mapReports.isEmpty {
+        if !mapFetchDone {
           ZStack {
             RoundedRectangle(cornerRadius: 14)
               .fill(Color.white.opacity(0.06))
@@ -318,7 +337,10 @@ struct LandingView: View {
           .padding(.horizontal, 16)
         } else {
           VStack(spacing: 4) {
-            GuideLandingMapView(reports: mapReports)
+            GuideLandingMapView(
+              reports: mapReports,
+              userLocation: locationManager.lastLocation?.coordinate
+            )
               .frame(height: 230)
               .clipShape(RoundedRectangle(cornerRadius: 14))
 
@@ -335,6 +357,7 @@ struct LandingView: View {
   // MARK: - Map reports
 
   private func fetchMapReports() async {
+    defer { Task { @MainActor in mapFetchDone = true } }
     guard let communityId = CommunityService.shared.activeCommunityId else { return }
     do {
       let reports = try await MapReportService.fetch(communityId: communityId)

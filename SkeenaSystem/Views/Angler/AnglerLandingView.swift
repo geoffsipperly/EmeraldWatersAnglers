@@ -219,9 +219,8 @@ struct AnglerLandingView: View {
             .environment(\.navigateTo, handleNavigateTo)
             .environmentObject(communityService)
         case .community:
-          CommunityForumView()
+          SocialFeedView()
             .environment(\.navigateTo, handleNavigateTo)
-            .environmentObject(auth)
         case .profile:
           ManageProfileView()
             .environmentObject(auth)
@@ -307,7 +306,7 @@ struct AnglerLandingView: View {
     ScrollView {
       VStack(spacing: 8) {
 
-        // ── Header: name → logo ──────────────────────────────
+        // ── Header: name → logo → display name → tagline ────
         VStack(spacing: 0) {
           // User name — left aligned
           Text("\(auth.currentFirstName ?? "") \(auth.currentLastName ?? "")")
@@ -319,6 +318,25 @@ struct AnglerLandingView: View {
           // Community logo — centred
           CommunityLogoView(config: communityService.activeCommunityConfig, size: 160)
             .frame(maxWidth: .infinity)
+
+          // Community display name
+          if let name = communityService.activeCommunityConfig.displayName, !name.isEmpty {
+            Text(name)
+              .font(.title2.weight(.bold))
+              .foregroundColor(.white)
+              .multilineTextAlignment(.center)
+              .padding(.top, -20)
+          }
+
+          // Community tagline
+          if let tagline = communityService.activeCommunityConfig.tagline, !tagline.isEmpty {
+            Text(tagline)
+              .font(.subheadline)
+              .foregroundColor(.gray)
+              .multilineTextAlignment(.center)
+              .padding(.top, -16)
+              .padding(.horizontal, 20)
+          }
         }
         .padding(.top, 12)
 
