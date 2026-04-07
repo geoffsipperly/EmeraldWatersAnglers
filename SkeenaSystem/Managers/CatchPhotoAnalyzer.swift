@@ -89,17 +89,27 @@ final class CatchPhotoAnalyzer {
     image: UIImage,
     location: CLLocation?
   ) async -> CatchPhotoAnalysis {
-    // 1. Location detection: river spines first, then water body polygons
+    // 1. Location detection: check both river spines and water body polygons,
+    //    pick whichever is closer when both match.
     var riverDisplay: String?
 
-    let riverName = riverLocator.riverName(near: location)
-    AppLogging.log("[Analyzer] RiverLocator result: '\(riverName)' for location: \(location?.coordinate.latitude ?? 0), \(location?.coordinate.longitude ?? 0)", level: .debug, category: .ml)
+    let riverResult = riverLocator.riverMatch(near: location)
+    let waterBodyResult = waterBodyLocator.waterBodyMatch(at: location)
+    AppLogging.log("[Analyzer] Location (\(location?.coordinate.latitude ?? 0), \(location?.coordinate.longitude ?? 0)) — river: \(riverResult?.name ?? "none") @ \(String(format: "%.2f", riverResult?.distanceKm ?? -1)) km, waterBody: \(waterBodyResult?.name ?? "none") @ \(String(format: "%.2f", waterBodyResult?.distanceKm ?? -1)) km", level: .debug, category: .ml)
 
-    if !riverName.isEmpty {
-      riverDisplay = riverName
-    } else if let waterBody = waterBodyLocator.waterBodyName(at: location) {
-      riverDisplay = waterBody
-      AppLogging.log("[Analyzer] Water body matched: \(waterBody)", level: .debug, category: .ml)
+    if let river = riverResult, let waterBody = waterBodyResult {
+      // Both matched — pick whichever is closer
+      if river.distanceKm <= waterBody.distanceKm {
+        riverDisplay = river.name
+        AppLogging.log("[Analyzer] River '\(river.name)' wins (closer)", level: .debug, category: .ml)
+      } else {
+        riverDisplay = waterBody.name
+        AppLogging.log("[Analyzer] Water body '\(waterBody.name)' wins (closer)", level: .debug, category: .ml)
+      }
+    } else if let river = riverResult {
+      riverDisplay = river.name
+    } else if let waterBody = waterBodyResult {
+      riverDisplay = waterBody.name
     } else {
       riverDisplay = nil
       AppLogging.log("[Analyzer] No location matched", level: .debug, category: .ml)

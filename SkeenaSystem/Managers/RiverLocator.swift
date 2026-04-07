@@ -72,18 +72,16 @@ final class RiverLocator {
 
   // MARK: - Public API
 
-  /// Returns the best-matching river name for this location across all loaded rivers.
+  /// Returns the best-matching river and its distance for this location.
   ///
   /// Semantics:
-  /// - If `location` is nil → "" (no river)
-  /// - For each loaded river:
-  ///   - Compute the minimum distance to ANY of that river's coordinates.
-  ///   - If that minimum distance ≤ `maxDistanceKm`, the river is a candidate.
-  /// - Return the name of the candidate river with the smallest distance.
-  /// - If no river is within its `maxDistanceKm` → "" (no river)
-  func riverName(near location: CLLocation?) -> String {
-    guard let location else { return "" }
-    guard !rivers.isEmpty else { return "" }
+  /// - If `location` is nil → nil
+  /// - For each loaded river, compute the minimum distance to ANY spine point.
+  /// - If that distance ≤ `maxDistanceKm`, the river is a candidate.
+  /// - Return the candidate with the smallest distance.
+  func riverMatch(near location: CLLocation?) -> (name: String, distanceKm: Double)? {
+    guard let location else { return nil }
+    guard !rivers.isEmpty else { return nil }
 
     var bestRiver: RiverDefinition?
     var bestDistanceKm = Double.greatestFiniteMagnitude
@@ -110,6 +108,12 @@ final class RiverLocator {
       }
     }
 
-    return bestRiver?.shortName ?? ""
+    guard let best = bestRiver else { return nil }
+    return (name: best.shortName, distanceKm: bestDistanceKm)
+  }
+
+  /// Convenience: returns just the river name (empty string if no match).
+  func riverName(near location: CLLocation?) -> String {
+    riverMatch(near: location)?.name ?? ""
   }
 }

@@ -5,10 +5,8 @@
 //  Polygon-based GPS lookup for water bodies (bays, sounds, canals).
 //  Complements RiverLocator (which handles linear river spines).
 //
-//  Resolution priority in the app:
-//  1. Check water body polygons (specific → general via checkOrder)
-//  2. Check river spines (RiverLocator)
-//  3. Fall back to defaultRiver / defaultWaterBody
+//  When both a water body polygon and a river spine match, the closer
+//  feature wins (compared by distance in km). See CatchPhotoAnalyzer.
 //
 
 import Foundation
@@ -65,6 +63,13 @@ final class WaterBodyLocator {
     /// Returns the name of the water body containing the given location, or nil.
     /// Checks more specific/smaller bodies first (per WaterBodyAtlas.checkOrder).
     func waterBodyName(at location: CLLocation?) -> String? {
+        waterBodyMatch(at: location)?.name
+    }
+
+    /// Returns the matching water body and the distance (km) from the point to
+    /// the nearest polygon edge. A larger distance means the point is deeper
+    /// inside the water body — useful for tiebreaking against river spine matches.
+    func waterBodyMatch(at location: CLLocation?) -> (name: String, distanceKm: Double)? {
         guard let location else {
             AppLogging.log("[WaterBodyLocator] location is nil, returning nil", level: .debug, category: .ml)
             return nil
@@ -76,7 +81,9 @@ final class WaterBodyLocator {
             let result = Self.pointInPolygon(point: point, polygon: body.polygon)
             AppLogging.log("[WaterBodyLocator] '\(body.name)' polygon (\(body.polygon.count) vertices): pointInPolygon = \(result)", level: .debug, category: .ml)
             if result {
-                return body.name
+                let distKm = Self.distanceToNearestEdgeKm(point: point, polygon: body.polygon, from: location)
+                AppLogging.log("[WaterBodyLocator] Matched '\(body.name)', distance to edge: \(String(format: "%.2f", distKm)) km", level: .debug, category: .ml)
+                return (name: body.name, distanceKm: distKm)
             }
         }
         AppLogging.log("[WaterBodyLocator] No water body matched", level: .debug, category: .ml)
@@ -130,6 +137,47 @@ final class WaterBodyLocator {
         }
 
         return false
+    }
+
+    /// Minimum real-world distance (km) from a point to the nearest polygon edge.
+    /// Uses coordinate-space projection to find the closest point on each edge,
+    /// then measures real-world distance via CLLocation.
+    private static func distanceToNearestEdgeKm(
+        point: CLLocationCoordinate2D,
+        polygon: [CLLocationCoordinate2D],
+        from location: CLLocation
+    ) -> Double {
+        var minKm = Double.greatestFiniteMagnitude
+        var j = polygon.count - 1
+        for i in 0..<polygon.count {
+            let nearest = nearestPointOnSegment(point: point, a: polygon[j], b: polygon[i])
+            let edgeLoc = CLLocation(latitude: nearest.latitude, longitude: nearest.longitude)
+            let km = location.distance(from: edgeLoc) / 1000.0
+            if km < minKm { minKm = km }
+            j = i
+        }
+        return minKm
+    }
+
+    /// Returns the closest coordinate on segment a→b to the given point.
+    private static func nearestPointOnSegment(
+        point: CLLocationCoordinate2D,
+        a: CLLocationCoordinate2D,
+        b: CLLocationCoordinate2D
+    ) -> CLLocationCoordinate2D {
+        let dx = b.longitude - a.longitude
+        let dy = b.latitude - a.latitude
+        let lengthSq = dx * dx + dy * dy
+
+        if lengthSq < 1e-15 { return a }
+
+        let t = max(0, min(1,
+            ((point.longitude - a.longitude) * dx + (point.latitude - a.latitude) * dy) / lengthSq
+        ))
+        return CLLocationCoordinate2D(
+            latitude: a.latitude + t * dy,
+            longitude: a.longitude + t * dx
+        )
     }
 
     /// Minimum distance from a point to a line segment (in coordinate space).
