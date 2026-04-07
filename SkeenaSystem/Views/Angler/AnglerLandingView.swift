@@ -147,6 +147,7 @@ struct AnglerLandingView: View {
   @State private var showTripPrep = false
   @State private var goToManageAccount = false
   @State private var goToCatchMap = false
+  @State private var showOnboarding = false
 
   // MARK: - Centralized navigation handler
   //
@@ -276,6 +277,17 @@ struct AnglerLandingView: View {
     }
     .onDisappear {
       AppLogging.log("[AnglerLandingView] onDisappear", level: .debug, category: .auth)
+    }
+    .onAppear {
+      checkOnboarding()
+    }
+    .fullScreenCover(isPresented: $showOnboarding) {
+      if let cid = communityService.activeCommunityId {
+        AnglerOnboardingWizard(communityId: cid) {
+          UserDefaults.standard.set(true, forKey: "anglerOnboarded_\(cid)")
+          showOnboarding = false
+        }
+      }
     }
     // Custom slide-in panel for Trip Prep
     .overlay(
@@ -735,6 +747,20 @@ struct AnglerLandingView: View {
     if icon.contains("snow") { return .cyan }
     if icon.contains("bolt") { return .yellow }
     return .gray
+  }
+
+  // MARK: - Onboarding
+
+  /// Community types that trigger the angler onboarding wizard.
+  private static let onboardingCommunityTypes: Set<String> = ["Lodge", "MultiLodge", "FlyShop"]
+
+  private func checkOnboarding() {
+    guard let cid = communityService.activeCommunityId,
+          let typeName = communityService.activeCommunityTypeName,
+          Self.onboardingCommunityTypes.contains(typeName),
+          !UserDefaults.standard.bool(forKey: "anglerOnboarded_\(cid)")
+    else { return }
+    showOnboarding = true
   }
 
   // MARK: - Actions
