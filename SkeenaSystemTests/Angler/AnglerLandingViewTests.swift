@@ -259,13 +259,13 @@ final class AnglerLandingViewTests: XCTestCase {
   // MARK: - Routing Logic
 
   /// Replicates the app's routing logic: user type determines which landing view to show.
-  private func landingViewName(for userType: AuthService.UserType?) -> String {
+  private func landingViewName(for userType: AuthService.UserType?, isConservation: Bool = false) -> String {
     guard let t = userType else { return "LoginView" }
     switch t {
-    case .guide:     return "LandingView"
-    case .angler:    return "AnglerLandingView"
-    case .public:    return "PublicLandingView"
-    case .scientist: return "ScientistLandingView"
+    case .guide:      return "LandingView"
+    case .angler:     return isConservation ? "ConservationLandingView" : "AnglerLandingView"
+    case .public:     return "PublicLandingView"
+    case .researcher: return isConservation ? "ResearcherLandingView" : "PublicLandingView"
     }
   }
 

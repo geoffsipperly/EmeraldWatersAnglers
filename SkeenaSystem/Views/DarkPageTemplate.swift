@@ -10,7 +10,7 @@ import SwiftUI
 
 /// Distinguishes angler vs guide context so shared views (e.g. Conditions, Community)
 /// can render the appropriate toolbar without duplication.
-enum AppUserRole { case angler, guide, `public`, scientist }
+enum AppUserRole { case angler, guide, `public`, researcher }
 
 private struct UserRoleKey: EnvironmentKey {
   static let defaultValue: AppUserRole = .angler // backward-compatible default
@@ -76,7 +76,7 @@ struct RoleAwareToolbar: View {
       guideToolbar
     case .public:
       publicToolbar
-    case .scientist:
+    case .researcher:
       publicToolbar
     }
   }

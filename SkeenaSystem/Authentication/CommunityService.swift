@@ -30,7 +30,7 @@ final class CommunityService: ObservableObject {
     @Published private(set) var hasFetchedMemberships = false
 
     /// Whether the active community is a Conservation-type community.
-    /// Used to gate scientist-specific views and features.
+    /// Used to gate researcher-specific views and features.
     var isConservation: Bool { activeCommunityTypeName == "Conservation" }
 
     // MARK: - Persistence keys

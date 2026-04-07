@@ -539,7 +539,7 @@ final class UploadCatchPicMemo {
       voiceMemo: voiceMemo
     )
 
-    // Weight estimation metadata (scientist flow only)
+    // Weight estimation metadata (researcher flow only)
     let weightEstimation: WeightEstimationDTO?
     if r.girthInches != nil || r.weightLbs != nil {
       weightEstimation = WeightEstimationDTO(

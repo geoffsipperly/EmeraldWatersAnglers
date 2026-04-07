@@ -5,7 +5,7 @@ import SwiftUI
 
 // MARK: - API config (mirrors PublicLandingView's URL composition)
 
-private enum ScientistLandingAPI {
+private enum ConservationLandingAPI {
   private static let rawBaseURLString: String = {
     (Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String)?
       .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -26,7 +26,7 @@ private enum ScientistLandingAPI {
 
   private static func makeURL(path: String, queryItems: [URLQueryItem] = []) throws -> URL {
     guard let base = URL(string: baseURLString), let scheme = base.scheme, let host = base.host else {
-      throw NSError(domain: "ScientistLanding", code: -1000, userInfo: [
+      throw NSError(domain: "ConservationLanding", code: -1000, userInfo: [
         NSLocalizedDescriptionKey: "Invalid API_BASE_URL (raw: '\(rawBaseURLString)', normalized: '\(baseURLString)')"
       ])
     }
@@ -42,7 +42,7 @@ private enum ScientistLandingAPI {
     let merged = existing + queryItems
     comps.queryItems = merged.isEmpty ? nil : merged
     guard let url = comps.url else {
-      throw NSError(domain: "ScientistLanding", code: -1001, userInfo: [
+      throw NSError(domain: "ConservationLanding", code: -1001, userInfo: [
         NSLocalizedDescriptionKey: "Failed to build URL for path: \(path)"
       ])
     }
@@ -58,13 +58,12 @@ private enum ScientistLandingAPI {
   }
 }
 
-// MARK: - ScientistLandingView
+// MARK: - ConservationLandingView
 //
-// Landing screen for users with the "scientist" community role.
-// Forked from PublicLandingView to allow independent evolution of
-// scientist-specific features (species display, data collection, etc.).
+// Shared landing screen for Conservation community members (anglers).
+// Forked from PublicLandingView; provides catch carousel, weather, map, etc.
 
-struct ScientistLandingView: View {
+struct ConservationLandingView: View {
   @StateObject private var auth = AuthService.shared
   @ObservedObject private var communityService = CommunityService.shared
 
@@ -126,7 +125,7 @@ struct ScientistLandingView: View {
       }
       .navigationDestination(isPresented: $showRecordActivity) {
         RecordActivityView()
-          .environment(\.userRole, .scientist)
+          .environment(\.userRole, .angler)
           .environment(\.guideNavigateTo, handleNavigateTo)
           .environmentObject(auth)
       }
@@ -145,32 +144,32 @@ struct ScientistLandingView: View {
         switch dest {
         case .conditions:
           FishingForecastRequestView()
-            .environment(\.userRole, .scientist)
+            .environment(\.userRole, .angler)
             .environment(\.guideNavigateTo, handleNavigateTo)
         case .community:
           CommunityForumView()
-            .environment(\.userRole, .scientist)
+            .environment(\.userRole, .angler)
             .environment(\.guideNavigateTo, handleNavigateTo)
             .environmentObject(auth)
         case .catches:
           ReportsListViewPicMemo()
-            .environment(\.userRole, .scientist)
+            .environment(\.userRole, .angler)
             .environment(\.guideNavigateTo, handleNavigateTo)
         case .observations:
           ObservationsListView()
-            .environment(\.userRole, .scientist)
+            .environment(\.userRole, .angler)
             .environment(\.guideNavigateTo, handleNavigateTo)
         case .trips:
-          // Scientists have no trips — should never be reached
+          // Conservation anglers have no trips — should never be reached
           EmptyView()
         case .learn:
           LearnTacticsView()
-            .environment(\.userRole, .scientist)
+            .environment(\.userRole, .angler)
             .environment(\.guideNavigateTo, handleNavigateTo)
             .environmentObject(communityService)
         case .explore:
           ExploreView()
-            .environment(\.userRole, .scientist)
+            .environment(\.userRole, .angler)
             .environment(\.guideNavigateTo, handleNavigateTo)
         }
       }
@@ -202,8 +201,15 @@ struct ScientistLandingView: View {
         guard liveWeather == nil, let loc else { return }
         Task { await fetchWeather(location: loc) }
       }
+      .onAppear {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+          if liveWeather == nil, let loc = locationManager.lastLocation {
+            Task { await fetchWeather(location: loc) }
+          }
+        }
+      }
     }
-    .environment(\.userRole, .scientist)
+    .environment(\.userRole, .angler)
     .environment(\.guideNavigateTo, handleNavigateTo)
     .environmentObject(auth)
   }
@@ -358,9 +364,9 @@ struct ScientistLandingView: View {
         // Catch photo carousel
         if E_CATCH_CAROUSEL {
           VStack(alignment: .leading, spacing: 8) {
-            // Header row — "Your recent activity" + map icon
+            // Header row — "Recent Community Activity" + map icon
             HStack(alignment: .center) {
-              Text("Your recent activity")
+              Text("Recent Community Activity")
                 .font(.subheadline.weight(.semibold))
                 .foregroundColor(.white)
               Spacer()
@@ -488,9 +494,9 @@ struct ScientistLandingView: View {
 
     let url: URL
     do {
-      url = try ScientistLandingAPI.downloadCatchURL()
+      url = try ConservationLandingAPI.downloadCatchURL()
     } catch {
-      AppLogging.log("[ScientistLanding] Failed to build download URL: \(error.localizedDescription)", level: .error, category: .catch)
+      AppLogging.log("[ConservationLanding] Failed to build download URL: \(error.localizedDescription)", level: .error, category: .catch)
       errorText = "Unable to load catch reports. Please try again later."
       return
     }
@@ -516,7 +522,7 @@ struct ScientistLandingView: View {
       let decoded = try JSONDecoder().decode(DownloadResponse.self, from: data)
       withAnimation { reports = decoded.catch_reports }
     } catch {
-      AppLogging.log("[ScientistLanding] Network error fetching catches: \(error.localizedDescription)", level: .error, category: .catch)
+      AppLogging.log("[ConservationLanding] Network error fetching catches: \(error.localizedDescription)", level: .error, category: .catch)
       errorText = "Unable to load catch reports. Please check your connection and try again."
     }
   }
@@ -529,7 +535,7 @@ struct ScientistLandingView: View {
       let reports = try await MapReportService.fetch(communityId: communityId, memberId: auth.currentMemberId)
       await MainActor.run { mapReports = reports }
     } catch {
-      AppLogging.log("[ScientistLanding] Map reports fetch failed: \(error.localizedDescription)", level: .error, category: .network)
+      AppLogging.log("[ConservationLanding] Map reports fetch failed: \(error.localizedDescription)", level: .error, category: .network)
     }
   }
 

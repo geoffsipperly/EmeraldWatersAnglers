@@ -3,7 +3,7 @@ description: Run the test suite (or a filtered subset) on the iPhone 17 Pro simu
 ---
 
 Run tests against the `SkeenaSystem` scheme. If the user passed arguments, treat them as a filter:
-- A role name (`angler`, `guide`, `scientist`, `public`) → run only `SkeenaSystemTests/<Role>/` via `-only-testing:SkeenaSystemTests/<Role>`
+- A role name (`angler`, `guide`, `researcher`, `public`) → run only `SkeenaSystemTests/<Role>/` via `-only-testing:SkeenaSystemTests/<Role>`
 - A class name (e.g. `DarkPageTemplateTests`) → use `-only-testing:SkeenaSystemTests/DarkPageTemplateTests`
 - A specific test (e.g. `CatchFlowRegressionTests/testFooBar`) → pass it through `-only-testing:` unchanged
 - No arguments → run the full suite

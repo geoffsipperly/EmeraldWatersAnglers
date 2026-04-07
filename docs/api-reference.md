@@ -1,14 +1,14 @@
 # Mad Thinker Platform API Reference
 
 **Version:** 2026-04-05
-**Generated:** 2026-04-05T17:56:49.555Z
+**Generated:** 2026-04-06T22:49:16.508Z
 
 ## Key Concepts
 
 - **member_id**: UUID foreign key reference to a member record
 - **member_number**: Human-readable string identifier (e.g., "mtsip6385a")
 - **Entitlements**: Per-community-type feature toggles with E_ prefix (e.g., E_CATCH_CAROUSEL)
-- **Roles**: community-scoped roles — angler, guide, admin, public, scientist
+- **Roles**: community-scoped roles — angler, guide, admin, public, researcher
 - **Units**: community-level setting — "imperial" or "metric"
 - All endpoints require `Authorization: Bearer <token>` and `apikey: <anon_key>` headers unless noted.
 
@@ -54,7 +54,7 @@ Register without a community code. All profile fields required.
 | password | string | ✅ | User password |
 | data.first_name | string | ✅ | First name |
 | data.last_name | string | ✅ | Last name |
-| data.user_type | string | ✅ | Role: angler, guide, public, scientist |
+| data.user_type | string | ✅ | Role: angler, guide, public, researcher |
 | data.member_id | string | ✅ | Auto-generated or provided member identifier |
 | data.date_of_birth | string | ✅ | YYYY-MM-DD |
 | data.sex | string | ✅ | male, female, or other |
@@ -262,7 +262,7 @@ Upload catch reports. Requires tripId. Auto-creates Solo Fishing Trip if tripId 
 **Notes:**
 
 - If tripId doesn't exist, a 'Solo Fishing Trip' is auto-created.
-- Supports girthInches, weightLbs, and weightEstimation for scientist role.
+- Supports girthInches, weightLbs, and weightEstimation for researcher role.
 
 ---
 
@@ -356,7 +356,7 @@ Report non-catch events (active fishing, farmed out, promising water, passed wat
 
 **GET** `/functions/v1/map-reports`
 
-Unified catch and no-catch map pin data. Role-based: members see own data, guides/admins/scientists see all community data.
+Unified catch and no-catch map pin data. Role-based: members see own data, guides/admins/researchers see all community data.
 
 **Auth:** required
 

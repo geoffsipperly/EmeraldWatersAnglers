@@ -52,6 +52,9 @@ final class CatchChatViewModel: ObservableObject {
   // Expose best photo timestamp (read-only)
   public var photoTimestamp: Date? { currentPhotoDate }
 
+  // Expose location for confirmation screen (read-only)
+  public var currentLocationForDisplay: CLLocation? { currentLocation }
+
     // Latest analysis so we can update it from user corrections
     private var currentAnalysis: CatchPhotoAnalysis?
 
@@ -64,23 +67,23 @@ final class CatchChatViewModel: ObservableObject {
   // Photo analyzer (modular)
     private let analyzer = CatchPhotoAnalyzer()
 
-  // Scientist flow manager (nil for non-scientist roles)
-  @Published var scientistFlow: ScientistCatchFlowManager?
+  // Researcher flow manager (nil for non-researcher roles)
+  @Published var researcherFlow: ResearcherCatchFlowManager?
 
   // Simple dialog flow
   private enum Step {
     case idle
     case reviewAnalysis   // analysis shown, user may edit or go to memo
-    case scientistFlow    // delegates to ScientistCatchFlowManager
+    case researcherFlow    // delegates to ResearcherCatchFlowManager
     case offerVoiceMemo   // (kept for possible future use)
     case complete
   }
 
   private var step: Step = .idle
 
-  /// Whether the current user is a scientist (checked once at photo analysis time).
-  private var isScientistRole: Bool {
-    AuthService.shared.currentUserType == .scientist
+  /// Whether the current user is a researcher (checked once at photo analysis time).
+  private var isResearcherRole: Bool {
+    AuthService.shared.currentUserType == .researcher
   }
 
   // MARK: - Context updates
@@ -97,6 +100,26 @@ final class CatchChatViewModel: ObservableObject {
     // reserved for future contextual prompts
   }
 
+  /// Reset all state so the researcher can record another catch from the same landing view.
+  func resetForNewCatch() {
+    messages = []
+    userInput = ""
+    isAssistantTyping = false
+    showCaptureOptions = false
+    attachedVoiceNotes = []
+    voiceMemoAnchorMessageID = nil
+    confirmAnalysisMessageID = nil
+    saveRequested = false
+    catchLog = nil
+    photoFilename = nil
+    researcherFlow = nil
+    currentAnalysis = nil
+    initialAnalysis = nil
+    currentPhotoDate = nil
+    step = .idle
+    startConversationIfNeeded()
+  }
+
   func updateLocation(_ location: CLLocation?) {
     currentLocation = location
   }
@@ -106,10 +129,18 @@ final class CatchChatViewModel: ObservableObject {
   func startConversationIfNeeded() {
     guard messages.isEmpty else { return }
 
-    let guidePart = guideName.isEmpty ? "" : "\(guideName), "
+    let namePart: String
+    if isResearcherRole, let first = AuthService.shared.currentFirstName, !first.isEmpty {
+      namePart = "\(first), "
+    } else {
+      namePart = guideName.isEmpty ? "" : "\(guideName), "
+    }
 
-    // No angler name here; simple guide-focused intro
-    appendAssistant("Hi \(guidePart)upload a photo of the fish")
+    if isResearcherRole {
+      appendAssistant("Hi \(namePart)to get started please upload a photo of the fish.\n§\nNote: hold the fish pointing the head to the left")
+    } else {
+      appendAssistant("Hi \(namePart)upload a photo of the fish")
+    }
 
     // Let UI show the photo button inline with this message
     showCaptureOptions = true
@@ -117,8 +148,8 @@ final class CatchChatViewModel: ObservableObject {
   }
 
   /// Whether the chat should use the scientific visual style.
-  var isScientistMode: Bool {
-    isScientistRole
+  var isResearcherMode: Bool {
+    isResearcherRole
   }
 
     // MARK: - Photo analysis entry point
@@ -171,8 +202,8 @@ final class CatchChatViewModel: ObservableObject {
             self.initialAnalysis = analysis
           }
 
-          if self.isScientistRole {
-            self.beginScientistFlow(analysis: analysis)
+          if self.isResearcherRole {
+            self.beginResearcherFlow(analysis: analysis)
           } else {
             self.beginStandardFlow(analysis: analysis)
           }
@@ -203,8 +234,8 @@ final class CatchChatViewModel: ObservableObject {
     confirmAnalysisMessageID = nil
   }
 
-  private func beginScientistFlow(analysis: CatchPhotoAnalysis) {
-    step = .scientistFlow
+  private func beginResearcherFlow(analysis: CatchPhotoAnalysis) {
+    step = .researcherFlow
 
     // Parse species/stage from analysis
     let (speciesName, stage) = splitSpecies(analysis.species)
@@ -215,8 +246,8 @@ final class CatchChatViewModel: ObservableObject {
     let rawLen = cleanedField(analysis.estimatedLength ?? "")
     let lengthValue: Double? = extractLengthInches(from: rawLen).map(Double.init)
 
-    // Create and initialize the scientist flow manager
-    let flow = ScientistCatchFlowManager()
+    // Create and initialize the researcher flow manager
+    let flow = ResearcherCatchFlowManager()
     flow.initialize(
       species: speciesName.isEmpty || speciesName == "-" ? nil : speciesName,
       lifecycleStage: stage,
@@ -224,7 +255,7 @@ final class CatchChatViewModel: ObservableObject {
       lengthInches: lengthValue,
       riverName: cleanedField(analysis.riverName ?? "")
     )
-    scientistFlow = flow
+    researcherFlow = flow
 
     // Build location line for context
     let locationLine: String
@@ -254,11 +285,11 @@ final class CatchChatViewModel: ObservableObject {
     flow.confirmAnchorID = msg.id
   }
 
-  // MARK: - Scientist flow actions (called from CatchChatView)
+  // MARK: - Researcher flow actions (called from CatchChatView)
 
-  /// Scientist confirms the current step.
-  func scientistConfirm() {
-    guard let flow = scientistFlow else { return }
+  /// Researcher confirms the current step.
+  func researcherConfirm() {
+    guard let flow = researcherFlow else { return }
 
     // If confirming identification and species was corrected, re-estimate length
     // using the corrected species before advancing to measurements.
@@ -285,9 +316,9 @@ final class CatchChatViewModel: ObservableObject {
     }
   }
 
-  /// Scientist edits the current step value via text input.
-  func scientistApplyEdit(_ text: String) {
-    guard let flow = scientistFlow else { return }
+  /// Researcher edits the current step value via text input.
+  func researcherApplyEdit(_ text: String) {
+    guard let flow = researcherFlow else { return }
 
     flow.confirmAnchorID = nil
 
@@ -309,9 +340,26 @@ final class CatchChatViewModel: ObservableObject {
     }
   }
 
-  /// Scientist skips voice memo from the voice memo step.
-  func scientistSkipVoiceMemo() {
-    guard let flow = scientistFlow else { return }
+  /// Mock: researcher taps Scan for scale sample barcode.
+  /// Simulates a scanned barcode and advances to voice memo.
+  func researcherScaleSampleScan() {
+    guard let flow = researcherFlow else { return }
+
+    flow.confirmAnchorID = nil
+    flow.scaleSampleBarcode = "MOCK-BARCODE-\(Int.random(in: 1000...9999))"
+
+    let msg = appendAssistant("Scale sample barcode scanned: \(flow.scaleSampleBarcode!)\n§\nBarcode recorded (mock).")
+
+    // Advance to voice memo
+    flow.currentStep = .voiceMemo
+    let voicePrompt = appendAssistant("Would you like to add a voice memo for this catch?")
+    voiceMemoAnchorMessageID = voicePrompt.id
+    confirmAnalysisMessageID = nil
+  }
+
+  /// Researcher skips voice memo from the voice memo step.
+  func researcherSkipVoiceMemo() {
+    guard let flow = researcherFlow else { return }
 
     voiceMemoAnchorMessageID = nil
     flow.currentStep = .complete
@@ -323,10 +371,10 @@ final class CatchChatViewModel: ObservableObject {
     triggerSave()
   }
 
-  /// Re-estimate length when the scientist corrects the species during identification.
+  /// Re-estimate length when the researcher corrects the species during identification.
   /// The regressor uses species index as an input feature, and some species (e.g. sea_run_trout)
   /// bypass the regressor entirely. Changing species can dramatically affect the length estimate.
-  private func reEstimateLengthForCorrectedSpecies(flow: ScientistCatchFlowManager) {
+  private func reEstimateLengthForCorrectedSpecies(flow: ResearcherCatchFlowManager) {
     guard let fv = initialAnalysis?.featureVector else {
       AppLogging.log("reEstimateLength: no feature vector available, keeping original length", level: .warn, category: .ml)
       return
@@ -372,9 +420,9 @@ final class CatchChatViewModel: ObservableObject {
     }
 
     switch step {
-    case .scientistFlow:
-      // In scientist flow, user text is treated as an edit for the current step
-      scientistApplyEdit(text)
+    case .researcherFlow:
+      // In researcher flow, user text is treated as an edit for the current step
+      researcherApplyEdit(text)
 
     case .reviewAnalysis:
       // Any user text is treated as corrections (including bare numbers like "38").
@@ -624,8 +672,8 @@ final class CatchChatViewModel: ObservableObject {
       }
     }
 
-    // Include girth/weight for scientist flow
-    if let flow = scientistFlow {
+    // Include girth/weight for researcher flow
+    if let flow = researcherFlow {
       if let g = flow.girthInches {
         let prefix = flow.girthIsEstimated ? "~" : ""
         parts.append("Estimated girth: \(prefix)\(String(format: "%.1f inches", g))")
@@ -822,8 +870,8 @@ final class CatchChatViewModel: ObservableObject {
       lines.append("Sex: \(prettySexValue.isEmpty ? "-" : prettySexValue)")
       lines.append("Estimated length: \(length.isEmpty ? "-" : length)")
 
-      // Include girth/weight for scientist flow
-      if let flow = scientistFlow {
+      // Include girth/weight for researcher flow
+      if let flow = researcherFlow {
         if let g = flow.girthInches {
           let prefix = flow.girthIsEstimated ? "~" : ""
           lines.append("Estimated girth: \(prefix)\(String(format: "%.1f inches", g))")
@@ -894,8 +942,8 @@ final class CatchChatViewModel: ObservableObject {
 
       try? await Task.sleep(nanoseconds: 1_000_000_000)
 
-      if let flow = self.scientistFlow {
-        // Scientist flow: memo recorded → show final summary → save
+      if let flow = self.researcherFlow {
+        // Researcher flow: memo recorded → show final summary → save
         self.voiceMemoAnchorMessageID = nil
         flow.currentStep = .complete
 
@@ -945,7 +993,7 @@ final class CatchChatViewModel: ObservableObject {
     /// Version of the LengthRegressor model that produced the estimate.
     var modelVersion: String?
 
-    // Girth & weight estimation (scientist flow) — final confirmed values
+    // Girth & weight estimation (researcher flow) — final confirmed values
     var girthInches: Double?
     var weightLbs: Double?
     var girthIsEstimated: Bool?
@@ -989,13 +1037,13 @@ final class CatchChatViewModel: ObservableObject {
     let initRawLen = cleanedField(initialAnalysis?.estimatedLength ?? "")
     let initLengthInches = extractLengthInches(from: initRawLen)
 
-    // Use scientist flow values if available (overrides ML-only analysis)
+    // Use researcher flow values if available (overrides ML-only analysis)
     let finalSpecies: String?
     let finalStage: String?
     let finalSex: String?
     let finalLength: Int?
 
-    if let flow = scientistFlow {
+    if let flow = researcherFlow {
       finalSpecies = flow.species
       finalStage = flow.lifecycleStage
       finalSex = flow.sex
@@ -1025,26 +1073,26 @@ final class CatchChatViewModel: ObservableObject {
       initialSex: initPrettySex.isEmpty ? nil : initPrettySex,
       initialLengthInches: initLengthInches,
       mlFeatureVector: initialAnalysis?.featureVector.flatMap { try? JSONEncoder().encode($0) },
-      lengthSource: scientistFlow?.lengthSource?.rawValue
+      lengthSource: researcherFlow?.lengthSource?.rawValue
         ?? (currentAnalysis?.lengthSource ?? initialAnalysis?.lengthSource)?.rawValue,
       modelVersion: initialAnalysis?.modelVersion,
-      girthInches: scientistFlow?.girthInches,
-      weightLbs: scientistFlow?.weightLbs,
-      girthIsEstimated: scientistFlow?.girthIsEstimated,
-      weightIsEstimated: scientistFlow?.weightIsEstimated,
-      weightDivisor: scientistFlow?.divisor,
-      weightDivisorSource: scientistFlow?.divisorSource,
-      girthRatio: scientistFlow?.girthRatio,
-      girthRatioSource: scientistFlow?.girthRatioSource,
-      initialLengthForMeasurements: scientistFlow?.initialLengthForMeasurements,
-      initialGirthInches: scientistFlow?.initialGirthInches,
-      initialWeightLbs: scientistFlow?.initialWeightLbs,
-      initialGirthIsEstimated: scientistFlow?.initialGirthIsEstimated,
-      initialWeightIsEstimated: scientistFlow?.initialWeightIsEstimated,
-      initialWeightDivisor: scientistFlow?.initialDivisor,
-      initialWeightDivisorSource: scientistFlow?.initialDivisorSource,
-      initialGirthRatio: scientistFlow?.initialGirthRatio,
-      initialGirthRatioSource: scientistFlow?.initialGirthRatioSource
+      girthInches: researcherFlow?.girthInches,
+      weightLbs: researcherFlow?.weightLbs,
+      girthIsEstimated: researcherFlow?.girthIsEstimated,
+      weightIsEstimated: researcherFlow?.weightIsEstimated,
+      weightDivisor: researcherFlow?.divisor,
+      weightDivisorSource: researcherFlow?.divisorSource,
+      girthRatio: researcherFlow?.girthRatio,
+      girthRatioSource: researcherFlow?.girthRatioSource,
+      initialLengthForMeasurements: researcherFlow?.initialLengthForMeasurements,
+      initialGirthInches: researcherFlow?.initialGirthInches,
+      initialWeightLbs: researcherFlow?.initialWeightLbs,
+      initialGirthIsEstimated: researcherFlow?.initialGirthIsEstimated,
+      initialWeightIsEstimated: researcherFlow?.initialWeightIsEstimated,
+      initialWeightDivisor: researcherFlow?.initialDivisor,
+      initialWeightDivisorSource: researcherFlow?.initialDivisorSource,
+      initialGirthRatio: researcherFlow?.initialGirthRatio,
+      initialGirthRatioSource: researcherFlow?.initialGirthRatioSource
     )
   }
 

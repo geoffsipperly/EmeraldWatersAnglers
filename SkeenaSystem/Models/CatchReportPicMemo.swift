@@ -79,7 +79,7 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
   /// Version of the LengthRegressor model that produced the estimate.
   public var modelVersion: String?
 
-  // Girth & weight estimation (scientist flow) — final confirmed values
+  // Girth & weight estimation (researcher flow) — final confirmed values
   public var girthInches: Double?
   public var weightLbs: Double?
   public var girthIsEstimated: Bool?

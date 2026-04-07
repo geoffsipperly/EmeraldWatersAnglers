@@ -1,11 +1,11 @@
 {
   "version": "2026-04-05",
-  "generated": "2026-04-05T17:56:49.760Z",
+  "generated": "2026-04-06T22:49:17.844Z",
   "key_concepts": {
     "member_id": "UUID foreign key reference to a member record",
     "member_number": "Human-readable string identifier (e.g., mtsip6385a)",
     "entitlements": "Per-community-type feature toggles with E_ prefix",
-    "roles": "Community-scoped: angler, guide, admin, public, scientist",
+    "roles": "Community-scoped: angler, guide, admin, public, researcher",
     "units": "Community-level: imperial or metric",
     "auth_headers": "Authorization: Bearer <token> + apikey: <anon_key>"
   },
@@ -69,7 +69,7 @@
         "data.user_type": {
           "type": "string",
           "required": true,
-          "description": "Role: angler, guide, public, scientist"
+          "description": "Role: angler, guide, public, researcher"
         },
         "data.member_id": {
           "type": "string",
@@ -406,7 +406,7 @@
       },
       "notes": [
         "If tripId doesn't exist, a 'Solo Fishing Trip' is auto-created.",
-        "Supports girthInches, weightLbs, and weightEstimation for scientist role."
+        "Supports girthInches, weightLbs, and weightEstimation for researcher role."
       ]
     },
     {
@@ -541,7 +541,7 @@
       "name": "Map Reports",
       "path": "/functions/v1/map-reports",
       "method": "GET",
-      "description": "Unified catch and no-catch map pin data. Role-based: members see own data, guides/admins/scientists see all community data.",
+      "description": "Unified catch and no-catch map pin data. Role-based: members see own data, guides/admins/researchers see all community data.",
       "auth": "required",
       "parameters": {
         "community_id": {

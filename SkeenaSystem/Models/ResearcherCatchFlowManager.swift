@@ -1,7 +1,7 @@
 // Bend Fly Shop
-// ScientistCatchFlowManager.swift — Step-by-step confirmation flow for scientist catch recording.
+// ResearcherCatchFlowManager.swift — Step-by-step confirmation flow for researcher catch recording.
 //
-// Encapsulates the scientist-specific conversational flow:
+// Encapsulates the researcher-specific conversational flow:
 //   1. Identification — confirm species, lifecycle, sex (and location context)
 //   2. Measurements  — show length/girth/weight calculated with confirmed species
 //   3. Length confirmation
@@ -12,12 +12,12 @@
 // Species must be confirmed BEFORE measurements are shown, because the weight
 // formula divisor depends on the species + river combination.
 // Weight is always derived (never confirmed separately).
-// Owned by CatchChatViewModel; only instantiated when the user role is .scientist.
+// Owned by CatchChatViewModel; only instantiated when the user role is .researcher.
 
 import Combine
 import Foundation
 
-final class ScientistCatchFlowManager: ObservableObject {
+final class ResearcherCatchFlowManager: ObservableObject {
 
   // MARK: - Step Definitions
 
@@ -26,6 +26,8 @@ final class ScientistCatchFlowManager: ObservableObject {
     case confirmLength          // show estimated length, confirm or edit
     case confirmGirth           // show length + estimated girth, confirm or edit girth
     case finalSummary           // show all confirmed values + derived weight
+    case floyTag                // ask for Floy Tag number (skip or enter)
+    case scaleSample            // ask about scale sample (skip or scan barcode)
     case voiceMemo              // offer voice memo
     case complete
   }
@@ -68,6 +70,10 @@ final class ScientistCatchFlowManager: ObservableObject {
   var initialGirthRatio: Double = FishWeightEstimator.defaultGirthRatio
   var initialGirthRatioSource: String = "Default (freshwater average)"
 
+  // Floy tag and scale sample (mock — not persisted yet)
+  @Published var floyTagNumber: String?
+  @Published var scaleSampleBarcode: String?
+
   // Length estimation source (updated when species correction triggers re-estimation)
   var lengthSource: LengthEstimateSource?
 
@@ -78,7 +84,7 @@ final class ScientistCatchFlowManager: ObservableObject {
   var originalSpecies: String?
   var originalLifecycleStage: String?
 
-  /// Whether the scientist changed the species from the original ML detection.
+  /// Whether the researcher changed the species from the original ML detection.
   var speciesWasCorrected: Bool {
     let current = species?.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
     let original = originalSpecies?.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
@@ -125,7 +131,7 @@ final class ScientistCatchFlowManager: ObservableObject {
       recalculate()
 
       // Snapshot the initial measurement estimates AFTER species confirmation.
-      // These reflect the first estimates shown to the scientist (computed with
+      // These reflect the first estimates shown to the researcher (computed with
       // the correct species/divisor). Comparing initial vs. final measurements
       // provides training data for improving the estimation formula.
       snapshotInitialEstimates()
@@ -146,6 +152,14 @@ final class ScientistCatchFlowManager: ObservableObject {
       return finalAnalysisText()
 
     case .finalSummary:
+      currentStep = .floyTag
+      return "If there is a Floy Tag present, please enter the number below, or press Skip."
+
+    case .floyTag:
+      currentStep = .scaleSample
+      return "Are you taking a Scale Sample?\nIf yes, use your camera to scan the barcode on the envelope."
+
+    case .scaleSample:
       currentStep = .voiceMemo
       return "Would you like to add a voice memo for this catch?"
 
@@ -192,6 +206,16 @@ final class ScientistCatchFlowManager: ObservableObject {
         return (finalAnalysisText(), true)
       }
       return (girthPrompt(), false)
+
+    case .floyTag:
+      // Any text input is treated as the Floy Tag number → auto-advance
+      let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+      if !trimmed.isEmpty {
+        floyTagNumber = trimmed
+        currentStep = .scaleSample
+        return ("Floy Tag: \(trimmed)\n§\nAre you taking a Scale Sample?\nIf yes, use your camera to scan the barcode on the envelope.", true)
+      }
+      return ("If there is a Floy Tag present, please enter the number below, or press Skip.", false)
 
     default:
       return ("", false)
@@ -325,7 +349,7 @@ final class ScientistCatchFlowManager: ObservableObject {
 
   /// Final analysis showing derived weight with the inputs used for the calculation.
   func finalAnalysisText() -> String {
-    var lines: [String] = ["Final Analysis"]
+    var lines: [String] = ["Final Measurements"]
     lines.append("")
 
     if let r = riverName, !r.isEmpty {

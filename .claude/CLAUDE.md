@@ -2,7 +2,7 @@
 
 SwiftUI iOS app for fishing guides to log catch reports with AI-powered photo analysis. Built on the SkeenaSystem framework.
 
-Roles: **Angler**, **Guide**, **Scientist**, **Public** — each has its own `Views/<Role>/` and `SkeenaSystemTests/<Role>/` directory.
+Roles: **Angler**, **Guide**, **Researcher**, **Public** — each has its own `Views/<Role>/` and `SkeenaSystemTests/<Role>/` directory.
 
 ## Rules (read first)
 - Open `SkeenaSystem.xcworkspace`, never the `.xcodeproj` (CocoaPods).

@@ -13,21 +13,10 @@ struct CatchChatView: View {
   @State private var showVoiceNoteSheet = false
 
   /// Whether the chat uses the scientific visual style ("Science mode" label).
-  private var isScientistMode: Bool { viewModel.isScientistMode }
+  private var isResearcherMode: Bool { viewModel.isResearcherMode }
 
   var body: some View {
     VStack(spacing: 0) {
-      // "Science mode" header for scientist role
-      if isScientistMode {
-        Text("Scientist mode")
-          .font(.caption)
-          .foregroundColor(.blue.opacity(0.7))
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .padding(.horizontal, 8)
-          .padding(.top, 6)
-          .padding(.bottom, 2)
-      }
-
       // Messages + inline capture options
       ScrollViewReader { proxy in
         ScrollView {
@@ -192,8 +181,8 @@ struct CatchChatView: View {
         let showPhotoButton = viewModel.showCaptureOptions && index == 0
         let showVoiceButton = (viewModel.voiceMemoAnchorMessageID == message.id)
         let showConfirmButton = (viewModel.confirmAnalysisMessageID == message.id)
-        let showScientistButtons = (viewModel.scientistFlow?.confirmAnchorID == message.id)
-        if showPhotoButton || showVoiceButton || showConfirmButton || showScientistButtons {
+        let showResearcherButtons = (viewModel.researcherFlow?.confirmAnchorID == message.id)
+        if showPhotoButton || showVoiceButton || showConfirmButton || showResearcherButtons {
           HStack(spacing: 16) {
             if showPhotoButton {
               Button {
@@ -210,8 +199,8 @@ struct CatchChatView: View {
             }
 
             if showVoiceButton {
-              // In scientist voice memo step, show Memo and Skip
-              if viewModel.scientistFlow?.currentStep == .voiceMemo {
+              // In researcher voice memo step, show Memo and Skip
+              if viewModel.researcherFlow?.currentStep == .voiceMemo {
                 Button {
                   showVoiceNoteSheet = true
                 } label: {
@@ -224,7 +213,7 @@ struct CatchChatView: View {
                 }
 
                 Button {
-                  viewModel.scientistSkipVoiceMemo()
+                  viewModel.researcherSkipVoiceMemo()
                 } label: {
                   VStack(spacing: 4) {
                     Image(systemName: "forward.fill")
@@ -271,17 +260,55 @@ struct CatchChatView: View {
               }
             }
 
-            if showScientistButtons {
-              let step = viewModel.scientistFlow?.currentStep
-              let useConfirmStyle = step == .identification || step == .finalSummary
-              Button {
-                viewModel.scientistConfirm()
-              } label: {
-                VStack(spacing: 4) {
-                  Image(systemName: useConfirmStyle ? "checkmark.circle.fill" : "arrow.right.circle.fill")
-                    .font(.title2)
-                  Text(useConfirmStyle ? "Confirm" : "Next")
-                    .font(.footnote)
+            if showResearcherButtons {
+              let step = viewModel.researcherFlow?.currentStep
+
+              if step == .floyTag {
+                // Floy Tag: user can type a number (handled by text input) or skip
+                Button {
+                  viewModel.researcherConfirm()
+                } label: {
+                  VStack(spacing: 4) {
+                    Image(systemName: "forward.fill")
+                      .font(.title2)
+                    Text("Skip")
+                      .font(.footnote)
+                  }
+                }
+              } else if step == .scaleSample {
+                // Scale Sample: camera to scan barcode, or skip
+                Button {
+                  viewModel.researcherScaleSampleScan()
+                } label: {
+                  VStack(spacing: 4) {
+                    Image(systemName: "camera.fill")
+                      .font(.title2)
+                    Text("Scan")
+                      .font(.footnote)
+                  }
+                }
+
+                Button {
+                  viewModel.researcherConfirm()
+                } label: {
+                  VStack(spacing: 4) {
+                    Image(systemName: "forward.fill")
+                      .font(.title2)
+                    Text("Skip")
+                      .font(.footnote)
+                  }
+                }
+              } else {
+                let useConfirmStyle = step == .identification || step == .finalSummary
+                Button {
+                  viewModel.researcherConfirm()
+                } label: {
+                  VStack(spacing: 4) {
+                    Image(systemName: useConfirmStyle ? "checkmark.circle.fill" : "arrow.right.circle.fill")
+                      .font(.title2)
+                    Text(useConfirmStyle ? "Confirm" : "Next")
+                      .font(.footnote)
+                  }
                 }
               }
             }
@@ -313,11 +340,11 @@ struct CatchChatView: View {
         )
         .padding(2)
     } else if let text = message.text {
-      // Style "Final Analysis" title in blue when it's the first line
-      if !isUser && text.hasPrefix("Final Analysis") {
+      // Style "Final Analysis" / "Final Measurements" title in blue when it's the first line
+      if !isUser && (text.hasPrefix("Final Analysis") || text.hasPrefix("Final Measurements")) {
         finalAnalysisBubble(text)
-      } else if !isUser && isScientistMode && text.contains("§") {
-        scientistBubble(text)
+      } else if !isUser && isResearcherMode && text.contains("§") {
+        researcherBubble(text)
       } else {
         Text(text)
           .font(.subheadline)
@@ -329,9 +356,9 @@ struct CatchChatView: View {
       }
     }
   }
-  /// Renders a scientist-mode bubble where text before "§" is primary (estimates/actuals)
+  /// Renders a researcher-mode bubble where text before "§" is primary (estimates/actuals)
   /// and text after "§" is secondary (smaller, grey supporting text).
-  private func scientistBubble(_ text: String) -> some View {
+  private func researcherBubble(_ text: String) -> some View {
     let parts = text.components(separatedBy: "\n§\n")
     let primary = parts.first ?? text
     let secondary = parts.count > 1 ? parts.dropFirst().joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines) : nil
@@ -353,7 +380,7 @@ struct CatchChatView: View {
   }
 
   /// Renders the final analysis bubble with a blue title line.
-  /// In scientist mode, text after "§" is rendered as smaller grey supporting text.
+  /// In researcher mode, text after "§" is rendered as smaller grey supporting text.
   private func finalAnalysisBubble(_ text: String) -> some View {
     let sections = text.components(separatedBy: "\n§\n")
     let mainSection = sections.first ?? text
@@ -372,7 +399,7 @@ struct CatchChatView: View {
           .font(.subheadline)
           .foregroundColor(.white)
       }
-      if isScientistMode, let supporting, !supporting.isEmpty {
+      if isResearcherMode, let supporting, !supporting.isEmpty {
         Text(supporting)
           .font(.caption)
           .foregroundColor(.gray)

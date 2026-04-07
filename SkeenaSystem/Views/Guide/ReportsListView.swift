@@ -659,7 +659,7 @@ private struct PicMemoRow: View {
         StatusChipPicMemo(status: report.status, isArchived: isArchived)
       }
 
-      Text("\(AuthService.shared.currentUserType == .scientist ? "Citizen Scientist" : "Guide"): \(guideText)")
+      Text("\(AuthService.shared.currentUserType == .researcher ? "Researcher" : "Guide"): \(guideText)")
         .font(.footnote)
         .foregroundColor(.secondary)
         .lineLimit(1)

@@ -81,7 +81,7 @@ final class AuthService: ObservableObject {
 
   // MARK: - Public API
 
-  enum UserType: String, Codable { case angler, guide, `public`, scientist }
+  enum UserType: String, Codable { case angler, guide, `public`, researcher }
 
   enum InputValidationError: Error, LocalizedError {
     case invalidInput(String)

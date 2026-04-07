@@ -1237,7 +1237,7 @@ final class CatchPhotoAnalyzer {
   }
 
   /// Maps user-facing species names (+ optional lifecycle stage) to model labels.
-  /// Used when re-estimating length after the scientist corrects species.
+  /// Used when re-estimating length after the researcher corrects species.
   private static let speciesDisplayToLabel: [String: String] = [
     "steelhead":       "steelhead_holding",
     "sea-run trout":   "sea_run_trout",
@@ -1254,7 +1254,7 @@ final class CatchPhotoAnalyzer {
   }
 
   /// Re-estimate length using the original feature vector but with a corrected species.
-  /// Called when the scientist changes species during the identification step,
+  /// Called when the researcher changes species during the identification step,
   /// because the regressor uses species index as an input feature, and some species
   /// bypass the regressor entirely (e.g. sea_run_trout uses heuristic only).
   ///

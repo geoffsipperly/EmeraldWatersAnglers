@@ -43,33 +43,70 @@ enum WeatherPressureTrend {
 
 enum WeatherSnapshotService {
 
+  /// Fetch with automatic retry on transient failures (502, timeout).
+  /// The `weather-snapshot` edge function can take up to ~10s on cold start
+  /// and intermittently returns 502 / hangs, so we apply a per-request
+  /// timeout and one automatic retry.
   static func fetch(lat: Double, lon: Double) async throws -> WeatherSnapshotResponse {
     let base = AppEnvironment.shared.projectURL
+    AppLogging.log("[Weather] projectURL base=\(base.absoluteString)", level: .debug, category: .network)
     guard var comps = URLComponents(url: base, resolvingAgainstBaseURL: false) else {
+      AppLogging.log("[Weather] URLComponents failed for base \(base.absoluteString)", level: .error, category: .network)
       throw URLError(.badURL)
     }
     let existingPath = comps.path == "/" ? "" : comps.path
     comps.path = existingPath + "/functions/v1/weather-snapshot"
     comps.queryItems = nil
-    guard let url = comps.url else { throw URLError(.badURL) }
+    guard let url = comps.url else {
+      AppLogging.log("[Weather] URL construction failed from components", level: .error, category: .network)
+      throw URLError(.badURL)
+    }
 
+    let maxAttempts = 2
+    var lastError: Error = URLError(.timedOut)
+
+    for attempt in 1...maxAttempts {
+      do {
+        let result = try await fetchOnce(url: url, lat: lat, lon: lon, attempt: attempt)
+        return result
+      } catch {
+        lastError = error
+        AppLogging.log("[Weather] attempt \(attempt)/\(maxAttempts) failed: \(error.localizedDescription)", level: .error, category: .network)
+        if attempt < maxAttempts {
+          // Brief delay before retry
+          try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
+        }
+      }
+    }
+    throw lastError
+  }
+
+  private static func fetchOnce(url: URL, lat: Double, lon: Double, attempt: Int) async throws -> WeatherSnapshotResponse {
     var req = URLRequest(url: url)
     req.httpMethod = "POST"
+    req.timeoutInterval = 15 // seconds — edge function can take ~10s on cold start
     req.setValue("application/json", forHTTPHeaderField: "Content-Type")
     req.setValue("application/json", forHTTPHeaderField: "Accept")
     req.setValue(AppEnvironment.shared.anonKey, forHTTPHeaderField: "apikey")
 
+    AppLogging.log("[Weather] attempt \(attempt) — requesting token", level: .debug, category: .network)
     if let token = await AuthService.shared.currentAccessToken(), !token.isEmpty {
       req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+      AppLogging.log("[Weather] attempt \(attempt) — auth header set, token len=\(token.count)", level: .debug, category: .network)
+    } else {
+      AppLogging.log("[Weather] attempt \(attempt) — no auth token, sending unauthenticated", level: .debug, category: .network)
     }
 
     let body: [String: Double] = ["latitude": lat, "longitude": lon]
     req.httpBody = try JSONEncoder().encode(body)
 
+    AppLogging.log("[Weather] attempt \(attempt) — POST \(url.absoluteString)", level: .debug, category: .network)
     let (data, resp) = try await URLSession.shared.data(for: req)
     let code = (resp as? HTTPURLResponse)?.statusCode ?? -1
+    AppLogging.log("[Weather] attempt \(attempt) — HTTP \(code), \(data.count) bytes", level: .debug, category: .network)
     guard (200..<300).contains(code) else {
-      AppLogging.log("[Weather] HTTP \(code)", level: .error, category: .network)
+      let bodyStr = String(data: data, encoding: .utf8) ?? "<binary>"
+      AppLogging.log("[Weather] attempt \(attempt) — HTTP \(code): \(bodyStr.prefix(500))", level: .error, category: .network)
       throw URLError(.badServerResponse)
     }
     return try JSONDecoder().decode(WeatherSnapshotResponse.self, from: data)

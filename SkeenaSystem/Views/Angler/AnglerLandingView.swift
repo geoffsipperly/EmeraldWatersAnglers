@@ -264,12 +264,14 @@ struct AnglerLandingView: View {
       await fetchBuzz()
     }
     .onAppear {
+      AppLogging.log("[AnglerLandingView] onAppear — requesting location, lastLocation=\(locationManager.lastLocation != nil), liveWeather=\(liveWeather != nil)", level: .debug, category: .network)
       locationManager.request()
       locationManager.start()
-      AppLogging.log("[AnglerLandingView] onAppear; authId=\(ObjectIdentifier(auth).hashValue)", level: .debug, category: .auth)
     }
     .onChange(of: locationManager.lastLocation) { loc in
+      AppLogging.log("[AnglerLandingView] onChange lastLocation — loc=\(loc != nil), liveWeather=\(liveWeather != nil)", level: .debug, category: .network)
       guard liveWeather == nil, let loc else { return }
+      AppLogging.log("[AnglerLandingView] onChange — fetching weather for \(loc.coordinate.latitude), \(loc.coordinate.longitude)", level: .debug, category: .network)
       Task { await fetchWeather(location: loc) }
     }
     .onDisappear {
@@ -662,25 +664,35 @@ struct AnglerLandingView: View {
   // MARK: - Weather
 
   private func fetchWeather(location: CLLocation) async {
+    AppLogging.log("[AnglerLandingView] fetchWeather called — \(location.coordinate.latitude), \(location.coordinate.longitude)", level: .debug, category: .network)
     let lat = location.coordinate.latitude
     let lon = location.coordinate.longitude
 
     // Reverse geocode for city name
     let geocoder = CLGeocoder()
     let locationName: String
-    if let placemark = try? await geocoder.reverseGeocodeLocation(location).first {
-      let city = placemark.locality
-        ?? placemark.subLocality
-        ?? placemark.subAdministrativeArea
-        ?? ""
-      let state = placemark.administrativeArea ?? ""
-      locationName = [city, state].filter { !$0.isEmpty }.joined(separator: ", ")
-    } else {
+    do {
+      let placemarks = try await geocoder.reverseGeocodeLocation(location)
+      AppLogging.log("[AnglerLandingView] geocoder returned \(placemarks.count) placemark(s)", level: .debug, category: .network)
+      if let placemark = placemarks.first {
+        let city = placemark.locality
+          ?? placemark.subLocality
+          ?? placemark.subAdministrativeArea
+          ?? ""
+        let state = placemark.administrativeArea ?? ""
+        locationName = [city, state].filter { !$0.isEmpty }.joined(separator: ", ")
+      } else {
+        locationName = ""
+      }
+    } catch {
+      AppLogging.log("[AnglerLandingView] geocoder FAILED: \(error.localizedDescription)", level: .error, category: .network)
       locationName = ""
     }
+    AppLogging.log("[AnglerLandingView] locationName='\(locationName)', calling WeatherSnapshotService.fetch", level: .debug, category: .network)
 
     do {
       let response = try await WeatherSnapshotService.fetch(lat: lat, lon: lon)
+      AppLogging.log("[AnglerLandingView] WeatherSnapshotService returned — temp=\(response.current.temperature), code=\(response.current.weatherCode), hourly=\(response.hourlyForecast.count)", level: .debug, category: .network)
       let w = response.current
       let slots = response.hourlyForecast.map { h in
         LiveWeather.HourlySlot(
@@ -702,9 +714,10 @@ struct AnglerLandingView: View {
           pressureTrend: WeatherSnapshotService.pressureTrend(current: w.pressure, hourly: response.hourlyForecast),
           hourly: slots
         )
+        AppLogging.log("[AnglerLandingView] liveWeather SET — locationName='\(locationName)', temp=\(Int(w.temperature.rounded()))", level: .debug, category: .network)
       }
     } catch {
-      AppLogging.log("[Weather] Fetch failed: \(error.localizedDescription)", level: .error, category: .network)
+      AppLogging.log("[AnglerLandingView] WeatherSnapshotService FAILED: \(error.localizedDescription)", level: .error, category: .network)
     }
   }
 

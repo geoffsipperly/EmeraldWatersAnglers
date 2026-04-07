@@ -2,17 +2,18 @@ import XCTest
 import Security
 @testable import SkeenaSystem
 
-/// Regression tests for the "scientist" community role and Conservation gating.
+/// Regression tests for the "researcher" community role and Conservation gating.
 ///
 /// Covers:
-/// 1. AuthService.UserType enum — .scientist raw value, parsing, distinctness
+/// 1. AuthService.UserType enum — .researcher raw value, parsing, distinctness
 /// 2. CommunityService — activeCommunityTypeName persistence, isConservation
-/// 3. AppRootView routing — scientist + Conservation → ScientistLandingView,
-///    scientist + non-Conservation → PublicLandingView
-/// 4. ScientistLandingView — instantiates, sets .scientist environment
-/// 5. Toolbar — scientist uses same tabs as public (no Trips)
+/// 3. AppRootView routing — researcher + Conservation → ResearcherLandingView,
+///    researcher + non-Conservation → PublicLandingView,
+///    angler + Conservation → ConservationLandingView
+/// 4. ResearcherLandingView and ConservationLandingView — instantiate correctly
+/// 5. Toolbar — researcher uses same tabs as public (no Trips)
 @MainActor
-final class ScientistRoleRegressionTests: XCTestCase {
+final class ResearcherRoleRegressionTests: XCTestCase {
 
   // MARK: - Setup / Teardown
 
@@ -89,7 +90,7 @@ final class ScientistRoleRegressionTests: XCTestCase {
     try! JSONSerialization.data(withJSONObject: memberships)
   }
 
-  private func makeScientistMembership(
+  private func makeResearcherMembership(
     communityId: String = "sci-comm-uuid-1",
     communityName: String = "Conservation Program",
     communityTypeName: String = "Conservation",
@@ -98,7 +99,7 @@ final class ScientistRoleRegressionTests: XCTestCase {
     [
       "id": UUID().uuidString,
       "community_id": communityId,
-      "role": "scientist",
+      "role": "researcher",
       "communities": [
         "id": communityId,
         "name": communityName,
@@ -116,21 +117,21 @@ final class ScientistRoleRegressionTests: XCTestCase {
 
   // MARK: - AuthService.UserType enum tests
 
-  func testUserTypeScientist_rawValue_isScientist() {
-    XCTAssertEqual(AuthService.UserType.scientist.rawValue, "scientist",
-                   "UserType.scientist raw value must be the string 'scientist'")
+  func testUserTypeResearcher_rawValue_isResearcher() {
+    XCTAssertEqual(AuthService.UserType.researcher.rawValue, "researcher",
+                   "UserType.researcher raw value must be the string 'researcher'")
   }
 
-  func testUserTypeScientist_fromRawValue_succeeds() {
-    let parsed = AuthService.UserType(rawValue: "scientist")
-    XCTAssertEqual(parsed, .scientist,
-                   "UserType(rawValue: 'scientist') must parse to .scientist")
+  func testUserTypeResearcher_fromRawValue_succeeds() {
+    let parsed = AuthService.UserType(rawValue: "researcher")
+    XCTAssertEqual(parsed, .researcher,
+                   "UserType(rawValue: 'researcher') must parse to .researcher")
   }
 
-  func testUserTypeScientist_isDistinctFromOtherRoles() {
-    XCTAssertNotEqual(AuthService.UserType.scientist, .guide)
-    XCTAssertNotEqual(AuthService.UserType.scientist, .angler)
-    XCTAssertNotEqual(AuthService.UserType.scientist, .public)
+  func testUserTypeResearcher_isDistinctFromOtherRoles() {
+    XCTAssertNotEqual(AuthService.UserType.researcher, .guide)
+    XCTAssertNotEqual(AuthService.UserType.researcher, .angler)
+    XCTAssertNotEqual(AuthService.UserType.researcher, .public)
   }
 
   func testUserType_allFourCasesExhaustive() {
@@ -140,20 +141,20 @@ final class ScientistRoleRegressionTests: XCTestCase {
       case .guide:     return "guide"
       case .angler:    return "angler"
       case .public:    return "public"
-      case .scientist: return "scientist"
+      case .researcher: return "researcher"
       }
     }
-    XCTAssertEqual(name(for: .scientist), "scientist")
+    XCTAssertEqual(name(for: .researcher), "researcher")
     XCTAssertEqual(name(for: .guide), "guide")
     XCTAssertEqual(name(for: .angler), "angler")
     XCTAssertEqual(name(for: .public), "public")
   }
 
-  // MARK: - CommunityService: scientist role parsing
+  // MARK: - CommunityService: researcher role parsing
 
-  func testFetchMemberships_scientistRole_parsedCorrectly() async {
+  func testFetchMemberships_researcherRole_parsedCorrectly() async {
     setAccessToken("valid-token")
-    let membership = makeScientistMembership()
+    let membership = makeResearcherMembership()
     let data = makeMembershipsJSON([membership])
 
     MockURLProtocol.requestHandler = { request in
@@ -168,15 +169,15 @@ final class ScientistRoleRegressionTests: XCTestCase {
     await svc.fetchMemberships()
 
     XCTAssertEqual(svc.memberships.count, 1,
-                   "Should parse one membership with role 'scientist'")
-    XCTAssertEqual(svc.memberships.first?.role, "scientist",
-                   "Membership role should be 'scientist'")
+                   "Should parse one membership with role 'researcher'")
+    XCTAssertEqual(svc.memberships.first?.role, "researcher",
+                   "Membership role should be 'researcher'")
     XCTAssertEqual(svc.memberships.first?.communityId, "sci-comm-uuid-1")
   }
 
-  func testSetActiveCommunity_scientistRole_syncsToAuthService() async {
+  func testSetActiveCommunity_researcherRole_syncsToAuthService() async {
     setAccessToken("valid-token")
-    let membership = makeScientistMembership(communityId: "sci-c-1")
+    let membership = makeResearcherMembership(communityId: "sci-c-1")
     let data = makeMembershipsJSON([membership])
 
     MockURLProtocol.requestHandler = { request in
@@ -194,12 +195,12 @@ final class ScientistRoleRegressionTests: XCTestCase {
     // Give the MainActor Task in setActiveCommunity time to propagate
     try? await Task.sleep(nanoseconds: 100_000_000)
 
-    XCTAssertEqual(svc.activeRole, "scientist",
-                   "activeRole should be 'scientist' after selecting a scientist community")
+    XCTAssertEqual(svc.activeRole, "researcher",
+                   "activeRole should be 'researcher' after selecting a researcher community")
     XCTAssertEqual(
       AuthService.shared.currentUserType,
-      .scientist,
-      "SNAPSHOT: Selecting a scientist community must sync .scientist to AuthService.currentUserType"
+      .researcher,
+      "SNAPSHOT: Selecting a researcher community must sync .researcher to AuthService.currentUserType"
     )
   }
 
@@ -207,7 +208,7 @@ final class ScientistRoleRegressionTests: XCTestCase {
 
   func testSetActiveCommunity_setsTypeName() async {
     setAccessToken("valid-token")
-    let membership = makeScientistMembership(communityId: "sci-c-2", communityTypeName: "Conservation")
+    let membership = makeResearcherMembership(communityId: "sci-c-2", communityTypeName: "Conservation")
     let data = makeMembershipsJSON([membership])
 
     MockURLProtocol.requestHandler = { request in
@@ -228,7 +229,7 @@ final class ScientistRoleRegressionTests: XCTestCase {
 
   func testSetActiveCommunity_typeName_persistsToUserDefaults() async {
     setAccessToken("valid-token")
-    let membership = makeScientistMembership(communityId: "sci-c-3", communityTypeName: "Conservation")
+    let membership = makeResearcherMembership(communityId: "sci-c-3", communityTypeName: "Conservation")
     let data = makeMembershipsJSON([membership])
 
     MockURLProtocol.requestHandler = { request in
@@ -252,7 +253,7 @@ final class ScientistRoleRegressionTests: XCTestCase {
 
   func testClear_resetsTypeName() async {
     setAccessToken("valid-token")
-    let membership = makeScientistMembership(communityId: "sci-c-4")
+    let membership = makeResearcherMembership(communityId: "sci-c-4")
     let data = makeMembershipsJSON([membership])
 
     MockURLProtocol.requestHandler = { request in
@@ -277,7 +278,7 @@ final class ScientistRoleRegressionTests: XCTestCase {
 
   func testClearActiveCommunity_resetsTypeName() async {
     setAccessToken("valid-token")
-    let membership = makeScientistMembership(communityId: "sci-c-5")
+    let membership = makeResearcherMembership(communityId: "sci-c-5")
     let data = makeMembershipsJSON([membership])
 
     MockURLProtocol.requestHandler = { request in
@@ -302,7 +303,7 @@ final class ScientistRoleRegressionTests: XCTestCase {
 
   func testIsConservation_trueWhenTypeName_isConservation() async {
     setAccessToken("valid-token")
-    let membership = makeScientistMembership(communityId: "sci-c-6", communityTypeName: "Conservation")
+    let membership = makeResearcherMembership(communityId: "sci-c-6", communityTypeName: "Conservation")
     let data = makeMembershipsJSON([membership])
 
     MockURLProtocol.requestHandler = { request in
@@ -323,7 +324,7 @@ final class ScientistRoleRegressionTests: XCTestCase {
 
   func testIsConservation_falseWhenTypeName_isLodge() async {
     setAccessToken("valid-token")
-    let membership = makeScientistMembership(communityId: "sci-c-7", communityTypeName: "Lodge")
+    let membership = makeResearcherMembership(communityId: "sci-c-7", communityTypeName: "Lodge")
     let data = makeMembershipsJSON([membership])
 
     MockURLProtocol.requestHandler = { request in
@@ -349,77 +350,97 @@ final class ScientistRoleRegressionTests: XCTestCase {
                    "isConservation must be false when activeCommunityTypeName is nil")
   }
 
-  // MARK: - Routing: scientist + Conservation → ScientistLandingView
+  // MARK: - Routing: researcher + Conservation → ResearcherLandingView
 
-  func testRouting_scientistConservation_routesToScientistLandingView() {
-    // Mirrors AppRootView logic: .scientist with isConservation → ScientistLandingView
+  func testRouting_researcherConservation_routesToResearcherLandingView() {
+    // Mirrors AppRootView logic
     func landingViewName(for userType: AuthService.UserType, isConservation: Bool) -> String {
       switch userType {
-      case .guide:     return "LandingView"
-      case .angler:    return "AnglerLandingView"
-      case .public:    return "PublicLandingView"
-      case .scientist: return isConservation ? "ScientistLandingView" : "PublicLandingView"
+      case .guide:      return "LandingView"
+      case .angler:     return isConservation ? "ConservationLandingView" : "AnglerLandingView"
+      case .public:     return "PublicLandingView"
+      case .researcher: return isConservation ? "ResearcherLandingView" : "PublicLandingView"
       }
     }
     XCTAssertEqual(
-      landingViewName(for: .scientist, isConservation: true),
-      "ScientistLandingView",
-      "SNAPSHOT: .scientist + Conservation must route to ScientistLandingView"
+      landingViewName(for: .researcher, isConservation: true),
+      "ResearcherLandingView",
+      "SNAPSHOT: .researcher + Conservation must route to ResearcherLandingView"
     )
   }
 
-  func testRouting_scientistNonConservation_fallsBackToPublicLandingView() {
+  func testRouting_researcherNonConservation_fallsBackToPublicLandingView() {
     func landingViewName(for userType: AuthService.UserType, isConservation: Bool) -> String {
       switch userType {
-      case .guide:     return "LandingView"
-      case .angler:    return "AnglerLandingView"
-      case .public:    return "PublicLandingView"
-      case .scientist: return isConservation ? "ScientistLandingView" : "PublicLandingView"
+      case .guide:      return "LandingView"
+      case .angler:     return isConservation ? "ConservationLandingView" : "AnglerLandingView"
+      case .public:     return "PublicLandingView"
+      case .researcher: return isConservation ? "ResearcherLandingView" : "PublicLandingView"
       }
     }
     XCTAssertEqual(
-      landingViewName(for: .scientist, isConservation: false),
+      landingViewName(for: .researcher, isConservation: false),
       "PublicLandingView",
-      "SNAPSHOT: .scientist + non-Conservation must fall back to PublicLandingView"
+      "SNAPSHOT: .researcher + non-Conservation must fall back to PublicLandingView"
     )
   }
 
-  // MARK: - ScientistLandingView instantiation
-
-  func testScientistLandingView_instantiatesWithoutCrash() {
-    let view = ScientistLandingView()
-    XCTAssertNotNil(view, "ScientistLandingView must instantiate without crashing")
+  func testRouting_anglerConservation_routesToConservationLandingView() {
+    func landingViewName(for userType: AuthService.UserType, isConservation: Bool) -> String {
+      switch userType {
+      case .guide:      return "LandingView"
+      case .angler:     return isConservation ? "ConservationLandingView" : "AnglerLandingView"
+      case .public:     return "PublicLandingView"
+      case .researcher: return isConservation ? "ResearcherLandingView" : "PublicLandingView"
+      }
+    }
+    XCTAssertEqual(
+      landingViewName(for: .angler, isConservation: true),
+      "ConservationLandingView",
+      "SNAPSHOT: .angler + Conservation must route to ConservationLandingView"
+    )
   }
 
-  func testScientistLandingView_setsScientistUserRoleEnvironment() {
-    // Verify .scientist is a valid AppUserRole value for the environment
-    let role: AppUserRole = .scientist
-    XCTAssertEqual(role, .scientist,
-                   "AppUserRole.scientist must be usable as an environment value for ScientistLandingView")
+  // MARK: - Landing view instantiation
+
+  func testResearcherLandingView_instantiatesWithoutCrash() {
+    let view = ResearcherLandingView()
+    XCTAssertNotNil(view, "ResearcherLandingView must instantiate without crashing")
   }
 
-  // MARK: - Scientist toolbar snapshot
+  func testConservationLandingView_instantiatesWithoutCrash() {
+    let view = ConservationLandingView()
+    XCTAssertNotNil(view, "ConservationLandingView must instantiate without crashing")
+  }
 
-  func testSnapshot_scientistToolbarTabs_matchPublicTabs() {
-    // SNAPSHOT: Scientist toolbar currently mirrors public — Home, Catches, Social, Explore.
-    // This test documents the initial state; scientist toolbar may diverge later.
-    let scientistTabs: [(icon: String, label: String)] = [
+  func testResearcherLandingView_setsResearcherUserRoleEnvironment() {
+    let role: AppUserRole = .researcher
+    XCTAssertEqual(role, .researcher,
+                   "AppUserRole.researcher must be usable as an environment value for ResearcherLandingView")
+  }
+
+  // MARK: - Researcher toolbar snapshot
+
+  func testSnapshot_researcherToolbarTabs_matchPublicTabs() {
+    // SNAPSHOT: Researcher toolbar currently mirrors public — Home, Catches, Social, Explore.
+    // This test documents the initial state; researcher toolbar may diverge later.
+    let researcherTabs: [(icon: String, label: String)] = [
       ("house", "Home"),
       ("camera.viewfinder", "Catches"),
       ("message", "Social"),
       ("safari", "Explore")
     ]
-    XCTAssertEqual(scientistTabs.count, 4,
-                   "SNAPSHOT: Scientist toolbar must have exactly 4 tabs")
-    XCTAssertFalse(scientistTabs.contains(where: { $0.label == "Trips" }),
-                   "SNAPSHOT: Scientist toolbar must not contain a Trips tab")
+    XCTAssertEqual(researcherTabs.count, 4,
+                   "SNAPSHOT: Researcher toolbar must have exactly 4 tabs")
+    XCTAssertFalse(researcherTabs.contains(where: { $0.label == "Trips" }),
+                   "SNAPSHOT: Researcher toolbar must not contain a Trips tab")
   }
 
-  // MARK: - Role switching: scientist ↔ other roles
+  // MARK: - Role switching: researcher ↔ other roles
 
-  func testSetActiveCommunity_switchFromScientistToGuide_updatesRoleCorrectly() async {
+  func testSetActiveCommunity_switchFromResearcherToGuide_updatesRoleCorrectly() async {
     setAccessToken("valid-token")
-    let sci = makeScientistMembership(communityId: "c-sci")
+    let sci = makeResearcherMembership(communityId: "c-sci")
     let guide: [String: Any] = [
       "id": UUID().uuidString,
       "community_id": "c-guide",
@@ -440,13 +461,13 @@ final class ScientistRoleRegressionTests: XCTestCase {
     await svc.fetchMemberships()
 
     svc.setActiveCommunity(id: "c-sci")
-    XCTAssertEqual(svc.activeRole, "scientist")
+    XCTAssertEqual(svc.activeRole, "researcher")
     XCTAssertEqual(svc.activeCommunityTypeName, "Conservation")
     XCTAssertTrue(svc.isConservation)
 
     svc.setActiveCommunity(id: "c-guide")
     XCTAssertEqual(svc.activeRole, "guide",
-                   "Switching from scientist to guide community must update role to 'guide'")
+                   "Switching from researcher to guide community must update role to 'guide'")
     XCTAssertNil(svc.activeCommunityTypeName,
                  "Guide community without community_types should have nil typeName")
     XCTAssertFalse(svc.isConservation,
