@@ -137,8 +137,7 @@ nonisolated final class UploadObservations {
 
     // Build DTOs
     var dtos: [UploadObservationDTO] = []
-    let isoFormatter = ISO8601DateFormatter()
-    isoFormatter.formatOptions = [.withInternetDateTime]
+    let isoFormatter = DateFormatting.iso8601
 
     for (index, obs) in pending.enumerated() {
       progress(Double(index) / Double(pending.count) * 0.5) // 0–50% for prep

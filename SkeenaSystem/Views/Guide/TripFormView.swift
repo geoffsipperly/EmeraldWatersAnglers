@@ -811,24 +811,16 @@ struct TripFormView: View {
 // MARK: - Date helpers
 
 private func parseYMD(_ s: String) -> Date? {
-  let f = DateFormatter()
-  f.calendar = Calendar(identifier: .gregorian)
-  f.dateFormat = "yyyy-MM-dd"
-  return f.date(from: s)
+  DateFormatting.ymd.date(from: s)
 }
 
 private extension Date {
   var iso8601ZString: String {
-    let f = ISO8601DateFormatter()
-    f.formatOptions = [.withInternetDateTime]
-    return f.string(from: self)
+    DateFormatting.iso8601.string(from: self)
   }
 
   var yyyyMMdd: String {
-    let f = DateFormatter()
-    f.calendar = Calendar(identifier: .gregorian)
-    f.dateFormat = "yyyy-MM-dd"
-    return f.string(from: self)
+    DateFormatting.ymd.string(from: self)
   }
 }
 

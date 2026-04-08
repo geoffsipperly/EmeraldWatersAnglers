@@ -131,18 +131,13 @@ final class TripSyncService {
         client.licenseNumber = a.memberId
 
         if let licenses = a.licenses {
-          let ymd = DateFormatter()
-          ymd.calendar = Calendar(identifier: .gregorian)
-          ymd.dateFormat = "yyyy-MM-dd"
-          ymd.timeZone = TimeZone(secondsFromGMT: 0)
-
           for lic in licenses {
             let cw = ClassifiedWaterLicense(context: context)
             cw.client = client
             cw.licNumber = lic.licenseNumber ?? ""
             cw.water = lic.riverName ?? ""
-            if let s = lic.startDate, let d = ymd.date(from: s) { cw.validFrom = d }
-            if let s = lic.endDate, let d = ymd.date(from: s) { cw.validTo = d }
+            if let s = lic.startDate, let d = DateFormatting.ymd.date(from: s) { cw.validFrom = d }
+            if let s = lic.endDate, let d = DateFormatting.ymd.date(from: s) { cw.validTo = d }
           }
         }
       }
@@ -173,19 +168,7 @@ final class TripSyncService {
 
   /// Parse ISO8601 (with or without fractional seconds) or date-only "yyyy-MM-dd".
   private static func parseDate(_ s: String) -> Date? {
-    let iso = ISO8601DateFormatter()
-    iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    if let d = iso.date(from: s) { return d }
-    iso.formatOptions = [.withInternetDateTime]
-    if let d = iso.date(from: s) { return d }
-    // Date-only strings represent a calendar day, not a UTC instant.
-    // Parse in the local timezone so "2026-04-07" becomes local midnight,
-    // matching Calendar.startOfDay used by predicates in loadTrips.
-    let df = DateFormatter()
-    df.dateFormat = "yyyy-MM-dd"
-    df.locale = Locale(identifier: "en_US_POSIX")
-    df.timeZone = .current
-    return df.date(from: s)
+    DateFormatting.parseISO(s) ?? DateFormatting.ymd.date(from: s)
   }
 
   // MARK: - Community link helper

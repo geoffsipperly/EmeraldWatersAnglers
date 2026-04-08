@@ -769,11 +769,7 @@ struct MemberRegistrationView: View {
     ]
     if let code = communityCode, !code.isEmpty { dataPayload["community_code"] = code }
 
-    let df = DateFormatter()
-    df.calendar = Calendar(identifier: .gregorian)
-    df.locale = Locale(identifier: "en_US_POSIX")
-    df.dateFormat = "yyyy-MM-dd"
-    if let d = dob { dataPayload["date_of_birth"] = df.string(from: d) }
+    if let d = dob { dataPayload["date_of_birth"] = DateFormatting.ymd.string(from: d) }
     if let s = sex { dataPayload["sex"] = s.rawValue }
     if let addr = mailingAddress, !addr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
       dataPayload["mailing_address"] = addr

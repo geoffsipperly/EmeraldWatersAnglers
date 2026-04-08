@@ -166,8 +166,7 @@ final class UploadFarmedReports {
     }
 
     // Build DTOs (only after confirming we have reports to send)
-    let isoFormatter = ISO8601DateFormatter()
-    isoFormatter.formatOptions = [.withInternetDateTime]
+    let isoFormatter = DateFormatting.iso8601
 
     let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
     let device = "\(UIDevice.current.model) \(UIDevice.current.systemVersion)"

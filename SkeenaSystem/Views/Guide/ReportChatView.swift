@@ -497,9 +497,7 @@ struct ReportChatView: View {
     let guideName = (AuthService.shared.currentFirstName ?? "Guide").trimmingCharacters(in: .whitespacesAndNewlines)
 
     // Look for an existing solo trip created today by this guide
-    let df = DateFormatter()
-    df.dateFormat = "ddMMyyyy"
-    let todayTripName = "\(guideName) - \(df.string(from: Date()))"
+    let todayTripName = "\(guideName) - \(DateFormatting.ddMMyyyy.string(from: Date()))"
 
     let request: NSFetchRequest<Trip> = Trip.fetchRequest()
     request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -545,13 +543,11 @@ struct ReportChatView: View {
       AppLogging.log("[Solo] Created solo trip: \(todayTripName) id=\(trip.tripId?.uuidString ?? "?")", level: .info, category: .trip)
 
       // Upload the solo trip to the server (fire-and-forget)
-      let iso = ISO8601DateFormatter()
-      iso.formatOptions = [.withInternetDateTime]
       let upsert = TripAPI.UpsertTripRequest(
         tripId: trip.tripId?.uuidString ?? UUID().uuidString,
         tripName: todayTripName,
-        startDate: iso.string(from: today),
-        endDate: iso.string(from: today),
+        startDate: DateFormatting.iso8601.string(from: today),
+        endDate: DateFormatting.iso8601.string(from: today),
         guideName: guideName,
         clientName: nil,
         community: CommunityService.shared.activeCommunityName,

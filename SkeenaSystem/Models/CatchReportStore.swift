@@ -38,37 +38,35 @@ final class CatchReportPicMemoStore: ObservableObject {
     var new = report
     new.status = .savedLocally
     save(report: new)
-    loadAll()
+    upsertInMemory(new)
   }
 
   func update(_ report: CatchReportPicMemo) {
     save(report: report)
-    loadAll()
+    upsertInMemory(report)
   }
 
   func delete(_ report: CatchReportPicMemo) {
     let url = jsonURL(for: report.id)
     try? fm.removeItem(at: url)
-    loadAll()
+    removeInMemory(report.id)
   }
 
   func markUploaded(_ reportIDs: [UUID]) {
-    var changed = false
-    var current = reports
     let now = Date()
+    var current = reports
 
     for idx in current.indices {
       if reportIDs.contains(current[idx].id) {
         current[idx].status = .uploaded
         current[idx].uploadedAt = now
         save(report: current[idx])
-        changed = true
       }
     }
 
-    if changed {
-      loadAll()
-    }
+    // Apply to in-memory array in one shot
+    current.sort { $0.createdAt > $1.createdAt }
+    DispatchQueue.main.async { self.reports = current }
   }
 
   // MARK: - Convenience creation for chat flow
@@ -184,26 +182,41 @@ final class CatchReportPicMemoStore: ObservableObject {
     )
 
     save(report: report)
-    loadAll()
+    upsertInMemory(report)
   }
 
   /// Optionally attach or change the voice note ID for an existing report.
   func updateVoiceNote(for reportId: UUID, voiceNoteId: UUID?) {
-    var changed = false
     var current = reports
 
     for idx in current.indices {
       if current[idx].id == reportId {
         current[idx].voiceNoteId = voiceNoteId
         save(report: current[idx])
-        changed = true
-        break
+        upsertInMemory(current[idx])
+        return
       }
     }
+  }
 
-    if changed {
-      loadAll()
+  // MARK: - In-memory helpers (avoid full disk reload)
+
+  /// Insert or replace a report in the in-memory array, keeping newest-first sort.
+  private func upsertInMemory(_ report: CatchReportPicMemo) {
+    var current = reports
+    if let idx = current.firstIndex(where: { $0.id == report.id }) {
+      current[idx] = report
+    } else {
+      current.append(report)
     }
+    current.sort { $0.createdAt > $1.createdAt }
+    DispatchQueue.main.async { self.reports = current }
+  }
+
+  /// Remove a report from the in-memory array by ID.
+  private func removeInMemory(_ id: UUID) {
+    let current = reports.filter { $0.id != id }
+    DispatchQueue.main.async { self.reports = current }
   }
 
   // MARK: - Internals

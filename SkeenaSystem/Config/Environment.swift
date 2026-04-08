@@ -69,7 +69,23 @@ public final class AppEnvironment {
     public var overrideDefaultWaterBody: String?
     public var overrideTacticsEnabled: Bool?
 
-    private init() {}
+    private init() {
+        // Cache parsed CSV arrays once at init (avoids re-splitting on every access).
+        if let raw = Bundle.main.object(forInfoDictionaryKey: "LODGE_RIVERS") as? String, !raw.isEmpty {
+            _cachedLodgeRivers = raw.components(separatedBy: ",")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+        }
+        if let raw = Bundle.main.object(forInfoDictionaryKey: "LODGE_WATER_BODIES") as? String, !raw.isEmpty {
+            _cachedLodgeWaterBodies = raw.components(separatedBy: ",")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+        }
+    }
+
+    /// Pre-parsed CSV values from Info.plist (set once in init).
+    private var _cachedLodgeRivers: [String] = []
+    private var _cachedLodgeWaterBodies: [String] = []
 
     // MARK: - Helpers to read from Info.plist
 
@@ -375,12 +391,7 @@ public final class AppEnvironment {
     /// Used to build river condition tiles. Names are sent as-is to the river-conditions API.
     public var lodgeRivers: [String] {
         if let v = overrideLodgeRivers { return v }
-        if let raw = stringFromInfo("LODGE_RIVERS"), !raw.isEmpty {
-            return raw.components(separatedBy: ",")
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .filter { !$0.isEmpty }
-        }
-        return [] // No hardcoded fallback — LODGE_RIVERS must be set in xcconfig
+        return _cachedLodgeRivers
     }
 
     /// Strips common water-body suffixes from a river name (e.g. "Nehalem River" → "Nehalem").
@@ -397,12 +408,7 @@ public final class AppEnvironment {
     /// Used for polygon-based GPS detection and conditions forecasts.
     public var lodgeWaterBodies: [String] {
         if let v = overrideLodgeWaterBodies { return v }
-        if let raw = stringFromInfo("LODGE_WATER_BODIES"), !raw.isEmpty {
-            return raw.components(separatedBy: ",")
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .filter { !$0.isEmpty }
-        }
-        return [] // No hardcoded fallback — LODGE_WATER_BODIES must be set in xcconfig
+        return _cachedLodgeWaterBodies
     }
 
     /// Default water body name when no GPS-based water body is resolved.

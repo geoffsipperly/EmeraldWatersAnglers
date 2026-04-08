@@ -108,16 +108,7 @@ struct ManageTripsView: View {
   /// Parse an ISO8601 or date-only string into a Date.
   private func parseDate(_ s: String?) -> Date? {
     guard let s = s else { return nil }
-    let iso = ISO8601DateFormatter()
-    iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    if let d = iso.date(from: s) { return d }
-    iso.formatOptions = [.withInternetDateTime]
-    if let d = iso.date(from: s) { return d }
-    // Date-only: "2026-04-07"
-    let df = DateFormatter()
-    df.dateFormat = "yyyy-MM-dd"
-    df.locale = Locale(identifier: "en_US_POSIX")
-    return df.date(from: s)
+    return DateFormatting.parseISO(s) ?? DateFormatting.ymd.date(from: s)
   }
 
   private func fetchServerTrips() {

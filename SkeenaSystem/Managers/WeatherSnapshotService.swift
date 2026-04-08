@@ -161,12 +161,8 @@ enum WeatherSnapshotService {
     let parts = isoDateTime.split(separator: "T")
     guard parts.count == 2 else { return isoDateTime }
     let timePart = String(parts[1].prefix(5)) // "14:00"
-    let fmt = DateFormatter()
-    fmt.dateFormat = "HH:mm"
-    if let date = fmt.date(from: timePart) {
-      let out = DateFormatter()
-      out.dateFormat = "ha" // "2PM"
-      return out.string(from: date).lowercased()
+    if let date = DateFormatting.hour24.date(from: timePart) {
+      return DateFormatting.hourAMPM.string(from: date).lowercased()
     }
     return timePart
   }

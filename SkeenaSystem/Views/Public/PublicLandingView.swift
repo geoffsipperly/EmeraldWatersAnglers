@@ -627,17 +627,11 @@ struct PublicLandingView: View {
   // MARK: - Helpers
 
   private static func parseISO(_ iso: String) -> Date? {
-    let f = ISO8601DateFormatter()
-    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    return f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
+    DateFormatting.parseISO(iso)
   }
 
   private static func fmtDate(_ iso: String) -> String {
-    if let d = parseISO(iso) {
-      let f = DateFormatter()
-      f.dateStyle = .medium; f.timeStyle = .short
-      return f.string(from: d)
-    }
+    if let d = parseISO(iso) { return DateFormatting.mediumDateTime.string(from: d) }
     return iso
   }
 }

@@ -310,12 +310,7 @@ private struct ProfileStep: View {
       let decoded = try JSONDecoder().decode(Resp.self, from: data)
       profile = decoded.profile
       if let dob = profile.dateOfBirth, !dob.isEmpty {
-        let f = DateFormatter()
-        f.calendar = Calendar(identifier: .gregorian)
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone(secondsFromGMT: 0)
-        f.dateFormat = "yyyy-MM-dd"
-        if let d = f.date(from: dob) { dobDate = d }
+        if let d = DateFormatting.ymd.date(from: dob) { dobDate = d }
       }
     } catch {
       errorText = error.localizedDescription
@@ -326,12 +321,7 @@ private struct ProfileStep: View {
     guard let token = await auth.currentAccessToken(), !token.isEmpty else { return }
     guard let url = try? ManageProfileAPI.url() else { return }
 
-    let df = DateFormatter()
-    df.calendar = Calendar(identifier: .gregorian)
-    df.locale = Locale(identifier: "en_US_POSIX")
-    df.timeZone = TimeZone(secondsFromGMT: 0)
-    df.dateFormat = "yyyy-MM-dd"
-    profile.dateOfBirth = df.string(from: dobDate)
+    profile.dateOfBirth = DateFormatting.ymd.string(from: dobDate)
 
     var req = URLRequest(url: url)
     req.httpMethod = ManageProfileAPI.saveMethod

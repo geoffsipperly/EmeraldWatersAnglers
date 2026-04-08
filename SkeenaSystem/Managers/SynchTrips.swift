@@ -665,40 +665,23 @@ public final class SynchTrips {
 
   private static func parseISO8601(s: String?) -> Date? {
     guard let s = s else { return nil }
-    let iso1 = ISO8601DateFormatter()
-    iso1.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    if let d = iso1.date(from: s) { return d }
-    let iso2 = ISO8601DateFormatter()
-    iso2.formatOptions = [.withInternetDateTime]
-    if let d = iso2.date(from: s) { return d }
+    if let d = DateFormatting.iso8601WithFractional.date(from: s) { return d }
+    if let d = DateFormatting.iso8601.date(from: s) { return d }
     // Fallback: date-only "yyyy-MM-dd" (e.g. 1-day trips)
     return parseYMD(s: s)
   }
 
   private static func parseYMD(s: String?) -> Date? {
     guard let s = s else { return nil }
-    // Date-only strings represent a calendar day — parse in local timezone
-    // so they align with Calendar.startOfDay used in predicates.
-    let df = DateFormatter()
-    df.calendar = Calendar(identifier: .gregorian)
-    df.dateFormat = "yyyy-MM-dd"
-    df.timeZone = .current
-    return df.date(from: s)
+    return DateFormatting.ymd.date(from: s)
   }
 
   private static func iso8601String(from date: Date) -> String {
-    let iso = ISO8601DateFormatter()
-    iso.formatOptions = [.withInternetDateTime]
-    iso.timeZone = TimeZone(secondsFromGMT: 0)
-    return iso.string(from: date)
+    DateFormatting.iso8601.string(from: date)
   }
 
   private static func ymdString(from date: Date) -> String {
-    let df = DateFormatter()
-    df.calendar = Calendar(identifier: .gregorian)
-    df.dateFormat = "yyyy-MM-dd"
-    df.timeZone = TimeZone(secondsFromGMT: 0)
-    return df.string(from: date)
+    DateFormatting.ymd.string(from: date)
   }
 
   // MARK: - Logging helpers
@@ -710,9 +693,7 @@ public final class SynchTrips {
 
   private static func fmt(_ d: Date?) -> String {
     guard let d = d else { return "<nil>" }
-    let f = ISO8601DateFormatter()
-    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    return f.string(from: d)
+    return DateFormatting.iso8601WithFractional.string(from: d)
   }
 
   private static func truncate(_ s: String, max: Int = 2000) -> String {

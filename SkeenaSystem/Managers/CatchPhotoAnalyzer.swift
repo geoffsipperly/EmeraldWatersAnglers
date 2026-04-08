@@ -57,6 +57,12 @@ final class CatchPhotoAnalyzer {
   // YOLOv8 detector from best.mlpackage
   private let detectorModel: best
 
+  // Cached on-demand models (avoid re-loading on every call)
+  private static var _sexModel: ViTFishSex?
+  #if canImport(MediaPipeTasksVision)
+  private static var _handLandmarker: HandLandmarker?
+  #endif
+
   // Species labels for ViT
     private let speciesLabels: [String] = [
         "sea_run_trout",
@@ -358,9 +364,11 @@ final class CatchPhotoAnalyzer {
       return nil
     }
 
-    // Create the sex model on demand. If you want, we can later cache it.
-    let config = MLModelConfiguration()
-    guard let model = try? ViTFishSex(configuration: config) else {
+    // Lazy-cache the sex model so it's only loaded once.
+    if Self._sexModel == nil {
+      Self._sexModel = try? ViTFishSex(configuration: MLModelConfiguration())
+    }
+    guard let model = Self._sexModel else {
       AppLogging.log("runSexClassifier: failed to create ViTFishSex model", level: .error, category: .ml)
       return nil
     }
@@ -394,20 +402,21 @@ final class CatchPhotoAnalyzer {
     #if canImport(MediaPipeTasksVision)
     guard let cgImage = image.cgImage else { return nil }
 
-    let modelPath = Bundle.main.path(forResource: "hand_landmarker", ofType: "task")
-    guard let modelPath else {
-      AppLogging.log("detectHand: hand_landmarker.task not found in bundle", level: .error, category: .ml)
-      return nil
+    // Lazy-cache the HandLandmarker so the .task model is only loaded once.
+    if Self._handLandmarker == nil {
+      guard let modelPath = Bundle.main.path(forResource: "hand_landmarker", ofType: "task") else {
+        AppLogging.log("detectHand: hand_landmarker.task not found in bundle", level: .error, category: .ml)
+        return nil
+      }
+      let options = HandLandmarkerOptions()
+      options.baseOptions.modelAssetPath = modelPath
+      options.numHands = 2
+      options.minHandDetectionConfidence = 0.3
+      options.minHandPresenceConfidence = 0.3
+      options.runningMode = .image
+      Self._handLandmarker = try? HandLandmarker(options: options)
     }
-
-    let options = HandLandmarkerOptions()
-    options.baseOptions.modelAssetPath = modelPath
-    options.numHands = 2
-    options.minHandDetectionConfidence = 0.3
-    options.minHandPresenceConfidence = 0.3
-    options.runningMode = .image
-
-    guard let landmarker = try? HandLandmarker(options: options) else {
+    guard let landmarker = Self._handLandmarker else {
       AppLogging.log("detectHand: failed to create HandLandmarker", level: .error, category: .ml)
       return nil
     }
@@ -546,23 +555,16 @@ final class CatchPhotoAnalyzer {
     mean: [Float] = [0.485, 0.456, 0.406],
     std: [Float] = [0.229, 0.224, 0.225]
   ) throws -> MLMultiArray {
-    let targetSize = CGSize(width: 224, height: 224)
-
-    // 1) Resize the image to 224x224
-    guard let resized = resize(image: image, to: targetSize),
-          let cgImage = resized.cgImage
-    else {
+    guard let srcCGImage = image.cgImage else {
       throw PreprocessError.cannotResize
     }
 
-    let width = Int(targetSize.width)
-    let height = Int(targetSize.height)
-
-    // 2) Draw into RGBA8 buffer
+    let width = 224
+    let height = 224
     let bytesPerPixel = 4
     let bytesPerRow = bytesPerPixel * width
-    let bitsPerComponent = 8
 
+    // 1) Draw the original image directly into a 224×224 RGBA8 buffer (single resize pass)
     var rawData = [UInt8](repeating: 0, count: width * height * bytesPerPixel)
     guard
       let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
@@ -570,7 +572,7 @@ final class CatchPhotoAnalyzer {
         data: &rawData,
         width: width,
         height: height,
-        bitsPerComponent: bitsPerComponent,
+        bitsPerComponent: 8,
         bytesPerRow: bytesPerRow,
         space: colorSpace,
         bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
@@ -579,49 +581,28 @@ final class CatchPhotoAnalyzer {
       throw PreprocessError.cannotCreateContext
     }
 
-    context.draw(cgImage, in: CGRect(origin: .zero, size: targetSize))
+    context.draw(srcCGImage, in: CGRect(x: 0, y: 0, width: width, height: height))
 
-    // 3) Create MLMultiArray of shape [1, 3, 224, 224]
+    // 2) Create MLMultiArray of shape [1, 3, 224, 224]
     let shape: [NSNumber] = [1, 3, NSNumber(value: height), NSNumber(value: width)]
     let array = try MLMultiArray(shape: shape, dataType: .float32)
 
-    // Fill in channel-first order: [batch, channel, y, x]
-    // Apply ImageNet normalization: (pixel / 255 - mean) / std
+    // 3) Fill using a raw pointer — avoids ~150K NSNumber allocations per image
     let channelStride = height * width
-    let mean: [Float] = [0.485, 0.456, 0.406]  // R, G, B
-    let std: [Float]  = [0.229, 0.224, 0.225]
+    let ptr = array.dataPointer.bindMemory(to: Float.self, capacity: 3 * channelStride)
 
     for y in 0 ..< height {
       for x in 0 ..< width {
         let pixelIndex = y * bytesPerRow + x * bytesPerPixel
-        let r = (Float(rawData[pixelIndex + 0]) / 255.0 - mean[0]) / std[0]
-        let g = (Float(rawData[pixelIndex + 1]) / 255.0 - mean[1]) / std[1]
-        let b = (Float(rawData[pixelIndex + 2]) / 255.0 - mean[2]) / std[2]
-
         let hwIndex = y * width + x
 
-        let rIndex = 0 * channelStride + hwIndex
-        let gIndex = 1 * channelStride + hwIndex
-        let bIndex = 2 * channelStride + hwIndex
-
-        array[rIndex] = NSNumber(value: r)
-        array[gIndex] = NSNumber(value: g)
-        array[bIndex] = NSNumber(value: b)
+        ptr[0 * channelStride + hwIndex] = (Float(rawData[pixelIndex + 0]) / 255.0 - mean[0]) / std[0]
+        ptr[1 * channelStride + hwIndex] = (Float(rawData[pixelIndex + 1]) / 255.0 - mean[1]) / std[1]
+        ptr[2 * channelStride + hwIndex] = (Float(rawData[pixelIndex + 2]) / 255.0 - mean[2]) / std[2]
       }
     }
 
     return array
-  }
-
-  private func resize(image: UIImage, to targetSize: CGSize) -> UIImage? {
-    let format = UIGraphicsImageRendererFormat.default()
-    format.scale = 1.0 // we want logical pixels
-
-    let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
-    let result = renderer.image { _ in
-      image.draw(in: CGRect(origin: .zero, size: targetSize))
-    }
-    return result
   }
 
   private enum PreprocessError: Error {

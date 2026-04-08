@@ -29,15 +29,7 @@ struct TripDetailView: View {
   /// Parse an ISO8601 or date-only string into a Date.
   private func parseDate(_ s: String?) -> Date? {
     guard let s = s else { return nil }
-    let iso = ISO8601DateFormatter()
-    iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    if let d = iso.date(from: s) { return d }
-    iso.formatOptions = [.withInternetDateTime]
-    if let d = iso.date(from: s) { return d }
-    let df = DateFormatter()
-    df.dateFormat = "yyyy-MM-dd"
-    df.locale = Locale(identifier: "en_US_POSIX")
-    return df.date(from: s)
+    return DateFormatting.parseISO(s) ?? DateFormatting.ymd.date(from: s)
   }
 
   private func computeStatus(startStr: String?, endStr: String?, now: Date) -> TripStatus {
@@ -150,16 +142,9 @@ struct TripDetailView: View {
 
   private func dayString(_ isoStr: String?) -> String {
     guard let s = isoStr else { return "-" }
-    // Try full ISO8601 first, then date-only (yyyy-MM-dd)
-    let iso = ISO8601DateFormatter()
-    iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    if let d = iso.date(from: s) { return d.formatted(date: .abbreviated, time: .omitted) }
-    iso.formatOptions = [.withInternetDateTime]
-    if let d = iso.date(from: s) { return d.formatted(date: .abbreviated, time: .omitted) }
-    let df = DateFormatter()
-    df.dateFormat = "yyyy-MM-dd"
-    df.locale = Locale(identifier: "en_US_POSIX")
-    if let d = df.date(from: s) { return d.formatted(date: .abbreviated, time: .omitted) }
+    if let d = DateFormatting.parseISO(s) ?? DateFormatting.ymd.date(from: s) {
+      return d.formatted(date: .abbreviated, time: .omitted)
+    }
     return "-"
   }
 
@@ -228,11 +213,7 @@ struct TripDetailView: View {
   }
 
   private func formatDateString(_ dateStr: String) -> String {
-    let ymd = DateFormatter()
-    ymd.calendar = Calendar(identifier: .gregorian)
-    ymd.dateFormat = "yyyy-MM-dd"
-    ymd.timeZone = TimeZone(secondsFromGMT: 0)
-    guard let d = ymd.date(from: dateStr) else { return dateStr }
+    guard let d = DateFormatting.ymd.date(from: dateStr) else { return dateStr }
     return d.formatted(date: .abbreviated, time: .omitted)
   }
 }
