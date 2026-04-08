@@ -8,6 +8,12 @@ import UIKit
 
 final class UploadFarmedReports {
 
+  private static let sharedEncoder: JSONEncoder = {
+    let e = JSONEncoder()
+    e.outputFormatting = [.withoutEscapingSlashes]
+    return e
+  }()
+
   // MARK: - Error types
 
   enum UploadError: LocalizedError {
@@ -193,9 +199,8 @@ final class UploadFarmedReports {
       )
     }
 
-    // Encode
-    let encoder = JSONEncoder()
-    encoder.outputFormatting = [.withoutEscapingSlashes]
+    // Encode (reuse static instance)
+    let encoder = Self.sharedEncoder
 
     let bodyData: Data
     do {

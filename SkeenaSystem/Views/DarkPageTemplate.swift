@@ -133,21 +133,24 @@ struct RoleAwareToolbar: View {
 // MARK: - UINavigationBar styling for iOS 15
 
 struct LegacyNavBarStyle: ViewModifier {
+  /// Apply global UINavigationBar appearance once (no-op on subsequent calls).
+  private static let applyOnce: Void = {
+    let appearance = UINavigationBarAppearance()
+    appearance.configureWithOpaqueBackground()
+    appearance.backgroundColor = UIColor.systemGray6
+    appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
+    appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
+
+    let navBar = UINavigationBar.appearance()
+    navBar.standardAppearance = appearance
+    navBar.scrollEdgeAppearance = appearance
+    navBar.compactAppearance = appearance
+    navBar.tintColor = .white
+  }()
+
   func body(content: Content) -> some View {
     content
-      .onAppear {
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = UIColor.systemGray6
-        appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
-        appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
-
-        let navBar = UINavigationBar.appearance()
-        navBar.standardAppearance = appearance
-        navBar.scrollEdgeAppearance = appearance
-        navBar.compactAppearance = appearance
-        navBar.tintColor = .white
-      }
+      .onAppear { _ = Self.applyOnce }
   }
 }
 

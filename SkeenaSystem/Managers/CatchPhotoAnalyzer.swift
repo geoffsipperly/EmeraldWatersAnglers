@@ -51,11 +51,11 @@ final class CatchPhotoAnalyzer {
   private let riverLocator: RiverLocator
   private let waterBodyLocator: WaterBodyLocator
 
-  // ViT species model (raw MLModel)
-  private let coreMLModel: MLModel
+  // ViT species model (raw MLModel) — nil if bundle or compilation fails
+  private let coreMLModel: MLModel?
 
-  // YOLOv8 detector from best.mlpackage
-  private let detectorModel: best
+  // YOLOv8 detector from best.mlpackage — nil if bundle or compilation fails
+  private let detectorModel: best?
 
   // Cached on-demand models (avoid re-loading on every call)
   private static var _sexModel: ViTFishSex?
@@ -80,13 +80,21 @@ final class CatchPhotoAnalyzer {
     let config = MLModelConfiguration()
 
     // Species model (ViTFishSpecies.mlpackage)
-    guard let speciesURL = Bundle.main.url(forResource: "ViTFishSpecies", withExtension: "mlmodelc") else {
-      fatalError("❌ Could not find ViTFishSpecies.mlmodelc in app bundle")
+    if let speciesURL = Bundle.main.url(forResource: "ViTFishSpecies", withExtension: "mlmodelc"),
+       let model = try? MLModel(contentsOf: speciesURL, configuration: config) {
+      self.coreMLModel = model
+    } else {
+      AppLogging.log("CatchPhotoAnalyzer: failed to load ViTFishSpecies model", level: .error, category: .ml)
+      self.coreMLModel = nil
     }
-    self.coreMLModel = try! MLModel(contentsOf: speciesURL, configuration: config)
 
     // YOLOv8 detector (best.mlpackage)
-    self.detectorModel = try! best(configuration: config)
+    if let detector = try? best(configuration: config) {
+      self.detectorModel = detector
+    } else {
+      AppLogging.log("CatchPhotoAnalyzer: failed to load YOLOv8 detector model", level: .error, category: .ml)
+      self.detectorModel = nil
+    }
   }
 
   // MARK: - Main analysis entry point
@@ -295,7 +303,7 @@ final class CatchPhotoAnalyzer {
     // Wrap the MLMultiArray in an MLFeatureProvider
     let provider = ViTInputFeatureProvider(imageArray: inputArray)
 
-    guard let output = try? coreMLModel.prediction(from: provider) else {
+    guard let output = try? coreMLModel?.prediction(from: provider) else {
       return nil
     }
 
@@ -943,7 +951,7 @@ final class CatchPhotoAnalyzer {
         return DetectionResult(fishBox: nil, personBox: nil)
       }
 
-      guard let output = try? detectorModel.prediction(image: pixelBuffer) else {
+      guard let output = try? detectorModel?.prediction(image: pixelBuffer) else {
         AppLogging.log("runDetector: model prediction failed", level: .error, category: .ml)
         return DetectionResult(fishBox: nil, personBox: nil)
       }
@@ -984,16 +992,21 @@ final class CatchPhotoAnalyzer {
       let numClasses = channels - 4
 
       // Helper closure to read arr[0, channel, anchor] or arr[0, anchor, channel]
-      let read: (_ channelIndex: Int, _ anchorIndex: Int) -> Double = { ch, an in
-        let idx: [NSNumber]
-        if channelsOnSecondAxis {
-          // [1, C, A]
-          idx = [0, NSNumber(value: ch), NSNumber(value: an)]
-        } else {
-          // [1, A, C]
-          idx = [0, NSNumber(value: an), NSNumber(value: ch)]
+      // Uses direct index math instead of allocating [NSNumber] arrays (~16K times).
+      let read: (_ channelIndex: Int, _ anchorIndex: Int) -> Double
+      let rawPtr = arr.dataPointer
+      if arr.dataType == .float32 {
+        let fp32 = rawPtr.bindMemory(to: Float32.self, capacity: channels * numAnchors)
+        read = { ch, an in
+          let i = channelsOnSecondAxis ? ch * numAnchors + an : an * channels + ch
+          return Double(fp32[i])
         }
-        return arr[idx].doubleValue
+      } else {
+        let fp64 = rawPtr.bindMemory(to: Float64.self, capacity: channels * numAnchors)
+        read = { ch, an in
+          let i = channelsOnSecondAxis ? ch * numAnchors + an : an * channels + ch
+          return fp64[i]
+        }
       }
 
       AppLogging.log({ "runDetector: output shape=\(arr.shape), channels=\(channels), anchors=\(numAnchors), channelsOnSecondAxis=\(channelsOnSecondAxis)" }, level: .debug, category: .ml)

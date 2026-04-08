@@ -115,26 +115,6 @@ struct AnglerLandingView: View {
   @StateObject private var locationManager = LocationManager()
 
   // Live weather
-  private struct LiveWeather {
-    let locationName: String
-    let condition: String
-    let icon: String
-    let temp: Int
-    let windDir: String
-    let windSpeed: Int
-    let pressureVal: Int
-    let pressureTrend: WeatherPressureTrend
-    struct HourlySlot: Identifiable {
-      var id: String { hour }
-      let hour: String
-      let icon: String
-      let temp: Int
-      let precipChance: Int
-    }
-    let hourly: [HourlySlot]
-    /// Backend weather provider: "open-meteo" or "weatherapi". Informational.
-    let source: String?
-  }
   @State private var liveWeather: LiveWeather? = nil
 
   // Navigation path (enables pop-to-root)
@@ -528,13 +508,8 @@ struct AnglerLandingView: View {
 
   // MARK: - Derived data
 
-  private var sortedReports: [CatchReportDTO] {
-    reports.sorted {
-      let d0 = Self.parseISO($0.createdAt) ?? .distantPast
-      let d1 = Self.parseISO($1.createdAt) ?? .distantPast
-      return d0 > d1
-    }
-  }
+  // Reports are pre-sorted newest-first at fetch time (see fetchReportsInternal).
+  private var sortedReports: [CatchReportDTO] { reports }
 
 
   // MARK: - Catch card (carousel)
@@ -635,7 +610,13 @@ struct AnglerLandingView: View {
       let decoded = try JSONDecoder().decode(DownloadResponse.self, from: data)
       let count = decoded.catch_reports.count
       AppLogging.log("AnglerLanding downloaded catch reports: count=\(count)", level: .debug, category: .catch)
-      withAnimation { reports = decoded.catch_reports }
+      // Pre-sort newest-first so the view body doesn't re-sort on every render.
+      let sorted = decoded.catch_reports.sorted {
+        let d0 = DateFormatting.parseISO($0.createdAt) ?? .distantPast
+        let d1 = DateFormatting.parseISO($1.createdAt) ?? .distantPast
+        return d0 > d1
+      }
+      withAnimation { reports = sorted }
     } catch {
       AppLogging.log("[AnglerLanding] Network error fetching catches: \(error.localizedDescription)", level: .error, category: .catch)
       errorText = "Unable to load catch reports. Please check your connection and try again."

@@ -44,21 +44,24 @@ final class RiverLocator {
 
   // MARK: - Dataset (built dynamically from atlas + active community config)
 
-  /// Rivers active for the current community, derived from community config + RiverAtlas.
-  /// Recomputed each access so it reacts to community switches.
+  /// Cached rivers for the current community. Rebuilt when the community changes.
+  private var _cachedRivers: [RiverDefinition] = []
+  private var _cachedCommunityName: String = ""
+
   private var rivers: [RiverDefinition] {
     let communityName = CommunityService.shared.activeCommunityName
+    if communityName == _cachedCommunityName, !_cachedRivers.isEmpty {
+      return _cachedRivers
+    }
+    _cachedCommunityName = communityName
     let configuredRivers = CommunityService.shared.activeCommunityConfig.resolvedLodgeRivers
-
-    return configuredRivers.compactMap { riverName in
+    _cachedRivers = configuredRivers.compactMap { riverName in
       let coords = RiverAtlas.all[riverName]
         ?? RiverAtlas.all[riverName + " River"]
         ?? RiverAtlas.all[riverName + " Creek"]
         ?? RiverAtlas.all[riverName + " Lake"]
         ?? RiverAtlas.all[riverName + " Stream"]
-      guard let coords, !coords.isEmpty else {
-        return nil
-      }
+      guard let coords, !coords.isEmpty else { return nil }
       return RiverDefinition(
         name: riverName,
         communityID: communityName,
@@ -66,6 +69,7 @@ final class RiverLocator {
         maxDistanceKm: RiverAtlas.defaultMaxDistanceKm
       )
     }
+    return _cachedRivers
   }
 
   private init() {}

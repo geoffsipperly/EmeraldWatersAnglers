@@ -4,6 +4,19 @@ import Foundation
 import UIKit
 
 final class UploadCatchPicMemo {
+
+  // Reusable encoder/decoder — avoids re-creating per upload call.
+  private static let sharedEncoder: JSONEncoder = {
+    let e = JSONEncoder()
+    e.dateEncodingStrategy = .iso8601
+    e.outputFormatting = [.withoutEscapingSlashes]
+    #if DEBUG
+    e.outputFormatting.insert(.prettyPrinted)
+    #endif
+    return e
+  }()
+  private static let sharedDecoder = JSONDecoder()
+
   // MARK: - Config
 
   struct Config {
@@ -280,9 +293,7 @@ final class UploadCatchPicMemo {
       return
     }
 
-    let encoder = JSONEncoder()
-    encoder.dateEncodingStrategy = .iso8601
-    encoder.outputFormatting = [.withoutEscapingSlashes, .prettyPrinted]
+    let encoder = Self.sharedEncoder
 
     let bodyData: Data
     do {
@@ -408,8 +419,7 @@ final class UploadCatchPicMemo {
 
       if let data {
         do {
-          let decoder = JSONDecoder()
-          let resp = try decoder.decode(ResponseDTO.self, from: data)
+          let resp = try Self.sharedDecoder.decode(ResponseDTO.self, from: data)
           #if DEBUG
           let v = resp.version ?? "unknown"
           AppLogging.log({ "[UploadCatchPicMemo] Parsed response: version=\(v), processed=\(resp.processed), successful=\(resp.successful), failed=\(resp.failed)" }, level: .debug, category: .network)
@@ -490,7 +500,7 @@ final class UploadCatchPicMemo {
 
     // Initial analysis + ML features
     let mlFeatures: [String: Double]? = r.mlFeatureVector.flatMap { data in
-      guard let fv = try? JSONDecoder().decode(CatchPhotoAnalyzer.LengthFeatureVector.self, from: data) else {
+      guard let fv = try? Self.sharedDecoder.decode(CatchPhotoAnalyzer.LengthFeatureVector.self, from: data) else {
         return nil
       }
       // Zip feature names with values to create a keyed dictionary

@@ -26,26 +26,6 @@ struct GuideLandingView: View {
   @State private var mapFetchDone = false
 
   // Live weather
-  private struct LiveWeather {
-    let locationName: String
-    let condition: String
-    let icon: String
-    let temp: Int
-    let windDir: String
-    let windSpeed: Int
-    let pressureVal: Int
-    let pressureTrend: WeatherPressureTrend
-    struct HourlySlot: Identifiable {
-      var id: String { hour }
-      let hour: String
-      let icon: String
-      let temp: Int
-      let precipChance: Int
-    }
-    let hourly: [HourlySlot]
-    /// Backend weather provider: "open-meteo" or "weatherapi". Informational.
-    let source: String?
-  }
   @State private var liveWeather: LiveWeather? = nil
 
   // Path-based nav for guide toolbar navigation
