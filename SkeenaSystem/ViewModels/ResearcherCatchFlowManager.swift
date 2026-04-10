@@ -56,6 +56,18 @@ final class ResearcherCatchFlowManager: ObservableObject {
   /// Anchor ID for the current step's Next/Confirm buttons in the chat UI.
   @Published var confirmAnchorID: UUID?
 
+  /// Whether the flow should include the post-measurement research steps
+  /// (study participation, sample collection, barcode scans).
+  ///
+  /// - `true` (default): researcher role and guides with the Conservation
+  ///   toggle ON — flow goes finalSummary → studyParticipation → … → voiceMemo.
+  /// - `false`: guides with Conservation OFF — flow short-circuits
+  ///   finalSummary → voiceMemo, skipping research-only steps.
+  ///
+  /// Not `@Published` because this is a one-shot mode flag set at initialize
+  /// time, not a value the UI observes for live updates.
+  var includeStudyAndSampleSteps: Bool = true
+
   // Confirmed values (initialized from ML analysis, updated by user)
   @Published var species: String?
   @Published var lifecycleStage: String?
@@ -162,6 +174,13 @@ final class ResearcherCatchFlowManager: ObservableObject {
       return lengthPrompt()
 
     case .confirmLength:
+      // Length is required before we can compute girth or weight. If the ML
+      // analyzer couldn't produce one and the user hasn't typed a measured
+      // value yet, stay on this step and prompt them explicitly. This keeps
+      // guides (Conservation OFF) from advancing with a nil length.
+      guard lengthInches != nil else {
+        return lengthPrompt()
+      }
       // Length confirmed — recalculate girth/weight with confirmed length, show girth
       recalculate()
       currentStep = .confirmGirth
@@ -174,8 +193,15 @@ final class ResearcherCatchFlowManager: ObservableObject {
       return finalAnalysisText()
 
     case .finalSummary:
-      currentStep = .studyParticipation
-      return "Are you participating in a study?"
+      // Guides with Conservation OFF skip the research-only post-measurement
+      // steps and jump straight to the voice memo offer.
+      if includeStudyAndSampleSteps {
+        currentStep = .studyParticipation
+        return "Are you participating in a study?"
+      } else {
+        currentStep = .voiceMemo
+        return "Would you like to add a voice memo for this catch?"
+      }
 
     case .studyParticipation:
       // "No" was selected (confirm = skip). Move to sample collection.
@@ -397,8 +423,12 @@ final class ResearcherCatchFlowManager: ObservableObject {
   }
 
   private func lengthPrompt() -> String {
-    let display = lengthInches.map { formatLength($0) } ?? "Unknown"
-    return "Estimated length: \(display)\n§\nConfirm, or type a new value (e.g. \"32\")."
+    // When the ML analyzer couldn't estimate a length, ask the user to enter
+    // one manually. Confirm has no meaning without a value to confirm.
+    guard let length = lengthInches else {
+      return "Length not detected from the photo.\n§\nPlease type a measured length in inches (e.g. \"32\") to continue."
+    }
+    return "Estimated length: \(formatLength(length))\n§\nConfirm, or type a new value (e.g. \"32\")."
   }
 
   private func girthPrompt() -> String {

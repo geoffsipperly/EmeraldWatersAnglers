@@ -5,7 +5,7 @@ import SwiftUI
 /// SwiftUI callout displayed via MapViewAnnotation when a guide catch pin is tapped.
 /// Shows species, lifecycle stage, length, angler number, and date — matching the
 /// previous MapKit callout content from the TerrainMapView coordinator.
-struct PicMemoCalloutView: View {
+struct CatchReportCalloutView: View {
   let title: String
   let lifecycleStage: String?
   let lengthInches: Int

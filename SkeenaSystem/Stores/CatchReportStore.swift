@@ -3,10 +3,10 @@
 import Combine
 import Foundation
 
-final class CatchReportPicMemoStore: ObservableObject {
-  static let shared = CatchReportPicMemoStore()
+final class CatchReportStore: ObservableObject {
+  static let shared = CatchReportStore()
 
-  @Published private(set) var reports: [CatchReportPicMemo] = []
+  @Published private(set) var reports: [CatchReport] = []
 
   private let fm = FileManager.default
   private let directoryURL: URL
@@ -15,6 +15,10 @@ final class CatchReportPicMemoStore: ObservableObject {
 
   private init() {
     let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first!
+    // Historical on-disk directory name — kept as "CatchReportsPicMemo" for
+    // backward compatibility with catches saved by earlier versions of the
+    // app. Renaming this literal would orphan every existing user's local
+    // records; leave it unless we ship a migration.
     self.directoryURL = docs.appendingPathComponent("CatchReportsPicMemo", isDirectory: true)
 
     self.encoder = JSONEncoder()
@@ -34,19 +38,19 @@ final class CatchReportPicMemoStore: ObservableObject {
     loadAll()
   }
 
-  func add(_ report: CatchReportPicMemo) {
+  func add(_ report: CatchReport) {
     var new = report
     new.status = .savedLocally
     save(report: new)
     upsertInMemory(new)
   }
 
-  func update(_ report: CatchReportPicMemo) {
+  func update(_ report: CatchReport) {
     save(report: report)
     upsertInMemory(report)
   }
 
-  func delete(_ report: CatchReportPicMemo) {
+  func delete(_ report: CatchReport) {
     let url = jsonURL(for: report.id)
     try? fm.removeItem(at: url)
     removeInMemory(report.id)
@@ -71,14 +75,13 @@ final class CatchReportPicMemoStore: ObservableObject {
 
   // MARK: - Convenience creation for chat flow
 
-  /// Create and persist a new PicMemo report from the chat-based capture flow.
+  /// Create and persist a new catch report from the chat-based capture flow.
   /// This is the preferred entry point to ensure voice memos, photo, trip & analysis
   /// are all captured in one place.
   func createFromChat(
     memberId: String,
     species: String?,
     sex: String?,
-    origin: String?,
     lengthInches: Int,
     lifecycleStage: String?,
     river: String?,
@@ -86,6 +89,7 @@ final class CatchReportPicMemoStore: ObservableObject {
     lat: Double?,
     lon: Double?,
     photoFilename: String?,
+    headPhotoFilename: String? = nil,
     voiceNoteId: UUID?,
     tripId: String?,
     tripName: String?,
@@ -105,8 +109,6 @@ final class CatchReportPicMemoStore: ObservableObject {
     modelVersion: String? = nil,
     girthInches: Double? = nil,
     weightLbs: Double? = nil,
-    girthIsEstimated: Bool? = nil,
-    weightIsEstimated: Bool? = nil,
     weightDivisor: Int? = nil,
     weightDivisorSource: String? = nil,
     girthRatio: Double? = nil,
@@ -114,18 +116,21 @@ final class CatchReportPicMemoStore: ObservableObject {
     initialLengthForMeasurements: Double? = nil,
     initialGirthInches: Double? = nil,
     initialWeightLbs: Double? = nil,
-    initialGirthIsEstimated: Bool? = nil,
-    initialWeightIsEstimated: Bool? = nil,
     initialWeightDivisor: Int? = nil,
     initialWeightDivisorSource: String? = nil,
     initialGirthRatio: Double? = nil,
     initialGirthRatioSource: String? = nil,
+    conservationOptIn: Bool? = nil,
+    floyId: String? = nil,
+    pitId: String? = nil,
+    scaleCardId: String? = nil,
+    dnaNumber: String? = nil,
     appVersion: String?,
     deviceDescription: String?,
     platform: String?,
     catchDate: Date? = nil
   ) {
-    let report = CatchReportPicMemo(
+    let report = CatchReport(
       id: UUID(),
       createdAt: Date(),
       catchDate: catchDate,
@@ -134,7 +139,6 @@ final class CatchReportPicMemoStore: ObservableObject {
       memberId: memberId,
       species: species,
       sex: sex,
-      origin: origin,
       lengthInches: lengthInches,
       lifecycleStage: lifecycleStage,
       river: river,
@@ -142,6 +146,7 @@ final class CatchReportPicMemoStore: ObservableObject {
       lat: lat,
       lon: lon,
       photoFilename: photoFilename,
+      headPhotoFilename: headPhotoFilename,
       voiceNoteId: voiceNoteId,
       tripId: tripId,
       tripName: tripName,
@@ -161,8 +166,6 @@ final class CatchReportPicMemoStore: ObservableObject {
       modelVersion: modelVersion,
       girthInches: girthInches,
       weightLbs: weightLbs,
-      girthIsEstimated: girthIsEstimated,
-      weightIsEstimated: weightIsEstimated,
       weightDivisor: weightDivisor,
       weightDivisorSource: weightDivisorSource,
       girthRatio: girthRatio,
@@ -170,12 +173,15 @@ final class CatchReportPicMemoStore: ObservableObject {
       initialLengthForMeasurements: initialLengthForMeasurements,
       initialGirthInches: initialGirthInches,
       initialWeightLbs: initialWeightLbs,
-      initialGirthIsEstimated: initialGirthIsEstimated,
-      initialWeightIsEstimated: initialWeightIsEstimated,
       initialWeightDivisor: initialWeightDivisor,
       initialWeightDivisorSource: initialWeightDivisorSource,
       initialGirthRatio: initialGirthRatio,
       initialGirthRatioSource: initialGirthRatioSource,
+      conservationOptIn: conservationOptIn,
+      floyId: floyId,
+      pitId: pitId,
+      scaleCardId: scaleCardId,
+      dnaNumber: dnaNumber,
       appVersion: appVersion,
       deviceDescription: deviceDescription,
       platform: platform
@@ -202,7 +208,7 @@ final class CatchReportPicMemoStore: ObservableObject {
   // MARK: - In-memory helpers (avoid full disk reload)
 
   /// Insert or replace a report in the in-memory array, keeping newest-first sort.
-  private func upsertInMemory(_ report: CatchReportPicMemo) {
+  private func upsertInMemory(_ report: CatchReport) {
     var current = reports
     if let idx = current.firstIndex(where: { $0.id == report.id }) {
       current[idx] = report
@@ -231,7 +237,7 @@ final class CatchReportPicMemoStore: ObservableObject {
     directoryURL.appendingPathComponent("report_\(id.uuidString).json")
   }
 
-  private func save(report: CatchReportPicMemo) {
+  private func save(report: CatchReport) {
     ensureDirectory()
     let url = jsonURL(for: report.id)
     do {
@@ -239,7 +245,7 @@ final class CatchReportPicMemoStore: ObservableObject {
       try data.write(to: url, options: [.atomic])
     } catch {
       #if DEBUG
-      print("[CatchReportPicMemoStore] Failed to save report \(report.id): \(error.localizedDescription)")
+      print("[CatchReportStore] Failed to save report \(report.id): \(error.localizedDescription)")
       #endif
     }
   }
@@ -251,16 +257,16 @@ final class CatchReportPicMemoStore: ObservableObject {
       return
     }
 
-    var loaded: [CatchReportPicMemo] = []
+    var loaded: [CatchReport] = []
 
     for file in files where file.pathExtension.lowercased() == "json" {
       do {
         let data = try Data(contentsOf: file)
-        let report = try decoder.decode(CatchReportPicMemo.self, from: data)
+        let report = try decoder.decode(CatchReport.self, from: data)
         loaded.append(report)
       } catch {
         #if DEBUG
-        print("[CatchReportPicMemoStore] Failed to decode \(file.lastPathComponent): \(error.localizedDescription)")
+        print("[CatchReportStore] Failed to decode \(file.lastPathComponent): \(error.localizedDescription)")
         #endif
       }
     }
@@ -270,7 +276,7 @@ final class CatchReportPicMemoStore: ObservableObject {
 
     DispatchQueue.main.async {
       #if DEBUG
-      print("=== PicMemo Store Loaded \(loaded.count) reports ===")
+      print("=== CatchReportStore Loaded \(loaded.count) reports ===")
       for r in loaded {
         print("• \(r.id)  hasVoiceNote=\(r.hasVoiceNote)  voiceNoteId=\(String(describing: r.voiceNoteId))")
       }

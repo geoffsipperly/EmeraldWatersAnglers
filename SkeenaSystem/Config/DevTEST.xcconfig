@@ -32,7 +32,7 @@ E_CATCH_MAP = true
 // MARK: - API Endpoints (Edge Functions)
 // ──────────────────────────────────────────────
 
-UPLOAD_CATCH_URL = /functions/v1/upload-catch-reports-v4
+UPLOAD_CATCH_URL = /functions/v1/upload-catch-reports-v5
 MANAGE_TRIP_URL = functions/v1/manage-trip
 DOWNLOAD_CATCH_URL = /functions/v1/download-catch-reports
 RIVER_CONDITIONS_URL = /functions/v1/river-conditions

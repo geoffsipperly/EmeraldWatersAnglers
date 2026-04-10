@@ -5,14 +5,14 @@ import Foundation
 
 // MARK: - Local status
 
-public enum CatchReportPicMemoStatus: String, Codable, CaseIterable {
+public enum CatchReportStatus: String, Codable, CaseIterable {
   case savedLocally = "Saved locally"
   case uploaded = "Uploaded"
 }
 
 // MARK: - Main model
 
-public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
+public struct CatchReport: Identifiable, Codable, Equatable {
   // Local identity
   public let id: UUID // local ID (for JSON filename, SwiftUI IDs)
   public var createdAt: Date
@@ -20,13 +20,12 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
   public var uploadedAt: Date?
 
   // Upload status
-  public var status: CatchReportPicMemoStatus
+  public var status: CatchReportStatus
 
   // Catch info (FINAL, after any editing)
   public var memberId: String
   public var species: String?
   public var sex: String?
-  public var origin: String?
   public var lengthInches: Int
   public var lifecycleStage: String?
   public var river: String?
@@ -39,6 +38,10 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
   // Local media references
   /// Filename of the photo under Documents/CatchPhotos (same as existing PhotoStore convention).
   public var photoFilename: String?
+  /// Filename of the close-up head shot under Documents/CatchPhotos. Captured in
+  /// the conservation/research flow (required when the guide has toggled
+  /// Conservation on). Maps to the v5 upload field `catch.headPhoto`.
+  public var headPhotoFilename: String?
   /// ID of the voice note (LocalVoiceNote.id) if there is an attached memo.
   public var voiceNoteId: UUID?
 
@@ -79,11 +82,13 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
   /// Version of the LengthRegressor model that produced the estimate.
   public var modelVersion: String?
 
-  // Girth & weight estimation (researcher flow) — final confirmed values
+  // Girth & weight estimation (researcher flow) — final confirmed values.
+  // The "estimated vs measured" distinction lives only on the live flow state
+  // (ResearcherCatchFlowManager.girthIsEstimated) for chat UI purposes; it's
+  // not persisted because the backend doesn't use it and the detail view
+  // doesn't display it.
   public var girthInches: Double?
   public var weightLbs: Double?
-  public var girthIsEstimated: Bool?
-  public var weightIsEstimated: Bool?
   public var weightDivisor: Int?
   public var weightDivisorSource: String?
   public var girthRatio: Double?
@@ -93,12 +98,29 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
   public var initialLengthForMeasurements: Double?
   public var initialGirthInches: Double?
   public var initialWeightLbs: Double?
-  public var initialGirthIsEstimated: Bool?
-  public var initialWeightIsEstimated: Bool?
   public var initialWeightDivisor: Int?
   public var initialWeightDivisorSource: String?
   public var initialGirthRatio: Double?
   public var initialGirthRatioSource: String?
+
+  /// Whether this catch participated in the conservation (research-grade) flow.
+  /// True for researchers and for guides who toggled the Conservation opt-in on
+  /// GuideLandingView. Maps to the v5 upload field `catch.conservationOptIn`.
+  /// Optional so existing locally-stored JSON records decode cleanly (absent → nil → treated as false).
+  public var conservationOptIn: Bool?
+
+  // Research tag & sample IDs (captured in the researcher/conservation flow).
+  // All optional — only populated when the researcher chose the corresponding
+  // study type or sample type. Map to the v5 upload fields of the same name.
+
+  /// Floy tag ID — set when the researcher selected study type "Floy".
+  public var floyId: String?
+  /// PIT tag ID — set when the researcher selected study type "Pit".
+  public var pitId: String?
+  /// Scale card barcode — set when the researcher collected a scale sample.
+  public var scaleCardId: String?
+  /// DNA sample barcode/number — set when the researcher collected a DNA sample.
+  public var dnaNumber: String?
 
   // Meta
   public var appVersion: String?
@@ -110,11 +132,10 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
     createdAt: Date = Date(),
     catchDate: Date? = nil,
     uploadedAt: Date? = nil,
-    status: CatchReportPicMemoStatus = .savedLocally,
+    status: CatchReportStatus = .savedLocally,
     memberId: String,
     species: String? = nil,
     sex: String? = nil,
-    origin: String? = nil,
     lengthInches: Int,
     lifecycleStage: String? = nil,
     river: String? = nil,
@@ -122,6 +143,7 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
     lat: Double? = nil,
     lon: Double? = nil,
     photoFilename: String? = nil,
+    headPhotoFilename: String? = nil,
     voiceNoteId: UUID? = nil,
     voiceTranscript: String? = nil,
     voiceLanguage: String? = nil,
@@ -146,8 +168,6 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
     modelVersion: String? = nil,
     girthInches: Double? = nil,
     weightLbs: Double? = nil,
-    girthIsEstimated: Bool? = nil,
-    weightIsEstimated: Bool? = nil,
     weightDivisor: Int? = nil,
     weightDivisorSource: String? = nil,
     girthRatio: Double? = nil,
@@ -155,12 +175,15 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
     initialLengthForMeasurements: Double? = nil,
     initialGirthInches: Double? = nil,
     initialWeightLbs: Double? = nil,
-    initialGirthIsEstimated: Bool? = nil,
-    initialWeightIsEstimated: Bool? = nil,
     initialWeightDivisor: Int? = nil,
     initialWeightDivisorSource: String? = nil,
     initialGirthRatio: Double? = nil,
     initialGirthRatioSource: String? = nil,
+    conservationOptIn: Bool? = nil,
+    floyId: String? = nil,
+    pitId: String? = nil,
+    scaleCardId: String? = nil,
+    dnaNumber: String? = nil,
     appVersion: String? = nil,
     deviceDescription: String? = nil,
     platform: String? = nil
@@ -173,7 +196,6 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
     self.memberId = memberId
     self.species = species
     self.sex = sex
-    self.origin = origin
     self.lengthInches = lengthInches
     self.lifecycleStage = lifecycleStage
     self.river = river
@@ -181,6 +203,7 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
     self.lat = lat
     self.lon = lon
     self.photoFilename = photoFilename
+    self.headPhotoFilename = headPhotoFilename
     self.voiceNoteId = voiceNoteId
     self.voiceTranscript = voiceTranscript
     self.voiceLanguage = voiceLanguage
@@ -205,8 +228,6 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
     self.modelVersion = modelVersion
     self.girthInches = girthInches
     self.weightLbs = weightLbs
-    self.girthIsEstimated = girthIsEstimated
-    self.weightIsEstimated = weightIsEstimated
     self.weightDivisor = weightDivisor
     self.weightDivisorSource = weightDivisorSource
     self.girthRatio = girthRatio
@@ -214,12 +235,15 @@ public struct CatchReportPicMemo: Identifiable, Codable, Equatable {
     self.initialLengthForMeasurements = initialLengthForMeasurements
     self.initialGirthInches = initialGirthInches
     self.initialWeightLbs = initialWeightLbs
-    self.initialGirthIsEstimated = initialGirthIsEstimated
-    self.initialWeightIsEstimated = initialWeightIsEstimated
     self.initialWeightDivisor = initialWeightDivisor
     self.initialWeightDivisorSource = initialWeightDivisorSource
     self.initialGirthRatio = initialGirthRatio
     self.initialGirthRatioSource = initialGirthRatioSource
+    self.conservationOptIn = conservationOptIn
+    self.floyId = floyId
+    self.pitId = pitId
+    self.scaleCardId = scaleCardId
+    self.dnaNumber = dnaNumber
     self.appVersion = appVersion
     self.deviceDescription = deviceDescription
     self.platform = platform

@@ -1,7 +1,6 @@
 // Bend Fly Shop
 
 import Combine
-import CoreData
 import CoreLocation
 import SwiftUI
 
@@ -75,79 +74,6 @@ final class ReportFormViewModel: ObservableObject {
     photoPath = nil
     classifiedWatersLicenseNumber = nil
     // Keep river/guide/tactic defaults; the view re-selects client/angler
-  }
-
-  // MARK: - Save -> Core Data
-
-  func save(context: NSManagedObjectContext, trip: Trip?, onDone: @escaping (Bool) -> Void) {
-    guard isValid else { onDone(false); return }
-    isSaving = true
-
-    let reportId = UUID()
-
-    var resolvedPhotoPath: String?
-    if let image = photo {
-      do {
-        // Store as a stable filename; PhotoStore keeps it in Documents/CatchPhotos
-        let name = try PhotoStore.shared.save(
-          image: image,
-          preferredName: "catch-\(reportId.uuidString).jpg",
-          quality: AppEnvironment.shared.imageCompressionQuality
-        )
-        resolvedPhotoPath = name // store the filename (recommended)
-      } catch {
-        print("[ReportFormVM] Photo save failed: \(error)")
-        resolvedPhotoPath = nil
-      }
-    } else if let existing = photoPath, !existing.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-      // If the VM already had a stored filename (e.g., coming back to edit before save)
-      resolvedPhotoPath = existing
-    }
-
-    let lat = currentLocation?.coordinate.latitude
-    let lon = currentLocation?.coordinate.longitude
-
-    do {
-      let created = try CatchReport.create(
-        in: context,
-        reportId: reportId,
-        river: river,
-        species: species,
-        sex: sex,
-        origin: origin,
-        tagId: origin == "Hatchery" && !tagId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? tagId : nil,
-        lengthInches: lengthInches,
-        quality: quality,
-        tactic: tactic,
-        notes: notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes,
-        photoPath: resolvedPhotoPath,
-        latitude: lat,
-        longitude: lon,
-        createdAt: Date(),
-        guideName: guideName,
-        clientName: clientName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : clientName,
-        status: "Saved locally"
-      )
-      created.trip = trip
-
-      // write new fields (unchanged)
-      created.setValue(memberId.trimmingCharacters(in: .whitespacesAndNewlines), forKey: "memberId")
-      if let lic = classifiedWatersLicenseNumber?.trimmingCharacters(in: .whitespacesAndNewlines), !lic.isEmpty {
-        created.setValue(lic, forKey: "classifiedWatersLicenseNumber")
-      } else {
-        created.setValue(nil, forKey: "classifiedWatersLicenseNumber")
-      }
-
-      try context.save()
-      toast("Report saved locally")
-      reset()
-      isSaving = false
-      onDone(true) // ✅ notify success
-    } catch {
-      toast("Failed to save report")
-      isSaving = false
-      onDone(false) // notify failure
-    }
   }
 
   // MARK: - Toast

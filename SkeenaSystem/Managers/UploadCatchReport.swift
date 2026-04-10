@@ -3,7 +3,7 @@
 import Foundation
 import UIKit
 
-final class UploadCatchPicMemo {
+final class UploadCatchReport {
 
   // Reusable encoder/decoder — avoids re-creating per upload call.
   private static let sharedEncoder: JSONEncoder = {
@@ -72,7 +72,7 @@ final class UploadCatchPicMemo {
 
   // MARK: - DTOs
 
-  private struct UploadCatchPicMemoDTO: Codable {
+  private struct UploadCatchReportDTO: Codable {
     let reportId: String
     let createdAt: Date
     let uploadedAt: Date
@@ -96,15 +96,26 @@ final class UploadCatchPicMemo {
     let memberId: String
     let species: String?
     let sex: String?
-    let origin: String?
     let lengthInches: Int
     let lifecycleStage: String?
     let river: String?
-    let classifiedWatersLicenseNumber: String?
     let girthInches: Double?
     let weightLbs: Double?
+    // v5 additions (all optional, all nested under `catch` per v5 spec).
+    // Reference: docs/api-reference.md — "Upload Catch Reports v5".
+    let initialGirthInches: Double?
+    let initialWeightLbs: Double?
+    let floyId: String?
+    let pitId: String?
+    let scaleCardId: String?
+    let dnaNumber: String?
+    let conservationOptIn: Bool?
     let location: Location?
     let photo: Photo?
+    /// Close-up back-of-head shot. Same wire shape as `photo`. Populated by
+    /// the researcher/conservation flow. Stored server-side but not displayed
+    /// in public catch galleries.
+    let headPhoto: Photo?
     let voiceMemo: VoiceMemo?
 
     struct Location: Codable {
@@ -145,8 +156,6 @@ final class UploadCatchPicMemo {
     // Final confirmed values
     let girthInches: Double?
     let weightLbs: Double?
-    let girthIsEstimated: Bool?
-    let weightIsEstimated: Bool?
     let divisor: Int?
     let divisorSource: String?
     let girthRatio: Double?
@@ -156,8 +165,6 @@ final class UploadCatchPicMemo {
     let initialLengthInches: Double?
     let initialGirthInches: Double?
     let initialWeightLbs: Double?
-    let initialGirthIsEstimated: Bool?
-    let initialWeightIsEstimated: Bool?
     let initialDivisor: Int?
     let initialDivisorSource: String?
     let initialGirthRatio: Double?
@@ -200,12 +207,12 @@ final class UploadCatchPicMemo {
   // MARK: - Validation (testable without instantiation)
 
   /// Filters reports to only those with `.savedLocally` status.
-  static func filterPending(_ reports: [CatchReportPicMemo]) -> [CatchReportPicMemo] {
+  static func filterPending(_ reports: [CatchReport]) -> [CatchReport] {
     reports.filter { $0.status == .savedLocally }
   }
 
   /// Validates a single report's fields. Returns error messages, or empty array if valid.
-  static func validateReport(_ report: CatchReportPicMemo) -> [String] {
+  static func validateReport(_ report: CatchReport) -> [String] {
     var errors: [String] = []
     let memberId = MemberNumber.normalize(report.memberId.trimmingCharacters(in: .whitespacesAndNewlines))
     if memberId.isEmpty {
@@ -219,7 +226,7 @@ final class UploadCatchPicMemo {
 
   /// Runs the full pre-upload validation pipeline and returns the first error encountered, or nil if valid.
   /// Mirrors the guard/validation sequence in `upload()` without requiring an instance or network call.
-  static func validateForUpload(reports: [CatchReportPicMemo], jwt: String?) -> UploadError? {
+  static func validateForUpload(reports: [CatchReport], jwt: String?) -> UploadError? {
     let pending = filterPending(reports)
     guard !pending.isEmpty else { return .noReportsToUpload }
     guard let jwt, !jwt.isEmpty else { return .unauthenticated }
@@ -252,7 +259,7 @@ final class UploadCatchPicMemo {
   // MARK: - Public API
 
   func upload(
-    reports: [CatchReportPicMemo],
+    reports: [CatchReport],
     progress: @escaping (Double) -> Void,
     completion: @escaping (Result<[UUID], Error>) -> Void
   ) {
@@ -269,7 +276,7 @@ final class UploadCatchPicMemo {
     }
 
     let now = Date()
-    var dtos: [UploadCatchPicMemoDTO] = []
+    var dtos: [UploadCatchReportDTO] = []
     var errors: [String] = []
 
     for report in pending {
@@ -322,8 +329,8 @@ final class UploadCatchPicMemo {
     request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
 
     #if DEBUG
-    AppLogging.log({ "[UploadCatchPicMemo] POST \(config.endpoint.absoluteString)" }, level: .debug, category: .network)
-    AppLogging.log({ "[UploadCatchPicMemo] Body size: \(bodyData.count) bytes" }, level: .debug, category: .network)
+    AppLogging.log({ "[UploadCatchReport] POST \(config.endpoint.absoluteString)" }, level: .debug, category: .network)
+    AppLogging.log({ "[UploadCatchReport] Body size: \(bodyData.count) bytes" }, level: .debug, category: .network)
     #endif
 
     progress(0.1)
@@ -362,7 +369,7 @@ final class UploadCatchPicMemo {
   private func performUpload(
     request: URLRequest,
     attempt: Int,
-    pending: [CatchReportPicMemo],
+    pending: [CatchReport],
     progress: @escaping (Double) -> Void,
     completion: @escaping (Result<[UUID], Error>) -> Void
   ) {
@@ -372,7 +379,7 @@ final class UploadCatchPicMemo {
       if let error {
         if Self.isRetryableError(error), attempt < Self.maxRetries {
           let delay = Self.baseRetryDelay * pow(2.0, Double(attempt - 1))
-          AppLogging.log("[UploadCatchPicMemo] Retryable network error (attempt \(attempt)/\(Self.maxRetries)): \(error.localizedDescription). Retrying in \(delay)s…", level: .warn, category: .network)
+          AppLogging.log("[UploadCatchReport] Retryable network error (attempt \(attempt)/\(Self.maxRetries)): \(error.localizedDescription). Retrying in \(delay)s…", level: .warn, category: .network)
           DispatchQueue.global().asyncAfter(deadline: .now() + delay) {
             self.performUpload(request: request, attempt: attempt + 1, pending: pending, progress: progress, completion: completion)
           }
@@ -395,15 +402,15 @@ final class UploadCatchPicMemo {
       let responseBody = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
 
       #if DEBUG
-      AppLogging.log({ "[UploadCatchPicMemo] Response \(statusCode)" }, level: .debug, category: .network)
-      AppLogging.log({ "[UploadCatchPicMemo] Body:\n\(responseBody)" }, level: .debug, category: .network)
+      AppLogging.log({ "[UploadCatchReport] Response \(statusCode)" }, level: .debug, category: .network)
+      AppLogging.log({ "[UploadCatchReport] Body:\n\(responseBody)" }, level: .debug, category: .network)
       #endif
 
       // --- Retryable HTTP status ---
       if !((200 ... 299).contains(statusCode)) {
         if Self.isRetryableStatus(statusCode), attempt < Self.maxRetries {
           let delay = Self.baseRetryDelay * pow(2.0, Double(attempt - 1))
-          AppLogging.log("[UploadCatchPicMemo] Retryable HTTP \(statusCode) (attempt \(attempt)/\(Self.maxRetries)). Retrying in \(delay)s…", level: .warn, category: .network)
+          AppLogging.log("[UploadCatchReport] Retryable HTTP \(statusCode) (attempt \(attempt)/\(Self.maxRetries)). Retrying in \(delay)s…", level: .warn, category: .network)
           DispatchQueue.global().asyncAfter(deadline: .now() + delay) {
             self.performUpload(request: request, attempt: attempt + 1, pending: pending, progress: progress, completion: completion)
           }
@@ -422,9 +429,9 @@ final class UploadCatchPicMemo {
           let resp = try Self.sharedDecoder.decode(ResponseDTO.self, from: data)
           #if DEBUG
           let v = resp.version ?? "unknown"
-          AppLogging.log({ "[UploadCatchPicMemo] Parsed response: version=\(v), processed=\(resp.processed), successful=\(resp.successful), failed=\(resp.failed)" }, level: .debug, category: .network)
+          AppLogging.log({ "[UploadCatchReport] Parsed response: version=\(v), processed=\(resp.processed), successful=\(resp.successful), failed=\(resp.failed)" }, level: .debug, category: .network)
           if let reconciled = resp.results?.filter({ $0.tripReconciled == true }), !reconciled.isEmpty {
-            AppLogging.log({ "[UploadCatchPicMemo] Trip reconciled for \(reconciled.count) report(s)" }, level: .debug, category: .network)
+            AppLogging.log({ "[UploadCatchReport] Trip reconciled for \(reconciled.count) report(s)" }, level: .debug, category: .network)
           }
           #endif
 
@@ -442,7 +449,7 @@ final class UploadCatchPicMemo {
           }
         } catch {
           #if DEBUG
-          AppLogging.log({ "[UploadCatchPicMemo] Failed to decode response JSON: \(error.localizedDescription)" }, level: .warn, category: .network)
+          AppLogging.log({ "[UploadCatchReport] Failed to decode response JSON: \(error.localizedDescription)" }, level: .warn, category: .network)
           #endif
           uploadedIDs = pending.map(\.id)
         }
@@ -451,7 +458,7 @@ final class UploadCatchPicMemo {
       }
 
       if attempt > 1 {
-        AppLogging.log("[UploadCatchPicMemo] Upload succeeded on attempt \(attempt)/\(Self.maxRetries)", level: .info, category: .network)
+        AppLogging.log("[UploadCatchReport] Upload succeeded on attempt \(attempt)/\(Self.maxRetries)", level: .info, category: .network)
       }
 
       DispatchQueue.main.async {
@@ -465,7 +472,7 @@ final class UploadCatchPicMemo {
 
   // MARK: - Mapping
 
-  private func makeDTO(from r: CatchReportPicMemo, now: Date) throws -> UploadCatchPicMemoDTO {
+  private func makeDTO(from r: CatchReport, now: Date) throws -> UploadCatchReportDTO {
     var localErrors: [String] = []
 
     let memberId = MemberNumber.normalize(r.memberId.trimmingCharacters(in: .whitespacesAndNewlines))
@@ -492,8 +499,11 @@ final class UploadCatchPicMemo {
       location = .init(lat: lat, lon: lon)
     }
 
-    // Photo
+    // Photo (primary fish photo)
     let photo = try loadPhoto(from: r)
+
+    // Head photo (close-up back of head, captured in conservation flow)
+    let headPhoto = try loadHeadPhoto(from: r)
 
     // Voice memo (with real transcript + metadata)
     let voiceMemo = try loadVoiceMemo(from: r)
@@ -521,7 +531,7 @@ final class UploadCatchPicMemo {
     #if DEBUG
     let tripIdDebug = r.tripId ?? "(nil)"
     let tripNameDebug = r.tripName ?? "(nil)"
-    AppLogging.log({ "[UploadCatchPicMemo] Mapping for report=\(r.id): tripId=\(tripIdDebug), tripName=\(tripNameDebug)" }, level: .debug, category: .network)
+    AppLogging.log({ "[UploadCatchReport] Mapping for report=\(r.id): tripId=\(tripIdDebug), tripName=\(tripNameDebug)" }, level: .debug, category: .network)
     #endif
 
     let tripIdToSend = r.tripId
@@ -537,15 +547,21 @@ final class UploadCatchPicMemo {
       memberId: memberId,
       species: r.species,
       sex: r.sex,
-      origin: r.origin,
       lengthInches: max(1, r.lengthInches),
       lifecycleStage: r.lifecycleStage,
       river: r.river,
-      classifiedWatersLicenseNumber: r.classifiedWatersLicenseNumber,
       girthInches: r.girthInches,
       weightLbs: r.weightLbs,
+      initialGirthInches: r.initialGirthInches,
+      initialWeightLbs: r.initialWeightLbs,
+      floyId: r.floyId,
+      pitId: r.pitId,
+      scaleCardId: r.scaleCardId,
+      dnaNumber: r.dnaNumber,
+      conservationOptIn: r.conservationOptIn,
       location: location,
       photo: photo,
+      headPhoto: headPhoto,
       voiceMemo: voiceMemo
     )
 
@@ -555,8 +571,6 @@ final class UploadCatchPicMemo {
       weightEstimation = WeightEstimationDTO(
         girthInches: r.girthInches,
         weightLbs: r.weightLbs,
-        girthIsEstimated: r.girthIsEstimated,
-        weightIsEstimated: r.weightIsEstimated,
         divisor: r.weightDivisor,
         divisorSource: r.weightDivisorSource,
         girthRatio: r.girthRatio,
@@ -564,8 +578,6 @@ final class UploadCatchPicMemo {
         initialLengthInches: r.initialLengthForMeasurements,
         initialGirthInches: r.initialGirthInches,
         initialWeightLbs: r.initialWeightLbs,
-        initialGirthIsEstimated: r.initialGirthIsEstimated,
-        initialWeightIsEstimated: r.initialWeightIsEstimated,
         initialDivisor: r.initialWeightDivisor,
         initialDivisorSource: r.initialWeightDivisorSource,
         initialGirthRatio: r.initialGirthRatio,
@@ -575,7 +587,7 @@ final class UploadCatchPicMemo {
       weightEstimation = nil
     }
 
-    return UploadCatchPicMemoDTO(
+    return UploadCatchReportDTO(
       reportId: r.id.uuidString,
       createdAt: createdAt,
       uploadedAt: uploadedAt,
@@ -590,7 +602,7 @@ final class UploadCatchPicMemo {
     )
   }
 
-  private func loadPhoto(from report: CatchReportPicMemo) throws -> CatchDTO.Photo? {
+  private func loadPhoto(from report: CatchReport) throws -> CatchDTO.Photo? {
     guard let filename = report.photoFilename, !filename.isEmpty else {
       return nil
     }
@@ -605,7 +617,40 @@ final class UploadCatchPicMemo {
 
     guard fm.fileExists(atPath: url.path) else {
       #if DEBUG
-      AppLogging.log({ "[UploadCatchPicMemo] Photo not found at \(url.path)" }, level: .debug, category: .network)
+      AppLogging.log({ "[UploadCatchReport] Photo not found at \(url.path)" }, level: .debug, category: .network)
+      #endif
+      return nil
+    }
+
+    let data = try Data(contentsOf: url)
+    let base64 = data.base64EncodedString()
+    return CatchDTO.Photo(
+      filename: filename,
+      mimeType: "image/jpeg",
+      data_base64: base64
+    )
+  }
+
+  /// Loads the optional back-of-head close-up photo. Same shape + directory as
+  /// the primary photo — just a different field on the catch record.
+  /// Returns nil when the catch didn't capture a head photo (e.g. guide flow
+  /// with Conservation OFF, or researcher flow pre-Phase-3.5).
+  private func loadHeadPhoto(from report: CatchReport) throws -> CatchDTO.Photo? {
+    guard let filename = report.headPhotoFilename, !filename.isEmpty else {
+      return nil
+    }
+
+    let fm = FileManager.default
+    guard let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first else {
+      return nil
+    }
+
+    let photosDir = docs.appendingPathComponent("CatchPhotos", isDirectory: true)
+    let url = photosDir.appendingPathComponent(filename)
+
+    guard fm.fileExists(atPath: url.path) else {
+      #if DEBUG
+      AppLogging.log({ "[UploadCatchReport] Head photo not found at \(url.path)" }, level: .debug, category: .network)
       #endif
       return nil
     }
@@ -621,10 +666,10 @@ final class UploadCatchPicMemo {
 
   // MARK: - Voice memo loading (REAL transcript + metadata)
 
-  private func loadVoiceMemo(from report: CatchReportPicMemo) throws -> CatchDTO.VoiceMemo? {
+  private func loadVoiceMemo(from report: CatchReport) throws -> CatchDTO.VoiceMemo? {
     guard let noteId = report.voiceNoteId else {
       #if DEBUG
-      AppLogging.log({ "[UploadCatchPicMemo] No voiceNoteId for report \(report.id)" }, level: .debug, category: .audio)
+      AppLogging.log({ "[UploadCatchReport] No voiceNoteId for report \(report.id)" }, level: .debug, category: .audio)
       #endif
       return nil
     }
@@ -632,7 +677,7 @@ final class UploadCatchPicMemo {
     let fm = FileManager.default
     guard let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first else {
       #if DEBUG
-      AppLogging.log({ "[UploadCatchPicMemo] Could not resolve documents directory" }, level: .debug, category: .audio)
+      AppLogging.log({ "[UploadCatchReport] Could not resolve documents directory" }, level: .debug, category: .audio)
       #endif
       return nil
     }
@@ -640,8 +685,8 @@ final class UploadCatchPicMemo {
     let notesDir = docs.appendingPathComponent("VoiceNotes", isDirectory: true)
 
     #if DEBUG
-    AppLogging.log({ "[UploadCatchPicMemo] Looking for voice memo for id=\(noteId.uuidString)" }, level: .debug, category: .audio)
-    AppLogging.log({ "[UploadCatchPicMemo] Expected directory: \(notesDir.path)" }, level: .debug, category: .audio)
+    AppLogging.log({ "[UploadCatchReport] Looking for voice memo for id=\(noteId.uuidString)" }, level: .debug, category: .audio)
+    AppLogging.log({ "[UploadCatchReport] Expected directory: \(notesDir.path)" }, level: .debug, category: .audio)
     #endif
 
     // Try to find the LocalVoiceNote so we can use *its* metadata + transcript.
@@ -655,7 +700,7 @@ final class UploadCatchPicMemo {
       let mime = (ext == "caf") ? "audio/x-caf" : "audio/m4a"
 
       #if DEBUG
-      AppLogging.log({ "[UploadCatchPicMemo] Using VoiceNoteStore URL: \(url.path)" }, level: .debug, category: .audio)
+      AppLogging.log({ "[UploadCatchReport] Using VoiceNoteStore URL: \(url.path)" }, level: .debug, category: .audio)
       #endif
       candidateURLs.append((url, mime))
     }
@@ -671,7 +716,7 @@ final class UploadCatchPicMemo {
 
     for (url, mime) in candidateURLs {
       #if DEBUG
-      AppLogging.log({ "[UploadCatchPicMemo] Checking \(url.path)" }, level: .debug, category: .audio)
+      AppLogging.log({ "[UploadCatchReport] Checking \(url.path)" }, level: .debug, category: .audio)
       #endif
       if fm.fileExists(atPath: url.path) {
         finalURL = url
@@ -682,7 +727,7 @@ final class UploadCatchPicMemo {
 
     guard let url = finalURL else {
       #if DEBUG
-      AppLogging.log({ "[UploadCatchPicMemo] No voice memo file found for id=\(noteId.uuidString) in \(notesDir.path)" }, level: .debug, category: .audio)
+      AppLogging.log({ "[UploadCatchReport] No voice memo file found for id=\(noteId.uuidString) in \(notesDir.path)" }, level: .debug, category: .audio)
       #endif
       return nil
     }
@@ -690,7 +735,7 @@ final class UploadCatchPicMemo {
     let data = try Data(contentsOf: url)
     guard !data.isEmpty else {
       #if DEBUG
-      AppLogging.log({ "[UploadCatchPicMemo] Voice memo file is empty at \(url.path)" }, level: .debug, category: .audio)
+      AppLogging.log({ "[UploadCatchReport] Voice memo file is empty at \(url.path)" }, level: .debug, category: .audio)
       #endif
       return nil
     }
@@ -721,9 +766,9 @@ final class UploadCatchPicMemo {
     let format = report.voiceFormat ?? inferredFormat
 
     #if DEBUG
-    AppLogging.log({ "[UploadCatchPicMemo] Loaded voice memo \(url.lastPathComponent) (\(data.count) bytes)" }, level: .debug, category: .audio)
-    AppLogging.log({ "[UploadCatchPicMemo]   transcript: \(finalTranscript.prefix(80))\(finalTranscript.count > 80 ? "…" : "")" }, level: .debug, category: .audio)
-    AppLogging.log({ "[UploadCatchPicMemo]   language: \(language), onDevice: \(onDevice), sampleRate: \(sampleRate), format: \(format)" },
+    AppLogging.log({ "[UploadCatchReport] Loaded voice memo \(url.lastPathComponent) (\(data.count) bytes)" }, level: .debug, category: .audio)
+    AppLogging.log({ "[UploadCatchReport]   transcript: \(finalTranscript.prefix(80))\(finalTranscript.count > 80 ? "…" : "")" }, level: .debug, category: .audio)
+    AppLogging.log({ "[UploadCatchReport]   language: \(language), onDevice: \(onDevice), sampleRate: \(sampleRate), format: \(format)" },
       level: .debug, category: .audio
     )
     #endif

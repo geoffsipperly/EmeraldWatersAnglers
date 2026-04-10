@@ -11,6 +11,11 @@ struct GuideLandingView: View {
   @StateObject private var auth = AuthService.shared
   @ObservedObject private var communityService = CommunityService.shared
 
+  // Conservation opt-in (persisted across launches in UserDefaults).
+  // When on, every catch the guide records will be routed through the
+  // researcher (research-grade) flow. See ConservationModeStore.swift.
+  @ObservedObject private var conservationStore = ConservationModeStore.shared
+
   // OPS add-on — driven by community_addons table (replaces isOpsActive entitlement)
   private var isOpsActive: Bool { communityService.addons["OPS"] ?? false }
 
@@ -70,7 +75,7 @@ struct GuideLandingView: View {
             .environment(\.userRole, .guide)
             .environment(\.guideNavigateTo, handleGuideNavigateTo)
         case .catches:
-          ReportsListViewPicMemo()
+          ReportsListView()
             .environment(\.userRole, .guide)
             .environment(\.guideNavigateTo, handleGuideNavigateTo)
         case .observations:
@@ -160,12 +165,24 @@ struct GuideLandingView: View {
 
         // ── Header: name → logo → display name → tagline → record ─────
         VStack(spacing: 0) {
-          // Guide name — left aligned
-          Text("\(auth.currentFirstName ?? "") \(auth.currentLastName ?? "")")
-            .font(.caption.weight(.semibold))
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 20)
+          // Guide name (leading) + Conservation Mode toggle (trailing) — same row
+          HStack(spacing: 12) {
+            Text("\(auth.currentFirstName ?? "") \(auth.currentLastName ?? "")")
+              .font(.caption.weight(.semibold))
+              .foregroundColor(.white)
+
+            Spacer()
+
+            Toggle(isOn: $conservationStore.isEnabled) {
+              Text("Conservation Mode")
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.green)
+            }
+            .toggleStyle(SwitchToggleStyle(tint: .green))
+            .fixedSize()
+            .accessibilityIdentifier("conservationToggle")
+          }
+          .padding(.horizontal, 20)
 
           // Community logo — centred
           CommunityLogoView(config: communityService.activeCommunityConfig, size: 160)

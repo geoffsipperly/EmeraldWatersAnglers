@@ -1,14 +1,14 @@
 # Mad Thinker Platform API Reference
 
-**Version:** 2026-04-09
-**Generated:** 2026-04-10T00:40:18.992Z
+**Version:** 2026-04-10
+**Generated:** 2026-04-10T23:12:08.808Z
 
 ## Key Concepts
 
 - **member_id**: UUID foreign key reference to a member record
 - **member_number**: Human-readable string identifier in MAD Crockford Base32 format — 9 characters: "MAD" prefix + 6 random characters from 0-9 A-H J-N P-T V-Z (e.g., "MAD4ZQ7H9")
 - **Entitlements**: Per-community-type feature toggles with E_ prefix (e.g., E_CATCH_CAROUSEL). Note: E_THE_BUZZ has been removed.
-- **Add-ons**: Per-community feature toggles (CRM, OPS, Social) stored in the community_addons table. The "Social" add-on replaces the former E_THE_BUZZ entitlement.
+- **Add-ons**: Per-community feature toggles (OPS, Sales, Social) stored in the community_addons table. The "Social" add-on replaces the former E_THE_BUZZ entitlement. CRM/member management is a core feature, not an add-on.
 - **Roles**: community-scoped roles — angler, guide, admin, public, researcher
 - **Units**: community-level setting — "imperial" or "metric"
 - All endpoints require `Authorization: Bearer <token>` and `apikey: <anon_key>` headers unless noted.
@@ -223,11 +223,11 @@ Upsert member field values. Accepts array of objects with field_name or field_de
 
 ---
 
-## Upload Catch Reports v4
+## Upload Catch Reports v5
 
-**POST** `/functions/v1/upload-catch-reports-v4`
+**POST** `/functions/v1/upload-catch-reports-v5`
 
-Upload catch reports. Requires tripId. Auto-creates Solo Fishing Trip if tripId doesn't exist.
+Upload catch reports with conservation research fields. Writes to catch_reports table. Supports dual photos (full fish + back of head), research identifiers (Floy ID, PIT ID, Scale Card ID, DNA #), initial and actual girth/weight, and conservation opt-in.
 
 **Auth:** required
 
@@ -237,33 +237,52 @@ Upload catch reports. Requires tripId. Auto-creates Solo Fishing Trip if tripId 
 |-------|------|----------|-------------|
 | reportId | uuid | ✅ | Client-generated report UUID |
 | createdAt | iso8601 | ✅ | Catch timestamp |
+| tripId | uuid | ✅ | Trip UUID (auto-creates solo trip if not found) |
+| tripName | string | ❌ | Trip name (fallback lookup / solo trip name) |
+| communityId | uuid | ❌ | Community UUID (inferred if guide has one community) |
 | catch.memberId | string | ✅ | Member number (human-readable) |
 | catch.species | string | ✅ | Species name |
 | catch.lengthInches | number | ✅ | Fish length in inches |
-| catch.river | string | ❌ | River name |
 | catch.sex | string | ❌ | Fish sex |
-| catch.origin | string | ❌ | Wild or Hatchery |
-| catch.girthInches | number | ❌ | Girth measurement |
-| catch.weightLbs | number | ❌ | Weight in pounds |
-| catch.weightEstimation | object | ❌ | Weight estimation metadata (method, formula, etc.) |
-| catch.tactic | string | ❌ | Fishing tactic used |
-| catch.quality | string | ❌ | Catch quality |
-| catch.notes | string | ❌ | Notes |
+| catch.river | string | ❌ | River name |
+| catch.lifecycleStage | string | ❌ | e.g. Adult, Juvenile |
+| catch.girthInches | number | ❌ | Final confirmed girth (inches) |
+| catch.weightLbs | number | ❌ | Final confirmed weight (lbs) |
+| catch.initialGirthInches | number | ❌ | Initial girth estimate before correction |
+| catch.initialWeightLbs | number | ❌ | Initial weight estimate before correction |
+| catch.floyId | string | ❌ | Floy tag alphanumeric ID |
+| catch.pitId | string | ❌ | PIT tag alphanumeric ID |
+| catch.scaleCardId | string | ❌ | Scale card barcode ID |
+| catch.dnaNumber | string | ❌ | DNA sample number |
+| catch.conservationOptIn | boolean | ❌ | Conservation data sharing opt-in (default false) |
 | catch.location.lat | number | ❌ | Latitude |
 | catch.location.lon | number | ❌ | Longitude |
-| catch.photo.filename | string | ❌ | Photo filename |
-| catch.photo.mimeType | string | ❌ | Photo MIME type |
-| catch.photo.data_base64 | string | ❌ | Base64 encoded photo data |
-| trip.tripId | uuid | ✅ | Trip UUID |
-| trip.tripName | string | ❌ | Trip name |
-| trip.guideName | string | ❌ | Guide name |
+| catch.photo | object | ❌ | Full fish photo: { filename, mimeType, data_base64 } or { url } |
+| catch.headPhoto | object | ❌ | Back-of-head photo: { filename, mimeType, data_base64 } or { url } |
+| catch.voiceMemo | object | ❌ | Voice memo: { filename, mimeType, data_base64, transcript?, language? } |
+| weightEstimation | object | ❌ | Weight estimation metadata blob (stored as JSONB) |
+| initialAnalysis | object | ❌ | ML analysis: { riverName, species, lifecycleStage, sex, lengthInches, mlFeatures, lengthSource, modelVersion } |
 | meta.appVersion | string | ✅ | App version string |
-| meta.communityId | uuid | ❌ | Community UUID |
+| meta.device | string | ❌ | Device model |
+| meta.platform | string | ❌ | OS platform |
+
+**Response:**
+
+- `version`: v5
+- `processed`: number
+- `successful`: number
+- `skipped`: number
+- `failed`: number
+- `results`: array of { reportId, id, status, tripId, anglerId }
+- `errors`: array of { reportId, error }
 
 **Notes:**
 
+- Writes to catch_reports table (legacy v1 table has been removed).
+- Removed fields from v4: origin, tactic, quality, tag_id, notes, classified_waters_license.
+- New dual-photo support: photo (full fish) + headPhoto (back of head). Head photo is stored but not displayed to users.
 - If tripId doesn't exist, a 'Solo Fishing Trip' is auto-created.
-- Supports girthInches, weightLbs, and weightEstimation for researcher role.
+- Enrichment (weather, tides, moon phase) is triggered automatically after insert.
 
 ---
 

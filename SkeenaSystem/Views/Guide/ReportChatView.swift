@@ -112,7 +112,7 @@ struct ReportChatView: View {
     // Watch for saveRequested flag from the chat VM
     .onChange(of: chatVM.saveRequested) { newValue in
       if newValue {
-        savePicMemoCatchIfPossible()
+        saveCatchReportIfPossible()
       }
     }
     .fullScreenCover(isPresented: $showChatFullScreen) {
@@ -152,6 +152,11 @@ struct ReportChatView: View {
     chatVM.updateGuideContext(guide: loggedInGuide)
     chatVM.updateAnglerContext(angler: currentClientText())
     chatVM.updateTripContext(trip: currentTripText())
+
+    // Honor the persistent Conservation toggle on GuideLandingView.
+    // When on, the catch chat will route through the research-grade flow
+    // (see CatchChatViewModel.handlePhotoSelected).
+    chatVM.conservationMode = ConservationModeStore.shared.isEnabled
 
     // Public users are always in solo mode — configure immediately
     if alwaysSolo {
@@ -806,10 +811,10 @@ struct ReportChatView: View {
     return "\(water) • \(num) (\(from)–\(to))"
   }
 
-  // MARK: - PicMemo Save (now using createFromChat)
+  // MARK: - Catch Save (uses CatchReportStore.createFromChat)
 
-  private func savePicMemoCatchIfPossible() {
-    guard let snapshot = chatVM.makePicMemoSnapshot() else {
+  private func saveCatchReportIfPossible() {
+    guard let snapshot = chatVM.makeCatchSnapshot() else {
       return
     }
 
@@ -829,7 +834,7 @@ struct ReportChatView: View {
     let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
     let deviceDescription = "\(UIDevice.current.model) \(UIDevice.current.systemVersion)"
 
-    // Derive a human-readable trip name for v2 API (match PicMemo display)
+    // Derive a human-readable trip name for v2 API (match catch display)
     let rawTripName = trip?.name?.trimmingCharacters(in: .whitespacesAndNewlines)
     let tripNameValue: String? = {
       if let n = rawTripName, !n.isEmpty { return n }
@@ -838,11 +843,10 @@ struct ReportChatView: View {
       return label
     }()
 
-    CatchReportPicMemoStore.shared.createFromChat(
+    CatchReportStore.shared.createFromChat(
       memberId: memberId.isEmpty ? "Unknown" : memberId,
       species: snapshot.species,
       sex: snapshot.sex,
-      origin: "Wild",
       lengthInches: snapshot.lengthInches ?? 0,
       lifecycleStage: snapshot.lifecycleStage,
       river: snapshot.riverName,
@@ -850,6 +854,7 @@ struct ReportChatView: View {
       lat: snapshot.latitude,
       lon: snapshot.longitude,
       photoFilename: snapshot.photoFilename,
+      headPhotoFilename: snapshot.headPhotoFilename,
       voiceNoteId: snapshot.voiceNoteId,
       tripId: tripIdString,
       tripName: tripNameValue,
@@ -869,8 +874,6 @@ struct ReportChatView: View {
       modelVersion: snapshot.modelVersion,
       girthInches: snapshot.girthInches,
       weightLbs: snapshot.weightLbs,
-      girthIsEstimated: snapshot.girthIsEstimated,
-      weightIsEstimated: snapshot.weightIsEstimated,
       weightDivisor: snapshot.weightDivisor,
       weightDivisorSource: snapshot.weightDivisorSource,
       girthRatio: snapshot.girthRatio,
@@ -878,12 +881,15 @@ struct ReportChatView: View {
       initialLengthForMeasurements: snapshot.initialLengthForMeasurements,
       initialGirthInches: snapshot.initialGirthInches,
       initialWeightLbs: snapshot.initialWeightLbs,
-      initialGirthIsEstimated: snapshot.initialGirthIsEstimated,
-      initialWeightIsEstimated: snapshot.initialWeightIsEstimated,
       initialWeightDivisor: snapshot.initialWeightDivisor,
       initialWeightDivisorSource: snapshot.initialWeightDivisorSource,
       initialGirthRatio: snapshot.initialGirthRatio,
       initialGirthRatioSource: snapshot.initialGirthRatioSource,
+      conservationOptIn: snapshot.conservationOptIn,
+      floyId: snapshot.floyId,
+      pitId: snapshot.pitId,
+      scaleCardId: snapshot.scaleCardId,
+      dnaNumber: snapshot.dnaNumber,
       appVersion: appVersion,
       deviceDescription: deviceDescription,
       platform: "iOS",

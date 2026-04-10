@@ -218,7 +218,7 @@ public final class AppEnvironment {
     public var uploadCatchURL: URL {
         if let v = overrideUploadCatchURL { return v }
         if let url = urlFromInfo("UPLOAD_CATCH_URL") { return url }
-        return projectURL.appendingPathComponent("/functions/v1/upload-catch-reports-v4")
+        return projectURL.appendingPathComponent("/functions/v1/upload-catch-reports-v5")
     }
 
     /// Manage-trip endpoint (functions/v1/manage-trip).

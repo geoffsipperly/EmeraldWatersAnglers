@@ -65,7 +65,7 @@ SkeenaSystem/
 ├── Location/           # RiverLocator, WaterBodyLocator, coordinate data, LocationManager
 ├── Managers/           # Upload managers (Catch/Farmed/Observations), SynchTrips, TripSync,
 │                       #   CatchPhotoAnalyzer, ImagePicker, FishWeightEstimator, SplashVideo
-├── Models/             # Pure data models (CatchModels, CommunityModels, CatchReportPicMemo,
+├── Models/             # Pure data models (CatchModels, CommunityModels, CatchReport,
 │                       #   Observation, FarmedReport, LiveWeather) + CoreData extensions + ML models
 ├── Services/           # API clients: TripAPI, OpsTicketsAPI, MapReportService, WeatherSnapshot,
 │                       #   CatchStoryService, MemberProfileFieldsAPI, APIURLUtilities

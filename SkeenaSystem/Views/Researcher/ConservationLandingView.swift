@@ -153,7 +153,7 @@ struct ConservationLandingView: View {
             .environment(\.userRole, .angler)
             .environment(\.guideNavigateTo, handleNavigateTo)
         case .catches:
-          ReportsListViewPicMemo()
+          ReportsListView()
             .environment(\.userRole, .angler)
             .environment(\.guideNavigateTo, handleNavigateTo)
         case .observations:

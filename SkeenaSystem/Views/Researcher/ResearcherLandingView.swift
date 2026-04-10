@@ -22,19 +22,23 @@ struct ResearcherLandingView: View {
         RoleAwareToolbar(activeTab: "home")
       }) {
         VStack(spacing: 0) {
-          // ── Header: name + logo ──────────────────────────────────
+          // ── Header: name (leading) + Conservation Mode (trailing) ─
           VStack(spacing: 0) {
-            Text("\(auth.currentFirstName ?? "") \(auth.currentLastName ?? "")")
-              .font(.caption.weight(.semibold))
-              .foregroundColor(.white)
-              .frame(maxWidth: .infinity, alignment: .leading)
-              .padding(.horizontal, 20)
+            // Researchers are always in conservation mode — this is a static
+            // label, not a toggle, and mirrors the guide landing row.
+            HStack(spacing: 12) {
+              Text("\(auth.currentFirstName ?? "") \(auth.currentLastName ?? "")")
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.white)
 
-            Text("Researcher Mode")
-              .font(.caption.weight(.semibold))
-              .foregroundColor(.blue)
-              .frame(maxWidth: .infinity, alignment: .leading)
-              .padding(.horizontal, 20)
+              Spacer()
+
+              Text("Conservation Mode")
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.green)
+                .accessibilityIdentifier("conservationModeLabel")
+            }
+            .padding(.horizontal, 20)
 
             CommunityLogoView(config: communityService.activeCommunityConfig, size: 120)
               .frame(maxWidth: .infinity)

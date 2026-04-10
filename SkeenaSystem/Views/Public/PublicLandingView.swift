@@ -137,7 +137,7 @@ struct PublicLandingView: View {
             .environment(\.userRole, .public)
             .environment(\.guideNavigateTo, handleNavigateTo)
         case .catches:
-          ReportsListViewPicMemo()
+          ReportsListView()
             .environment(\.userRole, .public)
             .environment(\.guideNavigateTo, handleNavigateTo)
         case .observations:

@@ -17,6 +17,25 @@ struct CatchChatView: View {
 
   var body: some View {
     VStack(spacing: 0) {
+      // Conservation-mode banner — shown only when a guide has routed
+      // themselves into the research-grade flow via the Conservation toggle.
+      // Researchers already get the scientific visual style and don't need
+      // this cue (they know they're in research mode).
+      if viewModel.conservationMode && !isResearcherMode {
+        HStack(spacing: 6) {
+          Image(systemName: "leaf.fill")
+            .font(.caption)
+            .foregroundColor(.green)
+          Text("Conservation mode")
+            .font(.caption.weight(.semibold))
+            .foregroundColor(.white)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 6)
+        .background(Color.green.opacity(0.15))
+        .accessibilityIdentifier("conservationModeBanner")
+      }
+
       // Messages + inline capture options
       ScrollViewReader { proxy in
         ScrollView {
@@ -327,10 +346,9 @@ struct CatchChatView: View {
 
           let showPhotoButton = viewModel.showCaptureOptions && index == 0
           let showVoiceButton = (viewModel.voiceMemoAnchorMessageID == message.id)
-          let showConfirmButton = (viewModel.confirmAnalysisMessageID == message.id)
           // Side buttons: everything except study/sample choice steps
           let showSideResearcherButtons = showResearcherButtons && !showChoicesBelow
-          if showPhotoButton || showVoiceButton || showConfirmButton || showSideResearcherButtons {
+          if showPhotoButton || showVoiceButton || showSideResearcherButtons {
             HStack(spacing: 16) {
               if showPhotoButton {
                 Button {
@@ -346,62 +364,27 @@ struct CatchChatView: View {
                 }
               }
 
+              // Voice memo buttons appear at the .voiceMemo step of the
+              // unified ResearcherCatchFlowManager-driven flow for every role.
               if showVoiceButton {
-                if viewModel.researcherFlow?.currentStep == .voiceMemo {
-                  Button {
-                    showVoiceNoteSheet = true
-                  } label: {
-                    VStack(spacing: 4) {
-                      Image(systemName: "mic.fill")
-                        .font(.title2)
-                      Text("Memo")
-                        .font(.footnote)
-                    }
-                  }
-
-                  Button {
-                    viewModel.researcherSkipVoiceMemo()
-                  } label: {
-                    VStack(spacing: 4) {
-                      Image(systemName: "forward.fill")
-                        .font(.title2)
-                      Text("Skip")
-                        .font(.footnote)
-                    }
-                  }
-                } else {
-                  Button {
-                    showVoiceNoteSheet = true
-                  } label: {
-                    VStack(spacing: 4) {
-                      Image(systemName: "mic.fill")
-                        .font(.title2)
-                      Text("Memo")
-                        .font(.footnote)
-                    }
-                  }
-
-                  Button {
-                    viewModel.deferVoiceMemoToLater()
-                  } label: {
-                    VStack(spacing: 4) {
-                      Image(systemName: "clock.arrow.circlepath")
-                        .font(.title2)
-                      Text("Later")
-                        .font(.footnote)
-                    }
-                  }
-                }
-              }
-
-              if showConfirmButton {
                 Button {
-                  viewModel.confirmAnalysisFromButton()
+                  showVoiceNoteSheet = true
                 } label: {
                   VStack(spacing: 4) {
-                    Image(systemName: "checkmark.circle.fill")
+                    Image(systemName: "mic.fill")
                       .font(.title2)
-                    Text("Confirm")
+                    Text("Memo")
+                      .font(.footnote)
+                  }
+                }
+
+                Button {
+                  viewModel.researcherSkipVoiceMemo()
+                } label: {
+                  VStack(spacing: 4) {
+                    Image(systemName: "forward.fill")
+                      .font(.title2)
+                    Text("Skip")
                       .font(.footnote)
                   }
                 }
@@ -447,7 +430,11 @@ struct CatchChatView: View {
       // Style "Final Analysis" / "Final Measurements" title in blue when it's the first line
       if !isUser && (text.hasPrefix("Final Analysis") || text.hasPrefix("Final Measurements")) {
         finalAnalysisBubble(text)
-      } else if !isUser && isResearcherMode && text.contains("§") {
+      } else if !isUser && text.contains("§") {
+        // The "§" separator splits primary content (estimates, prompts)
+        // from secondary supporting text (hints, calculation metadata).
+        // Used by every role now that the unified flow runs through
+        // ResearcherCatchFlowManager — not just researchers.
         researcherBubble(text)
       } else {
         Text(text)
