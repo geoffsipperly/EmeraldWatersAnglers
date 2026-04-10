@@ -63,13 +63,13 @@ struct CatchDetailView: View {
                 detailRow(label: "Sex", value: sex)
               }
               if let length = report.length_inches {
-                detailRow(label: "Length", value: "\(length) inches")
+                detailRow(label: "Length (in)", value: "\(length)")
               }
               if let girth = report.girth_inches {
-                detailRow(label: "Girth", value: String(format: "~%.1f inches", girth))
+                detailRow(label: "Girth (in)", value: String(format: "%.1f", girth))
               }
               if let weight = report.weight_lbs {
-                detailRow(label: "Weight", value: String(format: "~%.1f lbs", weight))
+                detailRow(label: "Weight (lbs)", value: String(format: "%.1f", weight))
               }
             }
             .padding(.vertical, 8)
