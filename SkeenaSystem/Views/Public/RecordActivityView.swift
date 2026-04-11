@@ -120,7 +120,8 @@ struct RecordActivityView: View {
       guideName: auth.currentFirstName ?? "",
       lat: locationManager.lastLocation?.coordinate.latitude,
       lon: locationManager.lastLocation?.coordinate.longitude,
-      memberId: nil
+      memberId: auth.currentMemberId,
+      communityId: CommunityService.shared.activeCommunityId
     )
     FarmedReportStore.shared.add(report)
 

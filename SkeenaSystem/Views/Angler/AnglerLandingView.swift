@@ -237,7 +237,11 @@ struct AnglerLandingView: View {
     }
     .environmentObject(auth)
     .task {
-      if reports.isEmpty { await fetchReports() }
+      // Always refetch on appear. The previous `if reports.isEmpty` guard
+      // caused stale catch history to persist across user/community switches
+      // because the view instance survives those transitions and @State
+      // retains the old array.
+      await fetchReports()
       await fetchMapReports()
     }
     .onAppear {
@@ -261,6 +265,26 @@ struct AnglerLandingView: View {
     .onChange(of: communityService.activeCommunityTypeName) { newValue in
       AppLogging.log("[AnglerLandingView] onChange(activeCommunityTypeName) -> \(newValue ?? "nil") — calling checkOnboarding", level: .info, category: .auth)
       checkOnboarding()
+    }
+    .onChange(of: communityService.activeCommunityId) { newValue in
+      AppLogging.log("[AnglerLandingView] onChange(activeCommunityId) -> \(newValue ?? "nil") — clearing stale reports and refetching", level: .info, category: .catch)
+      // Clear immediately so the previous community's catches don't flash
+      // onto the carousel while the next request is in flight.
+      reports = []
+      mapReports = []
+      Task {
+        await fetchReports()
+        await fetchMapReports()
+      }
+    }
+    .onChange(of: auth.currentMemberId) { newValue in
+      AppLogging.log("[AnglerLandingView] onChange(currentMemberId) -> \(newValue ?? "nil") — clearing stale reports and refetching", level: .info, category: .catch)
+      reports = []
+      mapReports = []
+      Task {
+        await fetchReports()
+        await fetchMapReports()
+      }
     }
     .fullScreenCover(isPresented: $showOnboarding) {
       if let cid = communityService.activeCommunityId {

@@ -186,6 +186,24 @@ struct PublicLandingView: View {
         guard liveWeather == nil, let loc else { return }
         Task { await fetchWeather(location: loc) }
       }
+      .onChange(of: communityService.activeCommunityId) { newValue in
+        AppLogging.log("[PublicLandingView] onChange(activeCommunityId) -> \(newValue ?? "nil") — clearing stale reports and refetching", level: .info, category: .catch)
+        reports = []
+        mapReports = []
+        Task {
+          await fetchReports()
+          await fetchMapReports()
+        }
+      }
+      .onChange(of: auth.currentMemberId) { newValue in
+        AppLogging.log("[PublicLandingView] onChange(currentMemberId) -> \(newValue ?? "nil") — clearing stale reports and refetching", level: .info, category: .catch)
+        reports = []
+        mapReports = []
+        Task {
+          await fetchReports()
+          await fetchMapReports()
+        }
+      }
     }
     .environment(\.userRole, .public)
     .environment(\.guideNavigateTo, handleNavigateTo)
