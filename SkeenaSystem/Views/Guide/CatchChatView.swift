@@ -251,15 +251,18 @@ struct CatchChatView: View {
         }
       }
     } else if step == .scaleScan {
-      // Scan barcode for scale sample
-      Button {
-        viewModel.researcherScaleScan()
-      } label: {
-        VStack(spacing: 4) {
-          Image(systemName: "camera.fill")
-            .font(.title2)
-          Text("Scan")
-            .font(.footnote)
+      // User types the Scale Card ID in the chat input. Show Confirm once
+      // they've entered a value; Skip is always available.
+      if let code = viewModel.researcherFlow?.scaleSampleBarcode, !code.isEmpty {
+        Button {
+          viewModel.researcherConfirm()
+        } label: {
+          VStack(spacing: 4) {
+            Image(systemName: "checkmark.circle.fill")
+              .font(.title2)
+            Text("Confirm")
+              .font(.footnote)
+          }
         }
       }
 
@@ -274,15 +277,17 @@ struct CatchChatView: View {
         }
       }
     } else if step == .finTipScan {
-      // Scan barcode for fin tip sample
-      Button {
-        viewModel.researcherFinTipScan()
-      } label: {
-        VStack(spacing: 4) {
-          Image(systemName: "camera.fill")
-            .font(.title2)
-          Text("Scan")
-            .font(.footnote)
+      // User types the Fin Tip ID in the chat input. Same pattern as scale.
+      if let code = viewModel.researcherFlow?.finTipSampleBarcode, !code.isEmpty {
+        Button {
+          viewModel.researcherConfirm()
+        } label: {
+          VStack(spacing: 4) {
+            Image(systemName: "checkmark.circle.fill")
+              .font(.title2)
+            Text("Confirm")
+              .font(.footnote)
+          }
         }
       }
 
@@ -344,7 +349,17 @@ struct CatchChatView: View {
 
           Spacer(minLength: 16)
 
-          let showPhotoButton = viewModel.showCaptureOptions && index == 0
+          // The Upload button follows the explicit anchor when set (so it
+          // can move from the head-photo prompt to the fish-photo prompt in
+          // conservation mode). Falls back to the first message when no
+          // anchor is set (legacy single-prompt behavior).
+          let showPhotoButton: Bool = {
+            guard viewModel.showCaptureOptions else { return false }
+            if let anchor = viewModel.uploadAnchorMessageID {
+              return anchor == message.id
+            }
+            return index == 0
+          }()
           let showVoiceButton = (viewModel.voiceMemoAnchorMessageID == message.id)
           // Side buttons: everything except study/sample choice steps
           let showSideResearcherButtons = showResearcherButtons && !showChoicesBelow

@@ -221,10 +221,10 @@ final class ResearcherCatchFlowManager: ObservableObject {
       return "Would you like to add a voice memo for this catch?"
 
     case .scaleScan:
-      // Scale barcode scanned or skipped → check if fin tip also needed
+      // Scale ID entered or skipped → check if fin tip also needed
       if sampleType == .both {
         currentStep = .finTipScan
-        return "Now scan the barcode on the Fin Tip envelope."
+        return "Now type the Fin Tip ID from the envelope."
       }
       currentStep = .voiceMemo
       return "Would you like to add a voice memo for this catch?"
@@ -286,6 +286,25 @@ final class ResearcherCatchFlowManager: ObservableObject {
       }
       return ("Please enter the Floy Tag ID.", false)
 
+    case .scaleScan:
+      // Scale card ID is typed manually (no barcode scanner yet). Store the
+      // value but don't advance — the user taps Confirm to continue.
+      let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+      if !trimmed.isEmpty {
+        scaleSampleBarcode = trimmed
+        return ("Scale Card ID: \(trimmed)\n§\nConfirm, or type a corrected value.", false)
+      }
+      return ("Please enter the Scale Card ID.", false)
+
+    case .finTipScan:
+      // Fin tip envelope ID is typed manually. Same pattern as scaleScan.
+      let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+      if !trimmed.isEmpty {
+        finTipSampleBarcode = trimmed
+        return ("Fin Tip ID: \(trimmed)\n§\nConfirm, or type a corrected value.", false)
+      }
+      return ("Please enter the Fin Tip ID.", false)
+
     default:
       return ("", false)
     }
@@ -314,13 +333,13 @@ final class ResearcherCatchFlowManager: ObservableObject {
     switch type {
     case .scale:
       currentStep = .scaleScan
-      return ("Sample: \(type.rawValue)\n§\nScan the barcode on the Scale envelope.", .scaleScan)
+      return ("Sample: \(type.rawValue)\n§\nType the Scale Card ID from the envelope.", .scaleScan)
     case .finTip:
       currentStep = .finTipScan
-      return ("Sample: \(type.rawValue)\n§\nScan the barcode on the Fin Tip envelope.", .finTipScan)
+      return ("Sample: \(type.rawValue)\n§\nType the Fin Tip ID from the envelope.", .finTipScan)
     case .both:
       currentStep = .scaleScan
-      return ("Sample: \(type.rawValue)\n§\nFirst, scan the barcode on the Scale envelope.", .scaleScan)
+      return ("Sample: \(type.rawValue)\n§\nFirst, type the Scale Card ID.", .scaleScan)
     }
   }
 

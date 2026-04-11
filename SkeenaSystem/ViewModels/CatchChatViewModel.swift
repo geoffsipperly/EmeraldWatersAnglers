@@ -26,6 +26,13 @@ final class CatchChatViewModel: ObservableObject {
   // Show photo button inline after explainer
   @Published var showCaptureOptions: Bool = false
 
+  /// The ID of the assistant message that the Upload button should anchor
+  /// next to. Updated when the flow progresses from the head photo prompt to
+  /// the primary fish photo prompt so the button "moves" with the chat.
+  /// Nil means no explicit anchor — fall back to the first message when
+  /// `showCaptureOptions == true`.
+  @Published var uploadAnchorMessageID: UUID?
+
   // Voice notes attached to this catch (we currently keep the latest one only)
   @Published var attachedVoiceNotes: [LocalVoiceNote] = []
 
@@ -66,6 +73,16 @@ final class CatchChatViewModel: ObservableObject {
 
   // Saved photo filename (in PhotoStore)
   @Published var photoFilename: String?
+
+  /// Filename of the close-up head photo, captured as the FIRST step of the
+  /// conservation/research flow (before the primary fish photo). Nil outside
+  /// of that flow or until the user uploads the head shot.
+  @Published var headPhotoFilename: String?
+
+  /// True when the chat is waiting for the user to upload the head photo
+  /// before the regular fish-photo analysis pipeline runs. Only set in the
+  /// conservation/research flow. Flipped off after the head photo is saved.
+  @Published var awaitingHeadPhoto: Bool = false
 
   // Photo analyzer (modular)
     private let analyzer = CatchPhotoAnalyzer()
@@ -116,6 +133,8 @@ final class CatchChatViewModel: ObservableObject {
     saveRequested = false
     catchLog = nil
     photoFilename = nil
+    headPhotoFilename = nil
+    awaitingHeadPhoto = false
     researcherFlow = nil
     currentAnalysis = nil
     initialAnalysis = nil
@@ -140,13 +159,21 @@ final class CatchChatViewModel: ObservableObject {
       namePart = guideName.isEmpty ? "" : "\(guideName), "
     }
 
-    if isResearcherRole {
-      appendAssistant("Hi \(namePart)to get started please upload a photo of the fish.\n§\nNote: hold the fish pointing the head to the left")
+    // Conservation / research flow captures a close-up HEAD photo first,
+    // before the primary fish photo that drives the ML analysis pipeline.
+    // Guides with Conservation OFF and non-researcher roles skip straight to
+    // the regular fish photo prompt.
+    let firstPrompt: ChatMessage
+    if isResearcherRole || conservationMode {
+      awaitingHeadPhoto = true
+      firstPrompt = appendAssistant("Hi \(namePart)let's start with a close-up photo of the fish's head.\n§\nThis is required for conservation records and is stored separately from the main catch photo.")
     } else {
-      appendAssistant("Hi \(namePart)upload a photo of the fish")
+      firstPrompt = appendAssistant("Hi \(namePart)upload a photo of the fish")
     }
 
-    // Let UI show the photo button inline with this message
+    // Anchor the Upload button to this first prompt. It will re-anchor to
+    // the "now upload the full fish" prompt after the head photo is captured.
+    uploadAnchorMessageID = firstPrompt.id
     showCaptureOptions = true
     step = .idle
   }
@@ -159,6 +186,14 @@ final class CatchChatViewModel: ObservableObject {
     // MARK: - Photo analysis entry point
 
     func handlePhotoSelected(_ picked: PickedPhoto) {
+      // Conservation/research flow captures the HEAD photo first, before the
+      // primary fish photo. Route this upload to the head-photo handler and
+      // skip the ML analysis pipeline — we'll run analysis on the NEXT upload.
+      if awaitingHeadPhoto {
+        handleHeadPhotoSelected(picked)
+        return
+      }
+
       // 1. Decide which location to use: EXIF first, then whatever ReportChatView last gave us
       let bestLocation = picked.exifLocation ?? currentLocation
 
@@ -179,8 +214,12 @@ final class CatchChatViewModel: ObservableObject {
         self.photoFilename = nil
       }
 
-      // 5. Clear any old buttons / analysis state from previous catches
+      // 5. Clear any old buttons / analysis state from previous catches.
+      // The Upload button goes away now that the primary photo has been
+      // captured; the flow takes over from here.
       voiceMemoAnchorMessageID = nil
+      uploadAnchorMessageID = nil
+      showCaptureOptions = false
       initialAnalysis = nil
       currentAnalysis = nil
 
@@ -215,6 +254,36 @@ final class CatchChatViewModel: ObservableObject {
         }
       }
     }
+
+  /// Handles the close-up head photo uploaded as the first step of the
+  /// conservation/research flow. Persists the image to PhotoStore, stores its
+  /// filename, and prompts the user to upload the primary fish photo next.
+  ///
+  /// The ML analysis pipeline deliberately does NOT run on the head photo —
+  /// analysis is for the full-body shot that drives species identification and
+  /// length estimation. The head photo is metadata for research, stored
+  /// alongside the catch and uploaded to the v5 `catch.headPhoto` field.
+  private func handleHeadPhotoSelected(_ picked: PickedPhoto) {
+    // Show the image in the chat as user content.
+    messages.append(ChatMessage(sender: .user, text: nil, image: picked.image))
+
+    // Persist to the same CatchPhotos directory as the primary photo. Using a
+    // distinct filename (via PhotoStore's default name generation) keeps the
+    // two photos independent even when saved in the same catch.
+    if let filename = try? PhotoStore.shared.save(image: picked.image) {
+      self.headPhotoFilename = filename
+    } else {
+      self.headPhotoFilename = nil
+    }
+
+    // Head photo captured — move on to the primary fish photo prompt.
+    awaitingHeadPhoto = false
+    let nextPrompt = appendAssistant("Got it. Now please upload a photo of the full fish.\n§\nHold the fish pointing the head to the left for best analysis.")
+    // Re-anchor the Upload button to the new prompt. The next upload will
+    // route through the normal analysis path because awaitingHeadPhoto is
+    // now false.
+    uploadAnchorMessageID = nextPrompt.id
+  }
 
   // MARK: - Flow branching
 
@@ -348,44 +417,11 @@ final class CatchChatViewModel: ObservableObject {
     flow.confirmAnchorID = msg.id
   }
 
-  /// Researcher scans a barcode for scale sample.
-  func researcherScaleScan() {
-    guard let flow = researcherFlow else { return }
-    flow.confirmAnchorID = nil
-
-    // Mock barcode scan
-    flow.scaleSampleBarcode = "SCALE-\(Int.random(in: 1000...9999))"
-    appendAssistant("Scale barcode scanned: \(flow.scaleSampleBarcode!)")
-
-    // Advance via confirm (handles both → finTipScan, or → voiceMemo)
-    let nextMessage = flow.confirm()
-    if flow.currentStep == .voiceMemo {
-      let msg = appendAssistant(nextMessage)
-      voiceMemoAnchorMessageID = msg.id
-    } else if !nextMessage.isEmpty {
-      let msg = appendAssistant(nextMessage)
-      flow.confirmAnchorID = msg.id
-    }
-  }
-
-  /// Researcher scans a barcode for fin tip sample.
-  func researcherFinTipScan() {
-    guard let flow = researcherFlow else { return }
-    flow.confirmAnchorID = nil
-
-    // Mock barcode scan
-    flow.finTipSampleBarcode = "FINTIP-\(Int.random(in: 1000...9999))"
-    appendAssistant("Fin Tip barcode scanned: \(flow.finTipSampleBarcode!)")
-
-    let nextMessage = flow.confirm()
-    if flow.currentStep == .voiceMemo {
-      let msg = appendAssistant(nextMessage)
-      voiceMemoAnchorMessageID = msg.id
-    } else if !nextMessage.isEmpty {
-      let msg = appendAssistant(nextMessage)
-      flow.confirmAnchorID = msg.id
-    }
-  }
+  // Scale card and fin tip IDs are now entered manually through the chat
+  // input bar (see ResearcherCatchFlowManager.applyEdit handling of
+  // .scaleScan / .finTipScan). The old researcherScaleScan / researcherFinTipScan
+  // methods — which generated mock "SCALE-1234" / "FINTIP-1234" values — have
+  // been removed. Real barcode scanning is a follow-up.
 
   /// Researcher skips voice memo from the voice memo step.
   func researcherSkipVoiceMemo() {
@@ -894,7 +930,7 @@ final class CatchChatViewModel: ObservableObject {
       longitude: currentLocation?.coordinate.longitude,
       voiceNoteId: attachedVoiceNotes.last?.id,
       photoFilename: photoFilename,
-      headPhotoFilename: nil,  // TODO(phase-3.5): populate once the head-photo capture step ships
+      headPhotoFilename: headPhotoFilename,
       initialRiverName: initRiver.isEmpty ? nil : initRiver,
       initialSpecies: initSpecies.isEmpty || initSpecies == "-" ? nil : initSpecies,
       initialLifecycleStage: initStage,
