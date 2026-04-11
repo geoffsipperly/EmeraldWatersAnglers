@@ -515,11 +515,6 @@ final class ResearcherCatchFlowManager: ObservableObject {
     return lines.joined(separator: "\n")
   }
 
-  /// Kept for backward compatibility (used by voice memo save path).
-  func finalSummaryText() -> String {
-    return finalAnalysisText()
-  }
-
   // MARK: - Parsing Helpers
 
   // Known sex keywords — used to separate sex from species in free-text input

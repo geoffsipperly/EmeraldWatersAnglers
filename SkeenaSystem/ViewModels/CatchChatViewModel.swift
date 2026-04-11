@@ -98,7 +98,6 @@ final class CatchChatViewModel: ObservableObject {
   private enum Step {
     case idle
     case researcherFlow    // delegates to ResearcherCatchFlowManager
-    case complete
   }
 
   private var step: Step = .idle
@@ -485,7 +484,7 @@ final class CatchChatViewModel: ObservableObject {
       // current step (identification / length / girth / etc.).
       researcherApplyEdit(text)
 
-    case .idle, .complete:
+    case .idle:
       appendAssistant("You can upload another photo, record a voice memo, or tell me more about the catch here.")
     }
   }
@@ -803,7 +802,7 @@ final class CatchChatViewModel: ObservableObject {
       self.voiceMemoAnchorMessageID = nil
       flow.currentStep = .complete
 
-      let summaryText = flow.finalSummaryText()
+      let summaryText = flow.finalAnalysisText()
       self.appendAssistant(summaryText)
       self.appendAssistant("Saving catch now...")
       self.triggerSave()
