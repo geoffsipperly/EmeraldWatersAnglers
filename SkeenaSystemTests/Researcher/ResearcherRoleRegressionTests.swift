@@ -9,8 +9,8 @@ import Security
 /// 2. CommunityService — activeCommunityTypeName persistence, isConservation
 /// 3. AppRootView routing — researcher + Conservation → ResearcherLandingView,
 ///    researcher + non-Conservation → PublicLandingView,
-///    angler + Conservation → ConservationLandingView
-/// 4. ResearcherLandingView and ConservationLandingView — instantiate correctly
+///    angler (any community) → AnglerLandingView (ConservationLandingView deprecated)
+/// 4. ResearcherLandingView — instantiates correctly
 /// 5. Toolbar — researcher uses same tabs as public (no Trips)
 @MainActor
 final class ResearcherRoleRegressionTests: XCTestCase {
@@ -353,16 +353,18 @@ final class ResearcherRoleRegressionTests: XCTestCase {
 
   // MARK: - Routing: researcher + Conservation → ResearcherLandingView
 
-  func testRouting_researcherConservation_routesToResearcherLandingView() {
-    // Mirrors AppRootView logic
-    func landingViewName(for userType: AuthService.UserType, isConservation: Bool) -> String {
-      switch userType {
-      case .guide:      return "GuideLandingView"
-      case .angler:     return isConservation ? "ConservationLandingView" : "AnglerLandingView"
-      case .public:     return "PublicLandingView"
-      case .researcher: return isConservation ? "ResearcherLandingView" : "PublicLandingView"
-      }
+  /// Mirrors AppRootView routing logic. Conservation anglers are deprecated —
+  /// all anglers route to AnglerLandingView regardless of community type.
+  private func landingViewName(for userType: AuthService.UserType, isConservation: Bool) -> String {
+    switch userType {
+    case .guide:      return "GuideLandingView"
+    case .angler:     return "AnglerLandingView"
+    case .public:     return "PublicLandingView"
+    case .researcher: return isConservation ? "ResearcherLandingView" : "PublicLandingView"
     }
+  }
+
+  func testRouting_researcherConservation_routesToResearcherLandingView() {
     XCTAssertEqual(
       landingViewName(for: .researcher, isConservation: true),
       "ResearcherLandingView",
@@ -371,14 +373,6 @@ final class ResearcherRoleRegressionTests: XCTestCase {
   }
 
   func testRouting_researcherNonConservation_fallsBackToPublicLandingView() {
-    func landingViewName(for userType: AuthService.UserType, isConservation: Bool) -> String {
-      switch userType {
-      case .guide:      return "GuideLandingView"
-      case .angler:     return isConservation ? "ConservationLandingView" : "AnglerLandingView"
-      case .public:     return "PublicLandingView"
-      case .researcher: return isConservation ? "ResearcherLandingView" : "PublicLandingView"
-      }
-    }
     XCTAssertEqual(
       landingViewName(for: .researcher, isConservation: false),
       "PublicLandingView",
@@ -386,19 +380,14 @@ final class ResearcherRoleRegressionTests: XCTestCase {
     )
   }
 
-  func testRouting_anglerConservation_routesToConservationLandingView() {
-    func landingViewName(for userType: AuthService.UserType, isConservation: Bool) -> String {
-      switch userType {
-      case .guide:      return "GuideLandingView"
-      case .angler:     return isConservation ? "ConservationLandingView" : "AnglerLandingView"
-      case .public:     return "PublicLandingView"
-      case .researcher: return isConservation ? "ResearcherLandingView" : "PublicLandingView"
-      }
-    }
+  func testRouting_anglerConservation_routesToAnglerLandingView() {
+    // Conservation anglers are deprecated as a user-type / community pair.
+    // If an angler somehow ends up in a conservation community, they see the
+    // regular AnglerLandingView — no special-cased ConservationLandingView.
     XCTAssertEqual(
       landingViewName(for: .angler, isConservation: true),
-      "ConservationLandingView",
-      "SNAPSHOT: .angler + Conservation must route to ConservationLandingView"
+      "AnglerLandingView",
+      "SNAPSHOT: .angler + Conservation must route to AnglerLandingView (ConservationLandingView deprecated)"
     )
   }
 
@@ -407,11 +396,6 @@ final class ResearcherRoleRegressionTests: XCTestCase {
   func testResearcherLandingView_instantiatesWithoutCrash() {
     let view = ResearcherLandingView()
     XCTAssertNotNil(view, "ResearcherLandingView must instantiate without crashing")
-  }
-
-  func testConservationLandingView_instantiatesWithoutCrash() {
-    let view = ConservationLandingView()
-    XCTAssertNotNil(view, "ConservationLandingView must instantiate without crashing")
   }
 
   func testResearcherLandingView_setsResearcherUserRoleEnvironment() {

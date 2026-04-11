@@ -248,7 +248,7 @@ final class GuideRegressionTests: XCTestCase {
       guard let t = userType else { return "LoginView" }
       switch t {
       case .guide:      return "GuideLandingView"
-      case .angler:     return isConservation ? "ConservationLandingView" : "AnglerLandingView"
+      case .angler:     return "AnglerLandingView"
       case .public:     return "PublicLandingView"
       case .researcher: return isConservation ? "ResearcherLandingView" : "PublicLandingView"
       }

@@ -47,11 +47,11 @@ struct AppRootView: View {
           case .guide:
             GuideLandingView()
           case .angler:
-            if communityService.isConservation {
-              ConservationLandingView()
-            } else {
-              AnglerLandingView()
-            }
+            // Anglers see the same landing view regardless of community type.
+            // The former `isConservation ? ConservationLandingView()` branch
+            // was deprecated — conservation anglers are no longer a supported
+            // user-type / community combination.
+            AnglerLandingView()
           case .public:
             PublicLandingView()
           case .researcher:
