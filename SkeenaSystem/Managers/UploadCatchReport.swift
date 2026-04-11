@@ -275,49 +275,107 @@ final class UploadCatchReport {
       return
     }
 
-    let now = Date()
-    var dtos: [UploadCatchReportDTO] = []
-    var errors: [String] = []
+    // v5 expects ONE catch per POST — the top level of the request body is
+    // the catch report object itself ({reportId, createdAt, tripId, catch,
+    // meta}), not a batched array. v4 accepted arrays; v5 rejects them with
+    // "Missing required fields: reportId, createdAt, tripId, catch, meta"
+    // because it tries to read those keys off whatever is at the root.
+    //
+    // We upload pending reports sequentially, accumulate successful IDs, and
+    // return success at the end if at least one report uploaded. Per-report
+    // failures are logged but don't abort the batch — the caller re-marks
+    // only the successful ones as .uploaded via CatchReportStore.markUploaded.
+    progress(0.0)
+    uploadSequentially(
+      pending: pending,
+      index: 0,
+      jwt: jwt,
+      accumulated: [],
+      lastError: nil,
+      progress: progress,
+      completion: completion
+    )
+  }
 
-    for report in pending {
-      do {
-        let dto = try makeDTO(from: report, now: now)
-        dtos.append(dto)
-      } catch let UploadError.localValidationFailed(messages) {
-        errors.append(contentsOf: messages)
-      } catch {
-        errors.append("• \(report.id.uuidString): \(error.localizedDescription)")
+  /// Uploads a single catch report at `pending[index]`, then recurses to the
+  /// next one. Accumulates successful IDs across iterations. On the final
+  /// recursion (`index >= pending.count`) reports the aggregated result on
+  /// the main queue.
+  ///
+  /// Error handling: per-report failures are collected in `lastError` but do
+  /// not short-circuit. The caller sees `.success(accumulated)` if any report
+  /// succeeded, `.failure(lastError)` only if every report failed.
+  private func uploadSequentially(
+    pending: [CatchReport],
+    index: Int,
+    jwt: String,
+    accumulated: [UUID],
+    lastError: Error?,
+    progress: @escaping (Double) -> Void,
+    completion: @escaping (Result<[UUID], Error>) -> Void
+  ) {
+    // Terminal case — all reports processed.
+    guard index < pending.count else {
+      DispatchQueue.main.async {
+        progress(1.0)
+        if !accumulated.isEmpty {
+          completion(.success(accumulated))
+        } else if let err = lastError {
+          completion(.failure(err))
+        } else {
+          completion(.failure(UploadError.noReportsToUpload))
+        }
       }
-    }
-
-    if !errors.isEmpty {
-      completion(.failure(UploadError.localValidationFailed(errors)))
       return
     }
 
-    guard !dtos.isEmpty else {
-      completion(.failure(UploadError.noReportsToUpload))
+    let report = pending[index]
+    let now = Date()
+
+    // Build the DTO for this single report.
+    let dto: UploadCatchReportDTO
+    do {
+      dto = try makeDTO(from: report, now: now)
+    } catch let error {
+      AppLogging.log("[UploadCatchReport] Build failed for \(report.id): \(error.localizedDescription)", level: .warn, category: .network)
+      uploadSequentially(
+        pending: pending,
+        index: index + 1,
+        jwt: jwt,
+        accumulated: accumulated,
+        lastError: error,
+        progress: progress,
+        completion: completion
+      )
       return
     }
 
-    let encoder = Self.sharedEncoder
-
+    // Encode as a bare object (NOT an array). This is the core v5 fix.
     let bodyData: Data
     do {
-      bodyData = try encoder.encode(dtos)
-
+      bodyData = try Self.sharedEncoder.encode(dto)
+      #if DEBUG
       if let jsonString = String(data: bodyData, encoding: .utf8) {
         let preview = jsonString.count > 4000
           ? String(jsonString.prefix(4000)) + "\n…(truncated)…"
           : jsonString
-
-        AppLogging.log({ "================ V3 UPLOAD REQUEST PAYLOAD ================" }, level: .debug, category: .network)
+        AppLogging.log({ "================ V5 UPLOAD REQUEST PAYLOAD (\(index + 1)/\(pending.count)) ================" }, level: .debug, category: .network)
         AppLogging.log({ "Size: \(bodyData.count) bytes, chars: \(jsonString.count)" }, level: .debug, category: .network)
         AppLogging.log({ preview }, level: .debug, category: .network)
-        AppLogging.log({ "===========================================================" }, level: .debug, category: .network)
+        AppLogging.log({ "=============================================================" }, level: .debug, category: .network)
       }
+      #endif
     } catch {
-      completion(.failure(UploadError.encodingFailed(error.localizedDescription)))
+      AppLogging.log("[UploadCatchReport] Encode failed for \(report.id): \(error.localizedDescription)", level: .warn, category: .network)
+      uploadSequentially(
+        pending: pending,
+        index: index + 1,
+        jwt: jwt,
+        accumulated: accumulated,
+        lastError: UploadError.encodingFailed(error.localizedDescription),
+        progress: progress,
+        completion: completion
+      )
       return
     }
 
@@ -329,13 +387,43 @@ final class UploadCatchReport {
     request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
 
     #if DEBUG
-    AppLogging.log({ "[UploadCatchReport] POST \(config.endpoint.absoluteString)" }, level: .debug, category: .network)
-    AppLogging.log({ "[UploadCatchReport] Body size: \(bodyData.count) bytes" }, level: .debug, category: .network)
+    AppLogging.log({ "[UploadCatchReport] POST \(self.config.endpoint.absoluteString) (\(index + 1)/\(pending.count))" }, level: .debug, category: .network)
     #endif
 
-    progress(0.1)
+    // Report coarse progress as we start this request.
+    progress(Double(index) / Double(pending.count))
 
-    performUpload(request: request, attempt: 1, pending: pending, progress: progress, completion: completion)
+    // Delegate to the existing retry/response-parsing path, but pass just
+    // THIS report in the pending array so the response matcher works. Swallow
+    // the inner progress callback — sequential progress is reported here at
+    // a per-report granularity instead of per-byte within a request.
+    performUpload(
+      request: request,
+      attempt: 1,
+      pending: [report],
+      progress: { _ in },
+      completion: { [weak self] result in
+        guard let self else { return }
+        var nextAccumulated = accumulated
+        var nextError = lastError
+        switch result {
+        case let .success(ids):
+          nextAccumulated.append(contentsOf: ids)
+        case let .failure(error):
+          nextError = error
+          AppLogging.log("[UploadCatchReport] Failed report \(report.id): \(error.localizedDescription)", level: .warn, category: .network)
+        }
+        self.uploadSequentially(
+          pending: pending,
+          index: index + 1,
+          jwt: jwt,
+          accumulated: nextAccumulated,
+          lastError: nextError,
+          progress: progress,
+          completion: completion
+        )
+      }
+    )
   }
 
   // MARK: - Retry logic
