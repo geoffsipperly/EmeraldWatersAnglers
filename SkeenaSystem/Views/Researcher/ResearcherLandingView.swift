@@ -6,6 +6,7 @@
 
 import CoreLocation
 import SwiftUI
+import UIKit
 
 struct ResearcherLandingView: View {
   @StateObject private var auth = AuthService.shared
@@ -16,8 +17,12 @@ struct ResearcherLandingView: View {
 
   @State private var showConfirmation = false
 
+  // Path-based nav so the bottom toolbar's "Catches" button can push the
+  // reports list the same way guide/public landing views do.
+  @State private var navPath = NavigationPath()
+
   var body: some View {
-    NavigationStack {
+    NavigationStack(path: $navPath) {
       DarkPageTemplate(bottomToolbar: {
         RoleAwareToolbar(activeTab: "home")
       }) {
@@ -47,6 +52,28 @@ struct ResearcherLandingView: View {
 
           // ── Catch chat ───────────────────────────────────────────
           CatchChatView(viewModel: chatVM)
+        }
+      }
+      .navigationDestination(for: GuideDestination.self) { dest in
+        // Researchers share the publicToolbar layout (Home, Catches, Social,
+        // Learn) so we only handle destinations that the toolbar actually
+        // exposes. Everything else is EmptyView to fail loud if the toolbar
+        // layout changes without a corresponding case here.
+        switch dest {
+        case .catches:
+          ReportsListView()
+            .environment(\.userRole, .researcher)
+            .environment(\.guideNavigateTo, handleNavigateTo)
+        case .community:
+          SocialFeedView()
+            .environment(\.userRole, .researcher)
+            .environment(\.guideNavigateTo, handleNavigateTo)
+        case .explore:
+          ExploreView()
+            .environment(\.userRole, .researcher)
+            .environment(\.guideNavigateTo, handleNavigateTo)
+        case .trips, .observations, .conditions, .learn:
+          EmptyView()
         }
       }
       .toolbar {
@@ -85,6 +112,11 @@ struct ResearcherLandingView: View {
         ResearcherCatchConfirmationView(
           chatVM: chatVM,
           onConfirm: {
+            // Persist the catch to CatchReportStore ONLY on the confirm
+            // path — the cancel path deliberately drops it. The store
+            // writes to Documents/CatchReportsPicMemo and publishes the
+            // new record so ReportsListView picks it up immediately.
+            saveResearcherCatchIfPossible()
             showConfirmation = false
             resetForNextCatch()
           },
@@ -97,6 +129,7 @@ struct ResearcherLandingView: View {
       .tint(.blue)
     }
     .environment(\.userRole, .researcher)
+    .environment(\.guideNavigateTo, handleNavigateTo)
     .environmentObject(auth)
   }
 
@@ -114,5 +147,91 @@ struct ResearcherLandingView: View {
   /// Reset the chat VM so the researcher can record another catch immediately.
   private func resetForNextCatch() {
     chatVM.resetForNewCatch()
+  }
+
+  // MARK: - Navigation
+
+  /// Toolbar destination handler shared with ReportsListView / SocialFeedView
+  /// via the `guideNavigateTo` environment value. Pops to root on nil, otherwise
+  /// replaces the nav path with the tapped destination (matches the guide and
+  /// conservation landing view pattern).
+  private func handleNavigateTo(_ destination: GuideDestination?) {
+    guard let destination else {
+      navPath = NavigationPath()
+      return
+    }
+    var newPath = NavigationPath()
+    newPath.append(destination)
+    navPath = newPath
+  }
+
+  // MARK: - Persistence
+
+  /// Persists the current researcher catch via `CatchReportStore.createFromChat`.
+  /// Called from the confirmation view's Confirm button before the chat is
+  /// reset. Researchers always fish solo, so trip/lodge/guide fields are nil
+  /// and memberId comes from `AuthService.shared.currentMemberId`.
+  private func saveResearcherCatchIfPossible() {
+    guard let snapshot = chatVM.makeCatchSnapshot() else { return }
+
+    let memberId = (AuthService.shared.currentMemberId ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    let communityName = CommunityService.shared.activeCommunityName
+    let communityId = CommunityService.shared.activeCommunityId
+
+    let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+    let deviceDescription = "\(UIDevice.current.model) \(UIDevice.current.systemVersion)"
+
+    CatchReportStore.shared.createFromChat(
+      memberId: memberId.isEmpty ? "Unknown" : memberId,
+      species: snapshot.species,
+      sex: snapshot.sex,
+      lengthInches: snapshot.lengthInches ?? 0,
+      lifecycleStage: snapshot.lifecycleStage,
+      river: snapshot.riverName,
+      classifiedWatersLicenseNumber: nil,
+      lat: snapshot.latitude,
+      lon: snapshot.longitude,
+      photoFilename: snapshot.photoFilename,
+      headPhotoFilename: snapshot.headPhotoFilename,
+      voiceNoteId: snapshot.voiceNoteId,
+      tripId: nil,
+      tripName: nil,
+      tripStartDate: nil,
+      tripEndDate: nil,
+      guideName: nil,
+      community: communityName,
+      communityId: communityId,
+      lodge: nil,
+      initialRiverName: snapshot.initialRiverName,
+      initialSpecies: snapshot.initialSpecies,
+      initialLifecycleStage: snapshot.initialLifecycleStage,
+      initialSex: snapshot.initialSex,
+      initialLengthInches: snapshot.initialLengthInches,
+      mlFeatureVector: snapshot.mlFeatureVector,
+      lengthSource: snapshot.lengthSource,
+      modelVersion: snapshot.modelVersion,
+      girthInches: snapshot.girthInches,
+      weightLbs: snapshot.weightLbs,
+      weightDivisor: snapshot.weightDivisor,
+      weightDivisorSource: snapshot.weightDivisorSource,
+      girthRatio: snapshot.girthRatio,
+      girthRatioSource: snapshot.girthRatioSource,
+      initialLengthForMeasurements: snapshot.initialLengthForMeasurements,
+      initialGirthInches: snapshot.initialGirthInches,
+      initialWeightLbs: snapshot.initialWeightLbs,
+      initialWeightDivisor: snapshot.initialWeightDivisor,
+      initialWeightDivisorSource: snapshot.initialWeightDivisorSource,
+      initialGirthRatio: snapshot.initialGirthRatio,
+      initialGirthRatioSource: snapshot.initialGirthRatioSource,
+      conservationOptIn: snapshot.conservationOptIn,
+      floyId: snapshot.floyId,
+      pitId: snapshot.pitId,
+      scaleCardId: snapshot.scaleCardId,
+      dnaNumber: snapshot.dnaNumber,
+      appVersion: appVersion,
+      deviceDescription: deviceDescription,
+      platform: "iOS",
+      catchDate: chatVM.photoTimestamp
+    )
   }
 }
