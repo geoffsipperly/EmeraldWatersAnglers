@@ -9,7 +9,7 @@ import Foundation
 
 // MARK: - Catch Report Upload API (URL composition matches TripRosterAPI pattern)
 
-private enum CatchReportUploadAPI {
+enum CatchReportUploadAPI {
   // Composable base + path URLs from Info.plist keys, with safe normalization and logging
 
   private static let rawBaseURLString: String = {
@@ -150,6 +150,16 @@ private enum CatchReportUploadAPI {
 // MARK: - View
 
 struct ReportsListView: View {
+  /// When true the view is hosted inside `ActivitiesView` and skips its own
+  /// `DarkPageTemplate` wrapper, navigation title, and back button. The
+  /// parent provides those instead. All state, upload logic, sheets, and
+  /// navigation destinations remain functional.
+  let embedded: Bool
+
+  init(embedded: Bool = false) {
+    self.embedded = embedded
+  }
+
   @Environment(\.dismiss) private var dismiss
   @StateObject private var store = CatchReportStore.shared
 
@@ -169,8 +179,7 @@ struct ReportsListView: View {
   // Archive navigation
   @State private var showArchived = false
 
-  // Farmed navigation
-  @State private var showFarmed = false
+  // Farmed navigation (removed — now in Observations tab)
 
     private var uploader: UploadCatchReport {
       // Read from Info.plist (ProcessInfo.environment is typically empty on iOS)
@@ -360,61 +369,36 @@ struct ReportsListView: View {
   // MARK: - Body
 
   var body: some View {
-    DarkPageTemplate(bottomToolbar: {
-      RoleAwareToolbar(activeTab: "catches")
-    }) {
-      VStack(spacing: 0) {
-        // Action icons — pinned at top
-        VStack(spacing: 8) {
-          HStack(spacing: 0) {
-            Button(action: startUpload) {
-              VStack(spacing: 2) {
-                Image(systemName: "arrow.up.circle")
-                  .font(.title3)
-                Text("Upload")
-                  .font(.caption2)
-              }
-              .frame(maxWidth: .infinity)
-            }
-            .disabled(isUploading || pendingReports.isEmpty)
+    let inner = reportsContent
 
-            Button { showMap = true } label: {
-              VStack(spacing: 2) {
-                Image(systemName: "map")
-                  .font(.title3)
-                Text("Map")
-                  .font(.caption2)
-              }
-              .frame(maxWidth: .infinity)
-            }
-            .disabled(mapAnnotations.isEmpty)
-
-            Button { showArchived = true } label: {
-              VStack(spacing: 2) {
-                Image(systemName: "archivebox")
-                  .font(.title3)
-                Text("Archive")
-                  .font(.caption2)
-              }
-              .frame(maxWidth: .infinity)
-            }
-            .disabled(archivedReports.isEmpty)
-
-            Button { showFarmed = true } label: {
-              VStack(spacing: 2) {
-                Image(systemName: "leaf.arrow.circlepath")
-                  .font(.title3)
-                Text("No Catch")
-                  .font(.caption2)
-              }
-              .frame(maxWidth: .infinity)
-            }
+    if embedded {
+      // Hosted inside ActivitiesView — no DarkPageTemplate, no nav chrome.
+      inner
+    } else {
+      // Standalone — full page with toolbar and nav title.
+      DarkPageTemplate(bottomToolbar: {
+        RoleAwareToolbar(activeTab: "activities")
+      }) {
+        inner
+      }
+      .navigationTitle("Activities")
+      .navigationBarTitleDisplayMode(.inline)
+      .navigationBarBackButtonHidden(true)
+      .toolbar {
+        ToolbarItem(placement: .navigationBarLeading) {
+          Button { dismiss() } label: {
+            Image(systemName: "chevron.left")
           }
-          .foregroundColor(.white.opacity(0.85))
         }
-        .padding(.top, 8)
-        .padding(.bottom, 12)
+      }
+    }
+  }
 
+  // MARK: - Reports content (shared between standalone and embedded modes)
+
+  @ViewBuilder
+  private var reportsContent: some View {
+    VStack(spacing: 0) {
         // Content fills remaining space
         ZStack(alignment: .bottom) {
           if store.reports.isEmpty {
@@ -532,21 +516,13 @@ struct ReportsListView: View {
         }
         .frame(maxHeight: .infinity)
       }
-    }
-    .navigationTitle("My Catch History")
-    .navigationBarBackButtonHidden(true)
     .onAppear {
       store.refresh()
-    }
-    .navigationDestination(isPresented: $showMap) {
-      CatchReportMapView(annotations: mapAnnotations)
     }
     .navigationDestination(isPresented: $showArchived) {
       CatchReportArchiveListView(reports: archivedReports)
     }
-    .navigationDestination(isPresented: $showFarmed) {
-      FarmedReportsListView()
-    }
+    // No Catch (farmed) navigation removed — now in Observations tab
     .alert("Upload Error", isPresented: $showErrorAlert) {
       Button("OK", role: .cancel) {}
     } message: {
@@ -1508,7 +1484,7 @@ private struct CatchReportVoiceNoteSheet: View {
 
 // MARK: - Archived List
 
-private struct CatchReportArchiveListView: View {
+struct CatchReportArchiveListView: View {
   let reports: [CatchReport]
 
   private var groupedArchived: [(date: String, reports: [CatchReport])] {

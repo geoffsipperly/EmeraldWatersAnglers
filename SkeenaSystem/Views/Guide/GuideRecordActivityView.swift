@@ -24,6 +24,9 @@ struct GuideRecordActivityView: View {
   // Navigation
   @State private var goToAssistant = false
 
+  // Record observation sheet
+  @State private var showRecordObservation = false
+
   // No-catch tile feedback
   @State private var savedEventType: NoCatchEventType? = nil
 
@@ -38,7 +41,7 @@ struct GuideRecordActivityView: View {
             }
             .accessibilityIdentifier("landedTile")
 
-            Button { guideNavigateTo(.observations) } label: {
+            Button { showRecordObservation = true } label: {
               actionTile(icon: "waveform", label: "Record Observation")
             }
             .accessibilityIdentifier("observationsTile")
@@ -69,10 +72,10 @@ struct GuideRecordActivityView: View {
           // Explanatory text
           VStack(alignment: .leading, spacing: 12) {
             ForEach([
-              ("eye",                  "Active",     "You saw signs of fish but didn't hook up."),
-              ("leaf.arrow.circlepath","Farmed",     "You hooked a fish but lost it before landing."),
-              ("sparkles",             "Promising",  "The spot looked promising and you want to remember it."),
-              ("xmark.circle",         "Passed",     "You checked the spot and decided to move on."),
+              ("eye",                  "Active",     "You saw signs of fish but didn't hook up"),
+              ("leaf.arrow.circlepath","Farmed",     "You hooked a fish but lost it before landing"),
+              ("sparkles",             "Promising",  "The spot looked promising and you want to remember it"),
+              ("xmark.circle",         "Passed",     "You checked the spot and decided to move on"),
             ], id: \.1) { icon, title, description in
               HStack(alignment: .top, spacing: 10) {
                 Image(systemName: icon)
@@ -107,6 +110,11 @@ struct GuideRecordActivityView: View {
     .onAppear {
       locationManager.request()
       locationManager.start()
+    }
+    .fullScreenCover(isPresented: $showRecordObservation) {
+      RecordObservationSheet { _ in
+        showRecordObservation = false
+      }
     }
   }
 
@@ -166,7 +174,7 @@ struct GuideRecordActivityView: View {
         .foregroundColor(.white)
         .lineLimit(1)
     }
-    .frame(maxWidth: .infinity, minHeight: 70)
+    .frame(maxWidth: .infinity, minHeight: 24)
     .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
   }
 }

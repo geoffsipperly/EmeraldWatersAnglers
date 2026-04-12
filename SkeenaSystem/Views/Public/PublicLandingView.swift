@@ -136,12 +136,13 @@ struct PublicLandingView: View {
           SocialFeedView()
             .environment(\.userRole, .public)
             .environment(\.guideNavigateTo, handleNavigateTo)
-        case .catches:
-          ReportsListView()
+        case .activities:
+          ActivitiesView()
             .environment(\.userRole, .public)
             .environment(\.guideNavigateTo, handleNavigateTo)
         case .observations:
-          ObservationsListView()
+          // Standalone observations removed — now inside Activities → Observations tab.
+          ActivitiesView()
             .environment(\.userRole, .public)
             .environment(\.guideNavigateTo, handleNavigateTo)
         case .trips:

@@ -60,8 +60,8 @@ struct ResearcherLandingView: View {
         // exposes. Everything else is EmptyView to fail loud if the toolbar
         // layout changes without a corresponding case here.
         switch dest {
-        case .catches:
-          ReportsListView()
+        case .activities:
+          ActivitiesView()
             .environment(\.userRole, .researcher)
             .environment(\.guideNavigateTo, handleNavigateTo)
         case .community:

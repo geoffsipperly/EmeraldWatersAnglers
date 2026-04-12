@@ -5,8 +5,15 @@ import Foundation
 import UIKit
 
 // MARK: - Upload service for farmed reports
+//
+// Explicitly `nonisolated`: the project sets SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor,
+// which would otherwise make this class `@MainActor`. That routes its deinit through
+// `swift_task_deinitOnExecutorMainActorBackDeploy`, which hits a TaskLocal scope
+// double-free in iOS 26.2 simruntime when the enclosing SwiftUI View is destroyed.
+// The class has no stored properties that require main-thread access, so nonisolated
+// is the semantically correct choice.
 
-final class UploadFarmedReports {
+nonisolated final class UploadFarmedReports {
 
   private static let sharedEncoder: JSONEncoder = {
     let e = JSONEncoder()

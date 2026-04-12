@@ -43,7 +43,7 @@ extension EnvironmentValues {
 
 /// Destinations the guide toolbar can navigate to.
 enum GuideDestination: Hashable {
-  case trips, catches, community, observations, conditions, learn, explore
+  case trips, activities, community, observations, conditions, learn, explore
 }
 
 private struct GuideNavigateToKey: EnvironmentKey {
@@ -84,7 +84,7 @@ struct RoleAwareToolbar: View {
     }
   }
 
-  // MARK: Angler tabs — Home, My Trip, Social, Explore
+  // MARK: Angler tabs — Home, My Trip, [Social], Explore
   @ViewBuilder private var anglerToolbar: some View {
     ToolbarTab(icon: "house", label: "Home") {
       navigateTo(nil)
@@ -92,31 +92,35 @@ struct RoleAwareToolbar: View {
     ToolbarTab(icon: "suitcase", label: "My Trip") {
       navigateTo(.trip)
     }
-    ToolbarTab(icon: "message", label: "Social", disabled: socialDisabled) {
-      if activeTab != "community" { navigateTo(.community) }
+    if !socialDisabled {
+      ToolbarTab(icon: "message", label: "Social") {
+        if activeTab != "community" { navigateTo(.community) }
+      }
     }
-    ToolbarTab(icon: "safari", label: "Learn") {
+    ToolbarTab(icon: "book.fill", label: "Learn") {
       if activeTab != "explore" { navigateTo(.explore) }
     }
   }
 
-  // MARK: Public tabs — Home, Catches, Social, Learn (no Trips)
+  // MARK: Public tabs — Home, Catches, [Social], Learn (no Trips)
   @ViewBuilder private var publicToolbar: some View {
     ToolbarTab(icon: "house", label: "Home") {
       guideNavigateTo(nil)
     }
-    ToolbarTab(icon: "camera.viewfinder", label: "Catches") {
-      if activeTab != "catches" { guideNavigateTo(.catches) }
+    ToolbarTab(icon: "safari", label: "Activities") {
+      if activeTab != "activities" { guideNavigateTo(.activities) }
     }
-    ToolbarTab(icon: "message", label: "Social", disabled: socialDisabled) {
-      if activeTab != "community" { guideNavigateTo(.community) }
+    if !socialDisabled {
+      ToolbarTab(icon: "message", label: "Social") {
+        if activeTab != "community" { guideNavigateTo(.community) }
+      }
     }
-    ToolbarTab(icon: "safari", label: "Learn") {
+    ToolbarTab(icon: "book.fill", label: "Learn") {
       if activeTab != "explore" { guideNavigateTo(.explore) }
     }
   }
 
-  // MARK: Guide tabs — Home, Trips, Catches, Community
+  // MARK: Guide tabs — Home, Trips, Activities, [Social]
   @ViewBuilder private var guideToolbar: some View {
     ToolbarTab(icon: "house", label: "Home") {
       guideNavigateTo(nil)
@@ -124,11 +128,13 @@ struct RoleAwareToolbar: View {
     ToolbarTab(icon: "mountain.2", label: "Trips") {
       if activeTab != "trips" { guideNavigateTo(.trips) }
     }
-    ToolbarTab(icon: "camera.viewfinder", label: "Catches") {
-      if activeTab != "catches" { guideNavigateTo(.catches) }
+    ToolbarTab(icon: "safari", label: "Activities") {
+      if activeTab != "activities" { guideNavigateTo(.activities) }
     }
-    ToolbarTab(icon: "message", label: "Social", disabled: socialDisabled) {
-      if activeTab != "community" { guideNavigateTo(.community) }
+    if !socialDisabled {
+      ToolbarTab(icon: "message", label: "Social") {
+        if activeTab != "community" { guideNavigateTo(.community) }
+      }
     }
   }
 }

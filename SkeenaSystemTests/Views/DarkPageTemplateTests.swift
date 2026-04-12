@@ -206,7 +206,7 @@ final class DarkPageTemplateTests: XCTestCase {
       ("house", "Home"),
       ("suitcase", "My Trip"),
       ("message", "Social"),
-      ("safari", "Learn")
+      ("book.fill", "Learn")
     ]
     XCTAssertEqual(tabs.count, 4, "SNAPSHOT: Angler toolbar has 4 tabs")
     XCTAssertEqual(tabs[0].label, "Home", "SNAPSHOT: First tab is Home")
@@ -216,36 +216,38 @@ final class DarkPageTemplateTests: XCTestCase {
   }
 
   /// Verify the Researcher toolbar tab configuration (currently mirrors public).
+  /// Social is conditionally shown based on add-on, so the baseline is 3 tabs.
   func testSnapshot_researcherToolbarTabs() {
-    let tabs: [(icon: String, label: String)] = [
+    // Baseline tabs (Social omitted when add-on is off)
+    let baseTabs: [(icon: String, label: String)] = [
       ("house", "Home"),
-      ("camera.viewfinder", "Catches"),
-      ("message", "Social"),
-      ("safari", "Learn")
+      ("safari", "Activities"),
+      ("book.fill", "Learn")
     ]
-    XCTAssertEqual(tabs.count, 4, "SNAPSHOT: Researcher toolbar has 4 tabs (same as public)")
-    XCTAssertEqual(tabs[0].label, "Home", "SNAPSHOT: First tab is Home")
-    XCTAssertEqual(tabs[1].label, "Catches", "SNAPSHOT: Second tab is Catches")
-    XCTAssertEqual(tabs[2].label, "Social", "SNAPSHOT: Third tab is Social")
-    XCTAssertEqual(tabs[3].label, "Learn", "SNAPSHOT: Fourth tab is Learn")
-    XCTAssertFalse(tabs.contains(where: { $0.label == "Trips" }),
+    XCTAssertEqual(baseTabs.count, 3, "SNAPSHOT: Researcher toolbar has 3 baseline tabs (Social add-on off)")
+    XCTAssertEqual(baseTabs[0].label, "Home", "SNAPSHOT: First tab is Home")
+    XCTAssertEqual(baseTabs[1].label, "Activities", "SNAPSHOT: Second tab is Activities")
+    XCTAssertEqual(baseTabs[2].label, "Learn", "SNAPSHOT: Third tab is Learn")
+    XCTAssertFalse(baseTabs.contains(where: { $0.label == "Trips" }),
                    "SNAPSHOT: Researcher toolbar must not contain Trips")
+    XCTAssertFalse(baseTabs.contains(where: { $0.label == "Catches" }),
+                   "SNAPSHOT: 'Catches' was renamed to 'Activities'")
   }
 
   /// Verify the Guide landing view toolbar tab configuration.
+  /// Social is conditionally shown based on add-on, so the baseline is 3 tabs.
   func testSnapshot_guideToolbarTabs() {
-    let tabs: [(icon: String, label: String)] = [
+    // Baseline tabs (Social omitted when add-on is off)
+    let baseTabs: [(icon: String, label: String)] = [
       ("house", "Home"),
       ("mountain.2", "Trips"),
-      ("camera.viewfinder", "Catches"),
-      ("person.3", "Community"),
-      ("waveform", "Observations")
+      ("safari", "Activities"),
     ]
-    XCTAssertEqual(tabs.count, 5, "SNAPSHOT: Guide toolbar has 5 tabs")
-    XCTAssertEqual(tabs[0].label, "Home", "SNAPSHOT: First tab is Home")
-    XCTAssertEqual(tabs[1].label, "Trips", "SNAPSHOT: Second tab is Trips")
-    XCTAssertEqual(tabs[2].label, "Catches", "SNAPSHOT: Third tab is Catches")
-    XCTAssertEqual(tabs[3].label, "Community", "SNAPSHOT: Fourth tab is Community")
-    XCTAssertEqual(tabs[4].label, "Observations", "SNAPSHOT: Fifth tab is Observations")
+    XCTAssertEqual(baseTabs.count, 3, "SNAPSHOT: Guide toolbar has 3 baseline tabs (Social add-on off)")
+    XCTAssertEqual(baseTabs[0].label, "Home", "SNAPSHOT: First tab is Home")
+    XCTAssertEqual(baseTabs[1].label, "Trips", "SNAPSHOT: Second tab is Trips")
+    XCTAssertEqual(baseTabs[2].label, "Activities", "SNAPSHOT: Third tab is Activities")
+    XCTAssertFalse(baseTabs.contains(where: { $0.label == "Catches" }),
+                   "SNAPSHOT: 'Catches' was renamed to 'Activities'")
   }
 }

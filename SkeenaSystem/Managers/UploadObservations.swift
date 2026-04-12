@@ -140,12 +140,15 @@ nonisolated final class UploadObservations {
     completion: @escaping (Result<[UUID], UploadError>) -> Void
   ) {
     let pending = observations.filter { $0.status == .savedLocally }
+    AppLogging.log("[UploadObservations] upload() called — total=\(observations.count) pending=\(pending.count) memberId=\(memberId)", level: .info, category: .network)
     guard !pending.isEmpty else {
+      AppLogging.log("[UploadObservations] No pending observations — aborting", level: .warn, category: .network)
       completion(.failure(.noObservationsToUpload))
       return
     }
 
     guard let jwt = AuthStore.shared.jwt, !jwt.isEmpty else {
+      AppLogging.log("[UploadObservations] No JWT — aborting", level: .error, category: .network)
       completion(.failure(.unauthenticated))
       return
     }
@@ -156,6 +159,7 @@ nonisolated final class UploadObservations {
     // touch the MainActor-isolated AuthService.
     let normalizedMemberId = MemberNumber.normalize(memberId.trimmingCharacters(in: .whitespacesAndNewlines))
     guard !normalizedMemberId.isEmpty else {
+      AppLogging.log("[UploadObservations] Empty memberId after normalize — aborting", level: .error, category: .network)
       completion(.failure(.missingMemberNumber))
       return
     }
@@ -217,9 +221,24 @@ nonisolated final class UploadObservations {
       return
     }
 
-    // Build request
+    // ── DEBUG: log the outgoing payload so we can diagnose upload failures ──
     let endpoint = AppEnvironment.shared.observationsURL
     let apiKey = AppEnvironment.shared.anonKey
+
+    AppLogging.log("[UploadObservations] Endpoint: \(endpoint.absoluteString)", level: .info, category: .network)
+    AppLogging.log("[UploadObservations] DTOs count: \(dtos.count), memberId: \(normalizedMemberId), communityId: \(CommunityService.shared.activeCommunityId ?? "nil")", level: .info, category: .network)
+
+    if let jsonString = String(data: bodyData, encoding: .utf8) {
+      // Truncate audio base64 to keep logs readable — replace data_base64
+      // values longer than 80 chars with a placeholder showing byte count.
+      let redacted = jsonString.replacingOccurrences(
+        of: #""data_base64"\s*:\s*"[A-Za-z0-9+/=]{80,}""#,
+        with: "\"data_base64\":\"<\(bodyData.count) bytes total payload>\"",
+        options: .regularExpression
+      )
+      AppLogging.log("[UploadObservations] Request body (audio redacted):\n\(redacted)", level: .debug, category: .network)
+    }
+    // ── end DEBUG ──
 
     var request = URLRequest(url: endpoint)
     request.httpMethod = "POST"
@@ -229,11 +248,14 @@ nonisolated final class UploadObservations {
     request.httpBody = bodyData
     request.timeoutInterval = 60
 
+    AppLogging.log("[UploadObservations] Sending \(bodyData.count) bytes to \(endpoint.absoluteString)", level: .info, category: .network)
+
     progress(0.5) // 50% — sending
 
     // Send
     URLSession.shared.dataTask(with: request) { data, response, error in
       if let error {
+        AppLogging.log("[UploadObservations] Network error: \(error.localizedDescription)", level: .error, category: .network)
         DispatchQueue.main.async { completion(.failure(.network(error))) }
         return
       }
@@ -241,7 +263,10 @@ nonisolated final class UploadObservations {
       let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
       let body = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
 
+      AppLogging.log("[UploadObservations] Response \(statusCode): \(body.prefix(2000))", level: .info, category: .network)
+
       guard statusCode == 200 else {
+        AppLogging.log("[UploadObservations] FAILED \(statusCode): \(body)", level: .error, category: .network)
         DispatchQueue.main.async { completion(.failure(.http(statusCode, body))) }
         return
       }

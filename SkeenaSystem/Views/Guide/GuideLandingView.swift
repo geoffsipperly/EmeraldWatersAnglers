@@ -24,7 +24,7 @@ struct GuideLandingView: View {
 
   // Location (for weather)
   @StateObject private var locationManager = LocationManager()
-  @State private var showFarmedList = false
+  // showFarmedList removed — farmed marks are now in Activities → Observations → Marks
 
   // Map reports
   @State private var mapReports: [MapReportDTO] = []
@@ -57,9 +57,7 @@ struct GuideLandingView: View {
         .environment(\.guideNavigateTo, handleGuideNavigateTo)
         .environmentObject(auth)
       }
-      .navigationDestination(isPresented: $showFarmedList) {
-        FarmedReportsListView()
-      }
+      // Farmed list nav removed — farmed marks are now in Activities → Observations → Marks
       .navigationDestination(for: GuideDestination.self) { dest in
         switch dest {
         case .conditions:
@@ -74,12 +72,14 @@ struct GuideLandingView: View {
           ManageTripsView(guideFirstName: auth.currentFirstName ?? "Guide")
             .environment(\.userRole, .guide)
             .environment(\.guideNavigateTo, handleGuideNavigateTo)
-        case .catches:
-          ReportsListView()
+        case .activities:
+          ActivitiesView()
             .environment(\.userRole, .guide)
             .environment(\.guideNavigateTo, handleGuideNavigateTo)
         case .observations:
-          ObservationsListView()
+          // Standalone observations view removed — now inside Activities → Observations tab.
+          // Keep the case to avoid exhaustive-switch errors; navigates to Activities instead.
+          ActivitiesView()
             .environment(\.userRole, .guide)
             .environment(\.guideNavigateTo, handleGuideNavigateTo)
         case .learn:

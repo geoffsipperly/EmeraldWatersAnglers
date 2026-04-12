@@ -407,18 +407,19 @@ final class ResearcherRoleRegressionTests: XCTestCase {
   // MARK: - Researcher toolbar snapshot
 
   func testSnapshot_researcherToolbarTabs_matchPublicTabs() {
-    // SNAPSHOT: Researcher toolbar currently mirrors public — Home, Catches, Social, Explore.
-    // This test documents the initial state; researcher toolbar may diverge later.
+    // SNAPSHOT: Researcher toolbar mirrors public — Home, Activities, Learn.
+    // Social is conditionally shown when the add-on is active.
     let researcherTabs: [(icon: String, label: String)] = [
       ("house", "Home"),
-      ("camera.viewfinder", "Catches"),
-      ("message", "Social"),
-      ("safari", "Learn")
+      ("safari", "Activities"),
+      ("book.fill", "Learn")
     ]
-    XCTAssertEqual(researcherTabs.count, 4,
-                   "SNAPSHOT: Researcher toolbar must have exactly 4 tabs")
+    XCTAssertEqual(researcherTabs.count, 3,
+                   "SNAPSHOT: Researcher toolbar must have exactly 3 baseline tabs (Social add-on off)")
     XCTAssertFalse(researcherTabs.contains(where: { $0.label == "Trips" }),
                    "SNAPSHOT: Researcher toolbar must not contain a Trips tab")
+    XCTAssertFalse(researcherTabs.contains(where: { $0.label == "Catches" }),
+                   "SNAPSHOT: 'Catches' was renamed to 'Activities'")
   }
 
   // MARK: - Role switching: researcher ↔ other roles

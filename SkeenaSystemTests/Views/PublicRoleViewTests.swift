@@ -44,52 +44,48 @@ final class PublicRoleViewTests: XCTestCase {
 
   // MARK: - Public toolbar snapshot
 
-  func testSnapshot_publicToolbarTabs_fourTabsNoTrips() {
-    // SNAPSHOT: Public toolbar — Home, Catches, Social, Explore.
-    // Conditions is accessed via landing page button, not toolbar.
+  func testSnapshot_publicToolbarTabs_baselineTabsNoTrips() {
+    // SNAPSHOT: Public toolbar baseline — Home, Activities, Learn.
+    // Social is conditionally shown when the add-on is active.
     // Must NOT contain a Trips tab.
-    let tabs: [(icon: String, label: String)] = [
+    let baseTabs: [(icon: String, label: String)] = [
       ("house", "Home"),
-      ("camera.viewfinder", "Catches"),
-      ("message", "Social"),
-      ("safari", "Learn")
+      ("safari", "Activities"),
+      ("book.fill", "Learn")
     ]
-    XCTAssertEqual(tabs.count, 4,
-                   "SNAPSHOT: Public toolbar must have exactly 4 tabs")
-    XCTAssertFalse(tabs.contains(where: { $0.label == "Trips" }),
+    XCTAssertEqual(baseTabs.count, 3,
+                   "SNAPSHOT: Public toolbar must have 3 baseline tabs (Social add-on off)")
+    XCTAssertFalse(baseTabs.contains(where: { $0.label == "Trips" }),
                    "SNAPSHOT: Public toolbar must not contain a Trips tab")
-    XCTAssertFalse(tabs.contains(where: { $0.label == "Conditions" }),
+    XCTAssertFalse(baseTabs.contains(where: { $0.label == "Conditions" }),
                    "SNAPSHOT: Public toolbar must not contain a Conditions tab")
-    XCTAssertEqual(tabs[0].label, "Home",        "SNAPSHOT: Tab 1 is Home")
-    XCTAssertEqual(tabs[1].label, "Catches",     "SNAPSHOT: Tab 2 is Catches")
-    XCTAssertEqual(tabs[2].label, "Social",      "SNAPSHOT: Tab 3 is Social")
-    XCTAssertEqual(tabs[3].label, "Learn",       "SNAPSHOT: Tab 4 is Learn")
+    XCTAssertEqual(baseTabs[0].label, "Home",        "SNAPSHOT: Tab 1 is Home")
+    XCTAssertEqual(baseTabs[1].label, "Activities",  "SNAPSHOT: Tab 2 is Activities")
+    XCTAssertEqual(baseTabs[2].label, "Learn",       "SNAPSHOT: Tab 3 is Learn")
+    XCTAssertFalse(baseTabs.contains(where: { $0.label == "Catches" }),
+                   "SNAPSHOT: 'Catches' was renamed to 'Activities'")
   }
 
   func testSnapshot_publicToolbarTabs_iconsMatchDesign() {
     let tabs: [(icon: String, label: String)] = [
       ("house", "Home"),
-      ("camera.viewfinder", "Catches"),
-      ("message", "Social"),
-      ("safari", "Learn")
+      ("safari", "Activities"),
+      ("book.fill", "Learn")
     ]
     XCTAssertEqual(tabs[0].icon, "house")
-    XCTAssertEqual(tabs[1].icon, "camera.viewfinder")
-    XCTAssertEqual(tabs[2].icon, "message")
-    XCTAssertEqual(tabs[3].icon, "safari")
+    XCTAssertEqual(tabs[1].icon, "safari")
+    XCTAssertEqual(tabs[2].icon, "book.fill")
   }
 
   func testSnapshot_publicToolbarDiffersFromGuideToolbar() {
-    let guideTabs: Set<String>  = ["Home", "Trips", "Catches", "Community", "Observations"]
-    let publicTabs: Set<String> = ["Home", "Catches", "Social", "Learn"]
+    let guideTabs: Set<String>  = ["Home", "Trips", "Activities"]
+    let publicTabs: Set<String> = ["Home", "Activities", "Learn"]
     XCTAssertNotEqual(guideTabs, publicTabs,
                       "Public and guide toolbars must be distinct tab sets")
     XCTAssertFalse(publicTabs.contains("Trips"),
                    "Public toolbar must not contain Trips")
-    XCTAssertFalse(publicTabs.contains("Conditions"),
-                   "Public toolbar must not contain Conditions (accessed via landing page)")
-    XCTAssertTrue(publicTabs.contains("Social"),
-                  "Public toolbar must contain Social (maps to Community forum)")
+    XCTAssertTrue(publicTabs.contains("Activities"),
+                  "Public toolbar must contain Activities")
     XCTAssertTrue(publicTabs.contains("Learn"),
                   "Public toolbar must contain Learn")
   }

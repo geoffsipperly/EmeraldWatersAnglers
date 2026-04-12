@@ -3,7 +3,12 @@
 import Foundation
 import UIKit
 
-final class UploadCatchReport {
+// Explicitly `nonisolated`: the project sets SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor,
+// which would otherwise route this class's deinit through the broken
+// `swift_task_deinitOnExecutorMainActorBackDeploy` path on iOS 26.2 sim.
+// The class has no stored properties that require main-thread access.
+
+nonisolated final class UploadCatchReport {
 
   // Reusable encoder/decoder — avoids re-creating per upload call.
   private static let sharedEncoder: JSONEncoder = {
