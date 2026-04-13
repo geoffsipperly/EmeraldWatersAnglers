@@ -226,9 +226,9 @@ struct AnglerLandingView: View {
           Button(action: logoutTapped) {
             HStack(spacing: 6) {
               Image(systemName: "person.crop.circle.badge.xmark")
-                .font(.title3.weight(.semibold))
+                .font(.subheadline)
               Text("Log out")
-                .font(.footnote.weight(.semibold))
+                .font(.caption)
             }
           }
           .accessibilityIdentifier("logoutCapsule")

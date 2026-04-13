@@ -230,14 +230,6 @@ struct ObservationsListView: View {
     .toolbar {
       ToolbarItem(placement: .navigationBarTrailing) {
         Button {
-          showRecordObservation = true
-        } label: {
-          Image(systemName: "plus")
-            .font(.title3)
-        }
-      }
-      ToolbarItem(placement: .navigationBarTrailing) {
-        Button {
           startUpload()
         } label: {
           Image(systemName: "arrow.up.circle")

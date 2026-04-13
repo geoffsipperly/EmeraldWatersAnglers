@@ -84,10 +84,10 @@ struct ResearcherLandingView: View {
           Button(action: logoutTapped) {
             HStack(spacing: 6) {
               Image(systemName: "person.crop.circle.badge.xmark")
-                .font(.title3.weight(.semibold))
+                .font(.subheadline)
                 .foregroundColor(.white)
               Text("Log out")
-                .font(.footnote.weight(.semibold))
+                .font(.caption)
                 .foregroundColor(.white)
             }
           }
@@ -127,6 +127,12 @@ struct ResearcherLandingView: View {
         )
       }
       .tint(.blue)
+      .fullScreenCover(isPresented: $chatVM.showRecordObservation) {
+        RecordObservationSheet { _ in
+          chatVM.showRecordObservation = false
+          chatVM.resetForNewCatch()
+        }
+      }
     }
     .environment(\.userRole, .researcher)
     .environment(\.guideNavigateTo, handleNavigateTo)
@@ -172,14 +178,31 @@ struct ResearcherLandingView: View {
   /// reset. Researchers always fish solo, so trip/lodge/guide fields are nil
   /// and memberId comes from `AuthService.shared.currentMemberId`.
   private func saveResearcherCatchIfPossible() {
-    guard let snapshot = chatVM.makeCatchSnapshot() else { return }
+    guard let snapshot = chatVM.makeCatchSnapshot() else {
+      AppLogging.log("[ResearcherSave] makeCatchSnapshot() returned nil — nothing to save", level: .error, category: .catch)
+      return
+    }
 
     let memberId = (AuthService.shared.currentMemberId ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     let communityName = CommunityService.shared.activeCommunityName
     let communityId = CommunityService.shared.activeCommunityId
 
+    AppLogging.log("[ResearcherSave] memberId='\(memberId)' communityId='\(communityId ?? "nil")' communityName='\(communityName ?? "nil")'", level: .debug, category: .catch)
+    AppLogging.log("[ResearcherSave] store \(CatchReportStore.shared.bindingDebugDescription)", level: .debug, category: .catch)
+    AppLogging.log("[ResearcherSave] snapshot species='\(snapshot.species ?? "nil")' photo='\(snapshot.photoFilename ?? "nil")' headPhoto='\(snapshot.headPhotoFilename ?? "nil")'", level: .debug, category: .catch)
+
+    // Fix: the Combine auto-rebind may not have fired yet if the view
+    // appeared before the publisher delivered on the main queue. Force
+    // a rebind so the store is scoped before we write.
+    if !CatchReportStore.shared.isBound, !memberId.isEmpty, communityId != nil {
+      AppLogging.log("[ResearcherSave] store unbound — forcing rebind before save", level: .debug, category: .catch)
+      CatchReportStore.shared.rebind(memberId: memberId, communityId: communityId)
+    }
+
     let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
     let deviceDescription = "\(UIDevice.current.model) \(UIDevice.current.systemVersion)"
+
+    let reportCountBefore = CatchReportStore.shared.reports.count
 
     CatchReportStore.shared.createFromChat(
       memberId: memberId.isEmpty ? "Unknown" : memberId,
@@ -233,5 +256,8 @@ struct ResearcherLandingView: View {
       platform: "iOS",
       catchDate: chatVM.photoTimestamp
     )
+
+    let reportCountAfter = CatchReportStore.shared.reports.count
+    AppLogging.log("[ResearcherSave] reports before=\(reportCountBefore) after=\(reportCountAfter) — \(reportCountAfter > reportCountBefore ? "SAVED OK" : "⚠️ REPORT NOT ADDED")", level: .debug, category: .catch)
   }
 }

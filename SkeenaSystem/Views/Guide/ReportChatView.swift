@@ -83,7 +83,7 @@ struct ReportChatView: View {
         }
       }
     }
-    .navigationTitle("Record a catch")
+    .navigationTitle("Record catch")
     .navigationBarTitleDisplayMode(.inline)
     .preferredColorScheme(.dark)
     .toolbar {
@@ -869,6 +869,13 @@ struct ReportChatView: View {
 
     let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
     let deviceDescription = "\(UIDevice.current.model) \(UIDevice.current.systemVersion)"
+
+    // Fix: the Combine auto-rebind may not have fired yet — force a
+    // rebind so the store is scoped before we write.
+    if !CatchReportStore.shared.isBound, !memberId.isEmpty, communityId != nil {
+      AppLogging.log("[GuideSave] store unbound — forcing rebind before save", level: .debug, category: .catch)
+      CatchReportStore.shared.rebind(memberId: memberId, communityId: communityId)
+    }
 
     // Derive a human-readable trip name for v2 API (match catch display)
     let rawTripName = trip?.name?.trimmingCharacters(in: .whitespacesAndNewlines)

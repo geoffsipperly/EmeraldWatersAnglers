@@ -95,6 +95,15 @@ final class CatchChatViewModel: ObservableObject {
   /// conservation/research flow. Flipped off after the head photo is saved.
   @Published var awaitingHeadPhoto: Bool = false
 
+  /// True when the researcher is choosing between recording a catch or observation.
+  @Published var awaitingActivityChoice: Bool = false
+
+  /// Anchor for the catch/observation choice buttons next to the initial prompt.
+  var activityChoiceAnchorMessageID: UUID?
+
+  /// Set to true by `chooseObservation()` so the view can present RecordObservationSheet.
+  @Published var showRecordObservation: Bool = false
+
   // Photo analyzer (modular)
     private let analyzer = CatchPhotoAnalyzer()
 
@@ -147,6 +156,9 @@ final class CatchChatViewModel: ObservableObject {
     pendingHeadPhotoFilename = nil
     headConfirmAnchorMessageID = nil
     awaitingHeadPhoto = false
+    awaitingActivityChoice = false
+    activityChoiceAnchorMessageID = nil
+    showRecordObservation = false
     researcherFlow = nil
     currentAnalysis = nil
     initialAnalysis = nil
@@ -171,14 +183,19 @@ final class CatchChatViewModel: ObservableObject {
       namePart = guideName.isEmpty ? "" : "\(guideName), "
     }
 
-    // Conservation / research flow captures a close-up HEAD photo first,
-    // before the primary fish photo that drives the ML analysis pipeline.
-    // Guides with Conservation OFF and non-researcher roles skip straight to
-    // the regular fish photo prompt.
+    // Researchers get a choice between recording a catch or an observation.
+    // Guides with Conservation ON go straight to the head-photo prompt.
+    // Everyone else gets the regular fish photo prompt.
     let firstPrompt: ChatMessage
-    if isResearcherRole || conservationMode {
+    if isResearcherRole {
+      awaitingActivityChoice = true
+      firstPrompt = appendAssistant("Hi \(namePart)you can record a catch or an observation.")
+      activityChoiceAnchorMessageID = firstPrompt.id
+      step = .idle
+      return
+    } else if conservationMode {
       awaitingHeadPhoto = true
-      firstPrompt = appendAssistant("Hi \(namePart)let's start with a close-up photo of the fish's head.\n§\nThis is required for conservation records and is stored separately from the main catch photo.")
+      firstPrompt = appendAssistant("Hi \(namePart)let's start with a close-up photo of the fish's head.\n§\nThis photo will be used to uniquely identify the fish.")
     } else {
       firstPrompt = appendAssistant("Hi \(namePart)upload a photo of the fish")
     }
@@ -193,6 +210,27 @@ final class CatchChatViewModel: ObservableObject {
   /// Whether the chat should use the scientific visual style.
   var isResearcherMode: Bool {
     isResearcherRole
+  }
+
+  // MARK: - Activity choice (researcher only)
+
+  /// Researcher tapped the catch (pencil) button — start the head-photo flow.
+  func chooseCatch() {
+    awaitingActivityChoice = false
+    activityChoiceAnchorMessageID = nil
+
+    awaitingHeadPhoto = true
+    let prompt = appendAssistant("Let's get started with a photo of the fish's head.\n§\nThis photo will be used to uniquely identify the fish.")
+    uploadAnchorMessageID = prompt.id
+    showCaptureOptions = true
+  }
+
+  /// Researcher tapped the observation (microphone) button — signal the view
+  /// to present RecordObservationSheet.
+  func chooseObservation() {
+    awaitingActivityChoice = false
+    activityChoiceAnchorMessageID = nil
+    showRecordObservation = true
   }
 
     // MARK: - Photo analysis entry point
@@ -297,7 +335,7 @@ final class CatchChatViewModel: ObservableObject {
     showCaptureOptions = false
     uploadAnchorMessageID = nil
 
-    let confirmPrompt = appendAssistant("How does this look?\n§\nTap Confirm to continue, or Retake to try another shot.")
+    let confirmPrompt = appendAssistant("Tap Confirm to continue, or Retake to try again.")
     headConfirmAnchorMessageID = confirmPrompt.id
   }
 
@@ -313,7 +351,7 @@ final class CatchChatViewModel: ObservableObject {
     headConfirmAnchorMessageID = nil
     awaitingHeadPhoto = false
 
-    let nextPrompt = appendAssistant("Got it. Now please upload a photo of the full fish.\n§\nHold the fish pointing the head to the left for best analysis.")
+    let nextPrompt = appendAssistant("Got it. Please upload a photo of the full fish.\n§\nHold the fish with the head to the left for the best measurement analysis.")
     uploadAnchorMessageID = nextPrompt.id
     showCaptureOptions = true
   }

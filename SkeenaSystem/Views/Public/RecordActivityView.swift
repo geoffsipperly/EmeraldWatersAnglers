@@ -30,7 +30,7 @@ struct RecordActivityView: View {
           // Action tiles — Record a Catch + Record Observation (blue)
           LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
             Button { goToAssistant = true } label: {
-              actionTile(icon: "square.and.pencil", label: "Record a Catch")
+              actionTile(icon: "square.and.pencil", label: "Record catch")
             }
             .accessibilityIdentifier("landedTile")
 

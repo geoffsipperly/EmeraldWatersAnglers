@@ -12,7 +12,6 @@ struct JoinCommunityView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var code: String = ""
-    @State private var selectedRole: AuthService.UserType = .angler
     @State private var isBusy = false
     @State private var errorText: String?
     @State private var successText: String?
@@ -28,7 +27,7 @@ struct JoinCommunityView: View {
                 Color.black.ignoresSafeArea()
 
                 VStack(spacing: 20) {
-                    Text("Enter the 6-character code for the community you want to join.")
+                    Text("Enter a community code")
                         .font(.subheadline)
                         .foregroundColor(.gray)
                         .multilineTextAlignment(.center)
@@ -39,7 +38,7 @@ struct JoinCommunityView: View {
                         .textInputAutocapitalization(.characters)
                         .autocorrectionDisabled()
                         .keyboardType(.asciiCapable)
-                        .font(.title2.monospaced())
+                        .font(.subheadline)
                         .multilineTextAlignment(.center)
                         .padding()
                         .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
@@ -56,21 +55,6 @@ struct JoinCommunityView: View {
                                 .foregroundColor(isCodeValid ? .green : .red)
                         }
                     }
-
-                    // Role picker
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Your role in this community:")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
-
-                        HStack(spacing: 0) {
-                            roleTab("Guide", type: .guide)
-                            roleTab("Angler", type: .angler)
-                        }
-                        .background(Color.white.opacity(0.08))
-                        .cornerRadius(10)
-                    }
-                    .padding(.horizontal)
 
                     // Error / success messages
                     if let err = errorText {
@@ -117,27 +101,12 @@ struct JoinCommunityView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }
+                    Button("Cancel") { dismiss() }
                         .foregroundColor(.white)
                 }
             }
         }
         .preferredColorScheme(.dark)
-    }
-
-    private func roleTab(_ label: String, type: AuthService.UserType) -> some View {
-        Button {
-            selectedRole = type
-        } label: {
-            Text(label)
-                .font(.subheadline.weight(.semibold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-                .background(selectedRole == type ? Color.blue : Color.clear)
-                .foregroundColor(selectedRole == type ? .white : .gray)
-                .cornerRadius(10)
-        }
-        .buttonStyle(.plain)
     }
 
     private func joinTapped() async {
@@ -146,11 +115,8 @@ struct JoinCommunityView: View {
         isBusy = true
 
         do {
-            let result = try await CommunityService.shared.joinCommunity(
-                code: code,
-                role: selectedRole.rawValue
-            )
-            successText = "Joined \(result.communityName ?? "community") as \(result.role ?? selectedRole.rawValue)!"
+            let result = try await CommunityService.shared.joinCommunity(code: code)
+            successText = "Joined \(result.communityName ?? "community") as \(result.role ?? "member")!"
             // Brief delay before dismissing
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             dismiss()

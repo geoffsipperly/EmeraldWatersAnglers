@@ -14,9 +14,6 @@ struct ActivitiesObservationsTab: View {
   @ObservedObject private var farmedStore = FarmedReportStore.shared
   @ObservedObject private var observationStore = ObservationStore.shared
 
-  // Record new observation
-  @State private var showRecordObservation = false
-
   // MARK: - Body
 
   var body: some View {
@@ -58,18 +55,9 @@ struct ActivitiesObservationsTab: View {
           .onDelete(perform: deleteNotes)
         }
       } header: {
-        HStack {
-          Text("Notes")
-            .font(.headline)
-            .foregroundColor(.white)
-          Spacer()
-          Button {
-            showRecordObservation = true
-          } label: {
-            Image(systemName: "plus")
-              .font(.caption)
-          }
-        }
+        Text("Notes")
+          .font(.headline)
+          .foregroundColor(.white)
       }
     }
     .listStyle(.plain)
@@ -78,11 +66,6 @@ struct ActivitiesObservationsTab: View {
     .onAppear {
       farmedStore.purgeOldUploaded()
       farmedStore.refresh()
-    }
-    .fullScreenCover(isPresented: $showRecordObservation) {
-      RecordObservationSheet { _ in
-        showRecordObservation = false
-      }
     }
   }
 

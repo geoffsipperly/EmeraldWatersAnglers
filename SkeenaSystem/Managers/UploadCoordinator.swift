@@ -47,6 +47,7 @@ nonisolated final class UploadCoordinator {
     memberId: String,
     catchUploader: UploadCatchReport,
     progress: @escaping (Double) -> Void,
+    phaseUpdate: @escaping (String) -> Void = { _ in },
     completion: @escaping (UploadResult) -> Void
   ) {
     let hasCatches = !catches.isEmpty
@@ -81,6 +82,7 @@ nonisolated final class UploadCoordinator {
         }
         return
       }
+      DispatchQueue.main.async { phaseUpdate("Uploading observations…") }
       let noteUploader = UploadObservations()
       noteUploader.upload(
         observations: observations,
@@ -108,6 +110,7 @@ nonisolated final class UploadCoordinator {
         runNotes()
         return
       }
+      DispatchQueue.main.async { phaseUpdate("Uploading activity marks…") }
       let markUploader = UploadFarmedReports()
       markUploader.upload(
         reports: marks,
@@ -128,6 +131,7 @@ nonisolated final class UploadCoordinator {
 
     // ── Phase 1: Catch reports ────────────────────────────────
     if hasCatches {
+      DispatchQueue.main.async { phaseUpdate("Uploading catch reports…") }
       catchUploader.upload(
         reports: catches,
         progress: { p in DispatchQueue.main.async { progress(p * wCatch) } },

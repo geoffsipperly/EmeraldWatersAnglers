@@ -47,7 +47,11 @@ struct CatchChatView: View {
             // Typing / analyzing indicator
             if viewModel.isAssistantTyping {
               HStack(spacing: 8) {
-                CommunityLogoView(config: CommunityService.shared.activeCommunityConfig, size: 24)
+                Image(systemName: "leaf.circle.fill")
+                  .resizable()
+                  .scaledToFit()
+                  .frame(width: 24, height: 24)
+                  .foregroundColor(.green)
                   .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
 
                 HStack(spacing: 6) {
@@ -339,10 +343,11 @@ struct CatchChatView: View {
     VStack(alignment: .leading, spacing: 8) {
       HStack(alignment: .center, spacing: 8) {
         if message.sender == .assistant {
-          Image(AppEnvironment.shared.appLogoAsset)
+          Image(systemName: "leaf.circle.fill")
             .resizable()
             .scaledToFit()
             .frame(width: 24, height: 24)
+            .foregroundColor(.green)
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
 
           bubble(message, isUser: false)
@@ -362,9 +367,10 @@ struct CatchChatView: View {
           }()
           let showVoiceButton = (viewModel.voiceMemoAnchorMessageID == message.id)
           let showHeadConfirmButtons = (viewModel.headConfirmAnchorMessageID == message.id)
+          let showActivityChoice = (viewModel.activityChoiceAnchorMessageID == message.id && viewModel.awaitingActivityChoice)
           // Side buttons: everything except study/sample choice steps
           let showSideResearcherButtons = showResearcherButtons && !showChoicesBelow
-          if showPhotoButton || showVoiceButton || showSideResearcherButtons || showHeadConfirmButtons {
+          if showPhotoButton || showVoiceButton || showSideResearcherButtons || showHeadConfirmButtons || showActivityChoice {
             HStack(spacing: 16) {
               if showPhotoButton {
                 Button {
@@ -403,6 +409,32 @@ struct CatchChatView: View {
                     Image(systemName: "arrow.counterclockwise")
                       .font(.title2)
                     Text("Retake")
+                      .font(.footnote)
+                  }
+                }
+              }
+
+              // Activity choice: catch (pencil) or observation (mic).
+              // Shown on the first researcher prompt before any flow begins.
+              if showActivityChoice {
+                Button {
+                  viewModel.chooseCatch()
+                } label: {
+                  VStack(spacing: 4) {
+                    Image(systemName: "square.and.pencil")
+                      .font(.title2)
+                    Text("Catch")
+                      .font(.footnote)
+                  }
+                }
+
+                Button {
+                  viewModel.chooseObservation()
+                } label: {
+                  VStack(spacing: 4) {
+                    Image(systemName: "mic.fill")
+                      .font(.title2)
+                    Text("Observe")
                       .font(.footnote)
                   }
                 }

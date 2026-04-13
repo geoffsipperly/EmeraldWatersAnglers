@@ -98,6 +98,16 @@ nonisolated final class CatchReportStore: ObservableObject {
     }
   }
 
+  // MARK: - Debug
+
+  /// Whether the store is currently bound to a valid (memberId, communityId) scope.
+  var isBound: Bool { boundDirectoryURL != nil }
+
+  /// Debug description of the current binding state.
+  var bindingDebugDescription: String {
+    "bound=\(isBound) member='\(boundMemberId ?? "nil")' community='\(boundCommunityId ?? "nil")' dir=\(boundDirectoryURL?.lastPathComponent ?? "nil")"
+  }
+
   // MARK: - Public API
 
   /// Re-scan the currently bound scope from disk. No-op when unbound.
@@ -152,7 +162,7 @@ nonisolated final class CatchReportStore: ObservableObject {
 
     // Apply to in-memory array in one shot
     current.sort { $0.createdAt > $1.createdAt }
-    DispatchQueue.main.async { self.reports = current }
+    setReportsOnMain(current)
   }
 
   // MARK: - Convenience creation for chat flow
@@ -212,10 +222,11 @@ nonisolated final class CatchReportStore: ObservableObject {
     platform: String?,
     catchDate: Date? = nil
   ) {
-    guard boundDirectoryURL != nil else {
+    guard let dir = boundDirectoryURL else {
       AppLogging.log("[CatchReportStore] createFromChat() called while unbound — dropping new report for member=\(memberId) community=\(communityId ?? "nil")", level: .error, category: .catch)
       return
     }
+    AppLogging.log("[CatchReportStore] createFromChat() proceeding — dir=\(dir.lastPathComponent) member=\(memberId) community=\(communityId ?? "nil")", level: .debug, category: .catch)
     let report = CatchReport(
       id: UUID(),
       createdAt: Date(),
@@ -275,6 +286,7 @@ nonisolated final class CatchReportStore: ObservableObject {
 
     save(report: report)
     upsertInMemory(report)
+    AppLogging.log("[CatchReportStore] createFromChat() complete — id=\(report.id) total reports now=\(reports.count)", level: .debug, category: .catch)
   }
 
   /// Optionally attach or change the voice note ID for an existing report.
@@ -328,11 +340,21 @@ nonisolated final class CatchReportStore: ObservableObject {
     } else {
       boundDirectoryURL = nil
       AppLogging.log("[CatchReportStore] rebind -> unbound (member=\(normalizedMember ?? "nil") community=\(normalizedCommunity ?? "nil"))", level: .info, category: .catch)
-      DispatchQueue.main.async { self.reports = [] }
+      setReportsOnMain([])
     }
   }
 
   // MARK: - In-memory helpers (avoid full disk reload)
+
+  /// Set `reports` on the main thread. Runs synchronously when already on
+  /// main to avoid async ordering races (e.g. loadAll vs. upsertInMemory).
+  private func setReportsOnMain(_ newValue: [CatchReport]) {
+    if Thread.isMainThread {
+      self.reports = newValue
+    } else {
+      DispatchQueue.main.async { self.reports = newValue }
+    }
+  }
 
   /// Insert or replace a report in the in-memory array, keeping newest-first sort.
   private func upsertInMemory(_ report: CatchReport) {
@@ -343,13 +365,13 @@ nonisolated final class CatchReportStore: ObservableObject {
       current.append(report)
     }
     current.sort { $0.createdAt > $1.createdAt }
-    DispatchQueue.main.async { self.reports = current }
+    setReportsOnMain(current)
   }
 
   /// Remove a report from the in-memory array by ID.
   private func removeInMemory(_ id: UUID) {
     let current = reports.filter { $0.id != id }
-    DispatchQueue.main.async { self.reports = current }
+    setReportsOnMain(current)
   }
 
   // MARK: - Filesystem internals
@@ -385,12 +407,12 @@ nonisolated final class CatchReportStore: ObservableObject {
 
   private func loadAll() {
     guard let dir = boundDirectoryURL else {
-      DispatchQueue.main.async { self.reports = [] }
+      setReportsOnMain([])
       return
     }
     ensureDirectory(at: dir)
     guard let files = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else {
-      DispatchQueue.main.async { self.reports = [] }
+      setReportsOnMain([])
       return
     }
 
@@ -409,10 +431,8 @@ nonisolated final class CatchReportStore: ObservableObject {
     // Sort newest first
     loaded.sort { $0.createdAt > $1.createdAt }
 
-    DispatchQueue.main.async {
-      AppLogging.log("[CatchReportStore] loaded \(loaded.count) reports from scope member=\(self.boundMemberId ?? "nil") community=\(self.boundCommunityId ?? "nil")", level: .debug, category: .catch)
-      self.reports = loaded
-    }
+    AppLogging.log("[CatchReportStore] loaded \(loaded.count) reports from scope member=\(self.boundMemberId ?? "nil") community=\(self.boundCommunityId ?? "nil")", level: .debug, category: .catch)
+    setReportsOnMain(loaded)
   }
 
   // MARK: - Legacy migration

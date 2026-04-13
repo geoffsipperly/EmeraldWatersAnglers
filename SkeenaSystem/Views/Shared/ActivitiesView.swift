@@ -33,6 +33,7 @@ struct ActivitiesView: View {
   // Upload state
   @State private var isUploading = false
   @State private var uploadProgress: Double = 0
+  @State private var uploadPhase: String = "Preparing…"
   @State private var uploadResultMessage = ""
   @State private var showUploadAlert = false
 
@@ -104,20 +105,44 @@ struct ActivitiesView: View {
         .padding(.top, 8)
         .padding(.bottom, 4)
 
-        // Upload progress bar
-        if isUploading {
-          ProgressView(value: uploadProgress, total: 1.0)
-            .progressViewStyle(.linear)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 4)
-        }
-
         // Tab content fills remaining space
         switch selectedTab {
         case .reports:
           ReportsListView(embedded: true)
         case .observations:
           ActivitiesObservationsTab()
+        }
+      }
+      // Upload progress overlay
+      .overlay {
+        if isUploading {
+          ZStack {
+            Color.black.opacity(0.6).ignoresSafeArea()
+
+            VStack(spacing: 20) {
+              ProgressView()
+                .progressViewStyle(.circular)
+                .scaleEffect(1.6)
+                .tint(.white)
+
+              Text(uploadPhase)
+                .font(.headline)
+                .foregroundColor(.white)
+                .multilineTextAlignment(.center)
+
+              ProgressView(value: uploadProgress, total: 1.0)
+                .progressViewStyle(.linear)
+                .tint(.blue)
+                .frame(width: 200)
+
+              Text("\(Int(uploadProgress * 100))%")
+                .font(.caption)
+                .foregroundColor(.gray)
+            }
+            .padding(32)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
+          }
+          .animation(.easeInOut(duration: 0.2), value: isUploading)
         }
       }
     }
@@ -163,6 +188,7 @@ struct ActivitiesView: View {
   private func startUploadAll() {
     isUploading = true
     uploadProgress = 0
+    uploadPhase = "Preparing…"
     uploadResultMessage = ""
 
     Task {
@@ -178,6 +204,9 @@ struct ActivitiesView: View {
         catchUploader: catchUploader,
         progress: { p in
           self.uploadProgress = p
+        },
+        phaseUpdate: { phase in
+          self.uploadPhase = phase
         },
         completion: { result in
           self.isUploading = false
