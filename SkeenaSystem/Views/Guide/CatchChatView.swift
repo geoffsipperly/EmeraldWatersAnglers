@@ -12,8 +12,15 @@ struct CatchChatView: View {
   // Voice memo sheet
   @State private var showVoiceNoteSheet = false
 
+  // Study/sample: show Yes/No first, then expand to type icons
+  @State private var showStudyTypeIcons = false
+  @State private var showSampleTypeIcons = false
+
   /// Whether the chat uses the scientific visual style ("Science mode" label).
   private var isResearcherMode: Bool { viewModel.isResearcherMode }
+
+  /// True once the user has begun interacting (beyond the initial greeting).
+  private var hasInteracted: Bool { viewModel.messages.count > 1 }
 
   var body: some View {
     VStack(spacing: 0) {
@@ -34,6 +41,23 @@ struct CatchChatView: View {
         .padding(.vertical, 6)
         .background(Color.green.opacity(0.15))
         .accessibilityIdentifier("conservationModeBanner")
+      }
+
+      // Reset button — subtle, right-aligned, active only after interaction begins
+      HStack {
+        Spacer()
+        Button {
+          showStudyTypeIcons = false
+          showSampleTypeIcons = false
+          viewModel.resetForNewCatch()
+        } label: {
+          Image(systemName: "arrow.counterclockwise")
+            .font(.caption)
+            .foregroundColor(hasInteracted ? .white.opacity(0.5) : .white.opacity(0.15))
+        }
+        .disabled(!hasInteracted)
+        .padding(.trailing, 8)
+        .padding(.vertical, 4)
       }
 
       // Messages + inline capture options
@@ -218,18 +242,14 @@ struct CatchChatView: View {
 
   private func choiceButton(_ label: String, icon: String, disabled: Bool, action: @escaping () -> Void) -> some View {
     Button(action: action) {
-      VStack(spacing: 4) {
-        Image(systemName: icon)
-          .font(.title3)
-        Text(label)
-          .font(.caption)
-      }
-      .foregroundColor(disabled ? .gray : .white)
-      .frame(minWidth: 56)
-      .padding(.vertical, 8)
-      .padding(.horizontal, 4)
-      .background(Color.white.opacity(disabled ? 0.05 : 0.12))
-      .cornerRadius(12)
+      Image(systemName: icon)
+        .font(.title3)
+        .foregroundColor(disabled ? .gray : .white)
+        .frame(minWidth: 40)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 4)
+        .background(Color.white.opacity(disabled ? 0.05 : 0.12))
+        .cornerRadius(12)
     }
     .disabled(disabled)
   }
@@ -240,83 +260,122 @@ struct CatchChatView: View {
   private var researcherStepButtons: some View {
     let step = viewModel.researcherFlow?.currentStep
 
-    if step == .floyTagID {
-      // Only show Confirm once a tag number has been entered
+    if step == .studyParticipation {
+      if showStudyTypeIcons {
+        // Study type options: Pit (disabled), Floy, Radio (disabled)
+        Button {} label: {
+          VStack(spacing: 4) {
+            Image(systemName: "tag.fill").font(.title3)
+            Text("Pit").font(.caption)
+          }.foregroundColor(.gray)
+        }
+        .disabled(true)
+
+        Button {
+          showStudyTypeIcons = false
+          viewModel.researcherSelectStudy(.floy)
+        } label: {
+          VStack(spacing: 4) {
+            Image(systemName: "tag.fill").font(.title3)
+            Text("Floy").font(.caption)
+          }
+        }
+
+        Button {} label: {
+          VStack(spacing: 4) {
+            Image(systemName: "antenna.radiowaves.left.and.right").font(.title3)
+            Text("Radio").font(.caption)
+          }.foregroundColor(.gray)
+        }
+        .disabled(true)
+      } else {
+        // Yes / No
+        Button { showStudyTypeIcons = true } label: {
+          Image(systemName: "checkmark.circle.fill").font(.title2)
+        }
+        Button {
+          viewModel.researcherConfirm()
+        } label: {
+          Image(systemName: "xmark.circle.fill").font(.title2)
+        }
+      }
+    } else if step == .sampleCollection {
+      if showSampleTypeIcons {
+        // Sample type options: Scale, Fin Tip, Both
+        Button {
+          showSampleTypeIcons = false
+          viewModel.researcherSelectSample(.scale)
+        } label: {
+          VStack(spacing: 4) {
+            Image(systemName: "fish.fill").font(.title3)
+            Text("Scale").font(.caption)
+          }
+        }
+
+        Button {
+          showSampleTypeIcons = false
+          viewModel.researcherSelectSample(.finTip)
+        } label: {
+          VStack(spacing: 4) {
+            Image(systemName: "scissors").font(.title3)
+            Text("Fin").font(.caption)
+          }
+        }
+
+        Button {
+          showSampleTypeIcons = false
+          viewModel.researcherSelectSample(.both)
+        } label: {
+          VStack(spacing: 4) {
+            Image(systemName: "plus.circle.fill").font(.title3)
+            Text("Both").font(.caption)
+          }
+        }
+      } else {
+        // Yes / No
+        Button { showSampleTypeIcons = true } label: {
+          Image(systemName: "checkmark.circle.fill").font(.title2)
+        }
+        Button {
+          viewModel.researcherConfirm()
+        } label: {
+          Image(systemName: "xmark.circle.fill").font(.title2)
+        }
+      }
+    } else if step == .floyTagID {
       if let tag = viewModel.researcherFlow?.floyTagNumber, !tag.isEmpty {
         Button {
           viewModel.researcherConfirm()
         } label: {
-          VStack(spacing: 4) {
-            Image(systemName: "checkmark.circle.fill")
-              .font(.title2)
-            Text("Confirm")
-              .font(.footnote)
-          }
+          Image(systemName: "checkmark.circle.fill")
+            .font(.title2)
         }
       }
     } else if step == .scaleScan {
-      // User types the Scale Card ID in the chat input. Show Confirm once
-      // they've entered a value; Skip is always available.
       if let code = viewModel.researcherFlow?.scaleSampleBarcode, !code.isEmpty {
         Button {
           viewModel.researcherConfirm()
         } label: {
-          VStack(spacing: 4) {
-            Image(systemName: "checkmark.circle.fill")
-              .font(.title2)
-            Text("Confirm")
-              .font(.footnote)
-          }
-        }
-      }
-
-      Button {
-        viewModel.researcherConfirm()
-      } label: {
-        VStack(spacing: 4) {
-          Image(systemName: "forward.fill")
+          Image(systemName: "checkmark.circle.fill")
             .font(.title2)
-          Text("Skip")
-            .font(.footnote)
         }
       }
     } else if step == .finTipScan {
-      // User types the Fin Tip ID in the chat input. Same pattern as scale.
       if let code = viewModel.researcherFlow?.finTipSampleBarcode, !code.isEmpty {
         Button {
           viewModel.researcherConfirm()
         } label: {
-          VStack(spacing: 4) {
-            Image(systemName: "checkmark.circle.fill")
-              .font(.title2)
-            Text("Confirm")
-              .font(.footnote)
-          }
-        }
-      }
-
-      Button {
-        viewModel.researcherConfirm()
-      } label: {
-        VStack(spacing: 4) {
-          Image(systemName: "forward.fill")
+          Image(systemName: "checkmark.circle.fill")
             .font(.title2)
-          Text("Skip")
-            .font(.footnote)
         }
       }
     } else {
-      // identification, confirmLength, confirmGirth, finalSummary
-      let useConfirmStyle = step == .identification || step == .finalSummary
+      let useConfirmStyle = step == .identification || step == .confirmLength || step == .confirmGirth || step == .finalSummary
       Button {
         viewModel.researcherConfirm()
       } label: {
-        VStack(spacing: 4) {
-          Image(systemName: useConfirmStyle ? "checkmark.circle.fill" : "arrow.right.circle.fill")
-            .font(.title2)
-          Text(useConfirmStyle ? "Confirm" : "Next")
-            .font(.footnote)
-        }
+        Image(systemName: useConfirmStyle ? "checkmark.circle.fill" : "arrow.right.circle.fill")
+          .font(.title2)
       }
     }
   }
@@ -329,16 +388,9 @@ struct CatchChatView: View {
 
   // MARK: - Message rows
 
-  /// Whether the current researcher step renders choice buttons below the message.
-  private var researcherStepUsesInlineChoices: Bool {
-    guard let step = viewModel.researcherFlow?.currentStep else { return false }
-    return step == .studyParticipation || step == .sampleCollection
-  }
-
   @ViewBuilder
   private func messageRow(_ message: ChatMessage, index: Int) -> some View {
     let showResearcherButtons = (viewModel.researcherFlow?.confirmAnchorID == message.id)
-    let showChoicesBelow = showResearcherButtons && researcherStepUsesInlineChoices
 
     VStack(alignment: .leading, spacing: 8) {
       HStack(alignment: .center, spacing: 8) {
@@ -351,8 +403,7 @@ struct CatchChatView: View {
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
 
           bubble(message, isUser: false)
-
-          Spacer(minLength: 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
           // The Upload button follows the explicit anchor when set (so it
           // can move from the head-photo prompt to the fish-photo prompt in
@@ -368,112 +419,78 @@ struct CatchChatView: View {
           let showVoiceButton = (viewModel.voiceMemoAnchorMessageID == message.id)
           let showHeadConfirmButtons = (viewModel.headConfirmAnchorMessageID == message.id)
           let showActivityChoice = (viewModel.activityChoiceAnchorMessageID == message.id && viewModel.awaitingActivityChoice)
-          // Side buttons: everything except study/sample choice steps
-          let showSideResearcherButtons = showResearcherButtons && !showChoicesBelow
-          if showPhotoButton || showVoiceButton || showSideResearcherButtons || showHeadConfirmButtons || showActivityChoice {
-            HStack(spacing: 16) {
-              if showPhotoButton {
-                Button {
-                  AppLogging.log("Upload button tapped for photo source selection", level: .debug, category: .angler)
-                  showSourceActionSheet = true
-                } label: {
-                  VStack(spacing: 4) {
-                    Image(systemName: "photo.on.rectangle")
-                      .font(.title2)
-                    Text("Upload")
-                      .font(.footnote)
-                  }
-                }
-              }
+          let showSideResearcherButtons = showResearcherButtons
 
-              // Confirm / Retake for the conservation head-photo capture.
-              // Anchored to the "How does this look?" prompt that
-              // CatchChatViewModel.handleHeadPhotoSelected appends after
-              // the user uploads a head shot.
-              if showHeadConfirmButtons {
-                Button {
-                  viewModel.confirmHeadPhoto()
-                } label: {
-                  VStack(spacing: 4) {
-                    Image(systemName: "checkmark.circle.fill")
-                      .font(.title2)
-                    Text("Confirm")
-                      .font(.footnote)
-                  }
-                }
-
-                Button {
-                  viewModel.retakeHeadPhoto()
-                } label: {
-                  VStack(spacing: 4) {
-                    Image(systemName: "arrow.counterclockwise")
-                      .font(.title2)
-                    Text("Retake")
-                      .font(.footnote)
-                  }
-                }
-              }
-
-              // Activity choice: catch (pencil) or observation (mic).
-              // Shown on the first researcher prompt before any flow begins.
-              if showActivityChoice {
-                Button {
-                  viewModel.chooseCatch()
-                } label: {
-                  VStack(spacing: 4) {
-                    Image(systemName: "square.and.pencil")
-                      .font(.title2)
-                    Text("Catch")
-                      .font(.footnote)
-                  }
-                }
-
-                Button {
-                  viewModel.chooseObservation()
-                } label: {
-                  VStack(spacing: 4) {
-                    Image(systemName: "mic.fill")
-                      .font(.title2)
-                    Text("Observe")
-                      .font(.footnote)
-                  }
-                }
-              }
-
-              // Voice memo buttons appear at the .voiceMemo step of the
-              // unified ResearcherCatchFlowManager-driven flow for every role.
-              if showVoiceButton {
-                Button {
-                  showVoiceNoteSheet = true
-                } label: {
-                  VStack(spacing: 4) {
-                    Image(systemName: "mic.fill")
-                      .font(.title2)
-                    Text("Memo")
-                      .font(.footnote)
-                  }
-                }
-
-                Button {
-                  viewModel.researcherSkipVoiceMemo()
-                } label: {
-                  VStack(spacing: 4) {
-                    Image(systemName: "forward.fill")
-                      .font(.title2)
-                    Text("Skip")
-                      .font(.footnote)
-                  }
-                }
-              }
-
-              if showSideResearcherButtons {
-                researcherStepButtons
+          // Fixed-width icon area — always reserves space for up to 3 icons
+          // so every assistant bubble has a consistent width.
+          HStack(spacing: 12) {
+            if showPhotoButton {
+              Button {
+                AppLogging.log("Upload button tapped for photo source selection", level: .debug, category: .angler)
+                showSourceActionSheet = true
+              } label: {
+                Image(systemName: "camera.fill")
+                  .font(.title2)
               }
             }
-            .foregroundColor(.white)
-          } else {
-            Spacer(minLength: 24)
+
+            // Confirm / Retake for the conservation head-photo capture.
+            if showHeadConfirmButtons {
+              Button {
+                viewModel.confirmHeadPhoto()
+              } label: {
+                Image(systemName: "checkmark.circle.fill")
+                  .font(.title2)
+              }
+
+              Button {
+                viewModel.retakeHeadPhoto()
+              } label: {
+                Image(systemName: "arrow.counterclockwise")
+                  .font(.title2)
+              }
+            }
+
+            // Activity choice: catch (pencil) or observation (mic).
+            if showActivityChoice {
+              Button {
+                viewModel.chooseCatch()
+              } label: {
+                Image(systemName: "square.and.pencil")
+                  .font(.title2)
+              }
+
+              Button {
+                viewModel.chooseObservation()
+              } label: {
+                Image(systemName: "mic.fill")
+                  .font(.title2)
+              }
+            }
+
+            // Voice memo: Yes (opens recorder) / No (skip)
+            if showVoiceButton {
+              Button {
+                showVoiceNoteSheet = true
+              } label: {
+                Image(systemName: "checkmark.circle.fill")
+                  .font(.title2)
+              }
+
+              Button {
+                viewModel.researcherSkipVoiceMemo()
+              } label: {
+                Image(systemName: "xmark.circle.fill")
+                  .font(.title2)
+              }
+            }
+
+            if showSideResearcherButtons {
+              researcherStepButtons
+            }
           }
+          .foregroundColor(.white)
+          .frame(width: 140, alignment: .trailing)
 
         } else {
           Spacer(minLength: 40)
@@ -481,11 +498,6 @@ struct CatchChatView: View {
         }
       }
 
-      // Choice buttons rendered below the message for study/sample steps
-      if showChoicesBelow {
-        researcherInlineChoices
-          .padding(.leading, 32) // align under the bubble (past the logo)
-      }
     }
   }
 
