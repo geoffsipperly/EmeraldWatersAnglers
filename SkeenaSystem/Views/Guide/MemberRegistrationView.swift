@@ -531,13 +531,14 @@ struct MemberRegistrationView: View {
 
   private func passwordRequirement(_ text: String, met: Bool) -> some View {
     HStack(spacing: 4) {
-      Image(systemName: met ? "checkmark.circle.fill" : "")
+      Image(systemName: met ? "checkmark.circle.fill" : "xmark.circle")
+        .foregroundColor(met ? .green : .red)
         .font(.caption2)
         .foregroundColor(.green)
         .frame(width: 12)
       Text(text)
         .font(.caption2)
-        .foregroundColor(met ? .green : .gray)
+        .foregroundColor(met ? .green : .red)
     }
   }
 
