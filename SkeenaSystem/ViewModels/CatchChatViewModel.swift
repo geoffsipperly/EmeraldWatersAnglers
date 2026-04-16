@@ -389,6 +389,25 @@ final class CatchChatViewModel: ObservableObject {
     let rawLen = cleanedField(analysis.estimatedLength ?? "")
     let lengthValue: Double? = extractLengthInches(from: rawLen).map(Double.init)
 
+    // Resolve the river name and GPS fallback label separately. `riverName`
+    // is only set when the ML analyzer matched a real water body; anything
+    // starting with "No river detected for" / "No rivers configured for" is a
+    // diagnostic string and should be treated as "unknown" so the flow can
+    // fall back to GPS coords for display. `gpsLocationText` is the
+    // display-only fallback — it never makes it into the upload's river
+    // label, and the actual GPS lat/long continue to flow through
+    // `currentLocation` untouched.
+    let cleanedRiverForFlow = cleanedField(analysis.riverName ?? "")
+    let hasRealRiver = !cleanedRiverForFlow.isEmpty
+      && !cleanedRiverForFlow.hasPrefix("No river detected for")
+      && !cleanedRiverForFlow.hasPrefix("No rivers configured for")
+    let gpsFallback: String? = {
+      if let loc = currentLocation {
+        return String(format: "%.4f, %.4f", loc.coordinate.latitude, loc.coordinate.longitude)
+      }
+      return nil
+    }()
+
     // Create and initialize the researcher flow manager.
     //
     // Post-measurement research steps (study, sample, barcode scan) are only
@@ -402,34 +421,16 @@ final class CatchChatViewModel: ObservableObject {
       lifecycleStage: stage,
       sex: prettySexValue.isEmpty ? nil : prettySexValue,
       lengthInches: lengthValue,
-      riverName: cleanedField(analysis.riverName ?? "")
+      riverName: hasRealRiver ? cleanedRiverForFlow : nil,
+      gpsLocationText: gpsFallback
     )
     researcherFlow = flow
 
-    // Build location line for context
-    let locationLine: String
-    let cleanedRiver = cleanedField(analysis.riverName ?? "")
-    if !cleanedRiver.isEmpty
-        && !cleanedRiver.hasPrefix("No river detected for")
-        && !cleanedRiver.hasPrefix("No rivers configured for") {
-      locationLine = "Location: \(cleanedRiver)"
-    } else if let loc = currentLocation {
-      locationLine = String(format: "Location: %.4f, %.4f", loc.coordinate.latitude, loc.coordinate.longitude)
-    } else {
-      locationLine = "Location: No GPS coordinates available"
-    }
-
-    // Step 1: Show identification only (species, lifecycle, sex) — no measurements yet.
-    // Measurements will be shown after species/sex are confirmed.
-    let identificationText = flow.identificationSummary()
-
-    let msg = appendAssistant("""
-    Here's what I identified:
-    \(locationLine)
-    \(identificationText)
-
-    Confirm the species and sex, or type corrections.
-    """)
+    // Step 1: show location + species + lifecycle + sex for confirmation.
+    // The flow owns the full location line now (including GPS fallback), so
+    // we no longer prepend it here. Measurements are shown after
+    // species/sex/location are confirmed.
+    let msg = appendAssistant("Here's what I identified:\n\(flow.identificationPrompt())")
 
     flow.confirmAnchorID = msg.id
   }
@@ -814,9 +815,13 @@ final class CatchChatViewModel: ObservableObject {
     }
 
     // The flow holds the authoritative post-confirmation values (they reflect
-    // any edits the user made to species, length, girth, etc.). currentAnalysis
-    // is only used for fields the flow doesn't track, like river name.
-    let rawRiver = cleanedField(currentAnalysis?.riverName ?? "")
+    // any edits the user made to species, length, girth, river, etc.). Prefer
+    // the flow's river name if the user corrected it; otherwise fall back to
+    // the ML-detected value on currentAnalysis. GPS coords continue to come
+    // from `currentLocation` below — they're never overwritten by chat edits.
+    let flowRiver = researcherFlow?.riverName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    let analysisRiver = cleanedField(currentAnalysis?.riverName ?? "")
+    let rawRiver = !flowRiver.isEmpty ? flowRiver : analysisRiver
     let saveRiver = rawRiver.isEmpty ? "Unable to Detect via GPS" : rawRiver
     lines.append("River: \(saveRiver)")
 
@@ -985,7 +990,14 @@ final class CatchChatViewModel: ObservableObject {
       return nil
     }
 
-    let cleanedRiverRaw = cleanedField(analysis.riverName ?? "")
+    // Prefer the flow's river name if the user corrected it during the
+    // identification step; otherwise use the ML-detected value. GPS
+    // latitude/longitude continue to be read from `currentLocation` below
+    // and are never overwritten by chat edits — the user's river correction
+    // only affects the human-readable label, not the coordinates.
+    let flowRiverRaw = researcherFlow?.riverName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    let analysisRiverRaw = cleanedField(analysis.riverName ?? "")
+    let cleanedRiverRaw = !flowRiverRaw.isEmpty ? flowRiverRaw : analysisRiverRaw
     let finalRiver = cleanedRiverRaw.isEmpty ? "Unable to Detect via GPS" : cleanedRiverRaw
 
     let (species, stage) = splitSpecies(analysis.species)

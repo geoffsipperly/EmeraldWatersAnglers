@@ -336,6 +336,102 @@ final class ResearcherCatchFlowManagerTests: XCTestCase {
     XCTAssertEqual(flow.species, "tiger muskie")
   }
 
+  // MARK: - Location corrections
+
+  /// Regression test for the original bug: typing a location correction
+  /// during the identification step used to overwrite the species field via
+  /// the ungated ≥3-char species fallback. Location edits must NOT mutate
+  /// species.
+  func testLocation_correctionDoesNotOverwriteSpecies() {
+    initializeAtIdentification(species: "Steelhead")
+
+    let result = flow.applyEdit("Columbia River")
+
+    XCTAssertTrue(result.recognized)
+    XCTAssertEqual(flow.species, "Steelhead", "Species must NOT be overwritten by a location correction")
+    XCTAssertEqual(flow.riverName, "Columbia River")
+    XCTAssertTrue(flow.riverNameWasCorrected)
+  }
+
+  func testLocation_waterBodyToken_setsRiverName() {
+    initializeAtIdentification()
+
+    let result = flow.applyEdit("Kispiox River")
+
+    XCTAssertTrue(result.recognized)
+    XCTAssertEqual(flow.riverName, "Kispiox River")
+    XCTAssertTrue(flow.riverNameWasCorrected)
+  }
+
+  func testLocation_explicitPrefix_setsRiverName() {
+    initializeAtIdentification()
+
+    let result = flow.applyEdit("location: Morice")
+
+    XCTAssertTrue(result.recognized)
+    XCTAssertEqual(flow.riverName, "Morice")
+    XCTAssertTrue(flow.riverNameWasCorrected)
+  }
+
+  /// Covers the broader water-body keyword set — rivers, coastal bodies,
+  /// and canals all need to route to the location field. One representative
+  /// from each category is enough for wiring coverage.
+  ///
+  /// Reuses the shared `flow` from `setUp` rather than allocating a fresh
+  /// ResearcherCatchFlowManager per iteration: rapid-fire MainActor-isolated
+  /// deinits trigger the `swift_task_deinitOnExecutorMainActorBackDeploy`
+  /// malloc-free crash on the iOS 26.2 simulator (see CLAUDE.md).
+  func testLocation_variousWaterBodyKeywords_recognized() {
+    let cases: [(input: String, expected: String)] = [
+      ("Howe Sound",        "Howe Sound"),
+      ("Tofino Inlet",      "Tofino Inlet"),
+      ("Rideau Canal",      "Rideau Canal"),
+      ("Deschutes Creek",   "Deschutes Creek"),
+      ("Lake Simcoe",       "Lake Simcoe"),
+      ("Pacific Estuary",   "Pacific Estuary"),
+    ]
+
+    for (input, expected) in cases {
+      flow.initialize(
+        species: "Steelhead",
+        lifecycleStage: nil,
+        sex: nil,
+        lengthInches: 30,
+        riverName: "Bulkley"
+      )
+      let r = flow.applyEdit(input)
+      XCTAssertTrue(r.recognized, "Should recognize '\(input)' as a location")
+      XCTAssertEqual(flow.riverName, expected, "Should capture '\(expected)' as riverName")
+      XCTAssertEqual(flow.species, "Steelhead", "Species must stay unchanged for '\(input)'")
+    }
+  }
+
+  /// "brook" is both a known species (Brook Trout) AND a water-body keyword.
+  /// Species lookup must run first so a bare "brook" stays a species.
+  func testLocation_brookResolvesAsSpecies_notLocation() {
+    initializeAtIdentification(species: nil)
+    let originalRiver = flow.riverName
+
+    let result = flow.applyEdit("brook")
+
+    XCTAssertTrue(result.recognized)
+    XCTAssertEqual(flow.species, "Brook Trout", "'brook' must resolve as Brook Trout, not a water-body")
+    XCTAssertEqual(flow.riverName, originalRiver, "riverName must not change when the input is a known species")
+    XCTAssertFalse(flow.riverNameWasCorrected)
+  }
+
+  /// Location + sex in the same message should update both fields.
+  func testLocation_combinedWithSex() {
+    initializeAtIdentification(species: "Steelhead")
+
+    let result = flow.applyEdit("Morice River female")
+
+    XCTAssertTrue(result.recognized)
+    XCTAssertEqual(flow.riverName, "Morice River", "Sex token should be stripped from the river name")
+    XCTAssertEqual(flow.sex, "Female")
+    XCTAssertEqual(flow.species, "Steelhead", "Species unchanged when both location and sex are present")
+  }
+
   // MARK: - Happy-path step progression
 
   func testStepProgression_identificationThroughFinalSummary() {

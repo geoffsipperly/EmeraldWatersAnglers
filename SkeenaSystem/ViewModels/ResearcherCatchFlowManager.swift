@@ -111,8 +111,26 @@ final class ResearcherCatchFlowManager: ObservableObject {
   // Length estimation source (updated when species correction triggers re-estimation)
   var lengthSource: LengthEstimateSource?
 
-  // River context (from analysis, used for divisor lookup)
+  // River / water-body name for this catch. Holds either the ML-detected
+  // river, the user's correction from the identification chat step, or nil
+  // when no river could be determined. Used for:
+  //   (1) the divisor lookup in `FishWeightEstimator` (unknown names fall
+  //       through to the default divisor), and
+  //   (2) the "Location:" line in identification + final summary bubbles.
+  // Uploaded as the catch's river label. GPS latitude/longitude are stored
+  // separately on the snapshot and are never overwritten by user edits here.
   var riverName: String?
+
+  /// GPS-coordinate fallback label ("lat, lon") shown in the Location: line
+  /// when `riverName` is nil — i.e., the ML analyzer couldn't match a river
+  /// and the user hasn't typed a correction yet. Display-only: never written
+  /// back into `riverName` or uploaded as the river label.
+  var gpsLocationText: String?
+
+  /// True once the user has corrected the river name via the chat. Used by
+  /// the snapshot path to prefer `riverName` over the ML-detected value.
+  /// Mirrors `speciesWasCorrected`.
+  var riverNameWasCorrected: Bool = false
 
   // Original ML-detected species (for detecting if user changed it)
   var originalSpecies: String?
@@ -139,18 +157,21 @@ final class ResearcherCatchFlowManager: ObservableObject {
     lifecycleStage: String?,
     sex: String?,
     lengthInches: Double?,
-    riverName: String?
+    riverName: String?,
+    gpsLocationText: String? = nil
   ) {
     self.species = species
     self.lifecycleStage = lifecycleStage
     self.sex = sex
     self.lengthInches = lengthInches
     self.riverName = riverName
+    self.gpsLocationText = gpsLocationText
+    self.riverNameWasCorrected = false
     self.originalSpecies = species
     self.originalLifecycleStage = lifecycleStage
 
     currentStep = .identification
-    AppLogging.log("[ResearcherFlow] Initialized: species=\(species ?? "nil") lifecycle=\(lifecycleStage ?? "nil") sex=\(sex ?? "nil") length=\(lengthInches.map { String($0) } ?? "nil")", level: .info, category: .research)
+    AppLogging.log("[ResearcherFlow] Initialized: species=\(species ?? "nil") lifecycle=\(lifecycleStage ?? "nil") sex=\(sex ?? "nil") length=\(lengthInches.map { String($0) } ?? "nil") river=\(riverName ?? "nil")", level: .info, category: .research)
   }
 
   // MARK: - Step Advancement
@@ -264,10 +285,10 @@ final class ResearcherCatchFlowManager: ObservableObject {
 
     switch currentStep {
     case .identification:
-      let recognized = parseSpeciesSexEdit(text, lower: lower)
+      let recognized = parseIdentificationEdit(text, lower: lower)
       if !recognized {
         return (
-          "I didn't catch that — please enter a species name (e.g., \"Steelhead\"), sex (male/female), or a lifecycle stage (holding, traveler, spawning, kelt, smolt, resident).",
+          "I didn't catch that — please enter a species name (e.g., \"Steelhead\" or \"species: exotic X\"), a sex (male/female), a lifecycle stage (holding, traveler, spawning, kelt, smolt, resident), or a location (e.g., \"Kispiox River\", \"Howe Sound\", or \"location: Bulkley\").",
           false,
           false
         )
@@ -349,7 +370,7 @@ final class ResearcherCatchFlowManager: ObservableObject {
   private func profanityReply(for step: Step) -> String {
     switch step {
     case .identification:
-      return "Let's keep it civil. Please enter a species name, sex (male/female), or a lifecycle stage."
+      return "Let's keep it civil. Please enter a species name, sex (male/female), lifecycle stage, or location."
     case .confirmLength:
       return "Let's keep it civil. Please enter the length in inches (e.g., 28 or 28.5)."
     case .confirmGirth:
@@ -467,9 +488,19 @@ final class ResearcherCatchFlowManager: ObservableObject {
 
   // MARK: - Prompt Generation
 
-  /// Identification step: show only species, lifecycle, sex (no measurements).
+  /// Identification step: show location, species, lifecycle, sex (no measurements).
+  /// Location is shown first because it's the field most often visible in the
+  /// initial analysis and the first thing a user scans to verify.
   func identificationSummary() -> String {
     var lines: [String] = []
+
+    if let r = riverName, !r.isEmpty {
+      lines.append("Location: \(r)")
+    } else if let g = gpsLocationText, !g.isEmpty {
+      lines.append("Location: \(g)")
+    } else {
+      lines.append("Location: Unknown")
+    }
 
     if let s = species, !s.isEmpty {
       if let stage = lifecycleStage, !stage.isEmpty {
@@ -490,10 +521,10 @@ final class ResearcherCatchFlowManager: ObservableObject {
     return lines.joined(separator: "\n")
   }
 
-  /// Identification prompt shown when user edits species/sex.
+  /// Identification prompt shown when user edits species/sex/location.
   func identificationPrompt() -> String {
     let summary = identificationSummary()
-    return "\(summary)\n§\nConfirm the species and sex, or type corrections."
+    return "\(summary)\n§\nConfirm the species, sex, and location, or type corrections."
   }
 
   private func lengthPrompt() -> String {
@@ -534,6 +565,8 @@ final class ResearcherCatchFlowManager: ObservableObject {
 
     if let r = riverName, !r.isEmpty {
       lines.append("Location: \(r)")
+    } else if let g = gpsLocationText, !g.isEmpty {
+      lines.append("Location: \(g)")
     }
     if let s = species, !s.isEmpty {
       if let stage = lifecycleStage, !stage.isEmpty {
@@ -577,6 +610,32 @@ final class ResearcherCatchFlowManager: ObservableObject {
 
   // Lifecycle stage keywords — stripped from species candidate
   private static let stageKeywords: Set<String> = ["holding", "traveler", "spawning", "kelt", "smolt", "resident"]
+
+  // Water-body suffix words the user might include when typing a location
+  // correction ("Kispiox River", "Morice Creek", "Howe Sound", "Rideau Canal").
+  // Presence of any of these tokens in the user's message routes the edit to
+  // the location field instead of species. Kept broad on purpose — the
+  // alternative (users discovering they must prefix with "location:") is worse.
+  private static let waterBodyKeywords: Set<String> = [
+    // Flowing water
+    "river", "creek", "stream", "brook", "run", "fork", "branch",
+    "tributary", "rio", "beck", "burn", "wash",
+    // Still / inland water
+    "lake", "pond", "reservoir", "tarn", "loch", "lough",
+    // Coastal / tidal
+    "sound", "bay", "inlet", "cove", "harbor", "harbour",
+    "estuary", "fjord", "fiord", "lagoon", "bayou",
+    // Artificial / narrow
+    "canal", "channel", "slough", "strait",
+  ]
+
+  // Explicit prefix keywords a user can type to unambiguously mark an edit
+  // as a location correction — e.g. "location: Kispiox", "river: Bulkley",
+  // "at: Howe Sound". Matched only at the start of the trimmed input.
+  private static let locationPrefixKeywords: [String] = [
+    "location", "river", "creek", "lake", "water", "waterbody",
+    "spot", "place", "where", "at",
+  ]
 
   // Lightweight profanity screen — keeps freeform input out of species/ID fields
   // when it would otherwise be stored verbatim and uploaded. Conservative list;
@@ -631,34 +690,95 @@ final class ResearcherCatchFlowManager: ObservableObject {
   ]
 
   /// Parse user's freeform identification edit. Returns `true` if we could
-  /// recognize any species / sex / lifecycle content — callers use this to
-  /// distinguish a real update from unparseable input (keyboard mashing,
-  /// out-of-context chatter) and prompt the user again.
-  private func parseSpeciesSexEdit(_ text: String, lower: String) -> Bool {
+  /// recognize any species / sex / lifecycle / location content — callers use
+  /// this to distinguish a real update from unparseable input (keyboard
+  /// mashing, out-of-context chatter) and prompt the user again.
+  ///
+  /// Ordering is deliberate so the same message can't be classified as both
+  /// a species and a location:
+  ///   1. Species via `species:` prefix (explicit, always wins).
+  ///   2. Species via `knownSpecies` exact match — runs BEFORE water-body
+  ///      inference so "Brook" (a known species AND a water-body keyword)
+  ///      stays Brook Trout rather than becoming a river name.
+  ///   3. Location via `location:` / `river:` / `at:` prefix.
+  ///   4. Location via water-body keyword inference ("Kispiox River",
+  ///      "Howe Sound"), skipped when a species match already handled the
+  ///      message.
+  ///   5. Sex + lifecycle — always run so "Howe Sound male" or
+  ///      "Steelhead kelt" set both fields in one message.
+  ///   6. Species free-text fallback — gated: only accepts input with no
+  ///      water-body token and no `location:` prefix, so location
+  ///      corrections can never leak into species the way they used to.
+  private func parseIdentificationEdit(_ text: String, lower: String) -> Bool {
     let tokens = lower.split { !$0.isLetter }.map(String.init)
-    var speciesUpdated = false
+    let noiseWords = Self.sexKeywords.union(Self.stageKeywords)
     var recognized = false
+    var speciesUpdated = false
+    var locationUpdated = false
 
-    // Try to extract species via keyword pattern ("species: X" or "species is X")
+    // 1. Species via `species:` / `species is` prefix (explicit).
     if let val = valueAfterKeyword("species", in: text, lower: lower), !val.isEmpty {
       species = val
       speciesUpdated = true
       recognized = true
     }
 
-    // Try to extract sex via keyword pattern ("sex: X" or "sex is X")
+    // 2. Species via known-name match. Must run BEFORE water-body inference
+    //    so "brook" (in both knownSpecies and waterBodyKeywords) stays as a
+    //    species, and multi-word known names like "rainbow trout" resolve
+    //    before a later token like "stream" could flip them to location.
+    if !speciesUpdated {
+      let speciesTokens = tokens.filter { !noiseWords.contains($0) }
+      let candidate = speciesTokens.joined(separator: " ")
+      if let displayName = Self.knownSpecies[candidate] {
+        species = displayName
+        speciesUpdated = true
+        recognized = true
+      }
+    }
+
+    // 3. Location via explicit prefix — only when no species match already
+    //    claimed this message.
+    if !speciesUpdated {
+      if let val = locationPrefixValue(in: text, lower: lower), !val.isEmpty {
+        riverName = val
+        riverNameWasCorrected = true
+        locationUpdated = true
+        recognized = true
+      }
+    }
+
+    // 4. Location via water-body keyword inference. Same guard as (3).
+    if !speciesUpdated && !locationUpdated {
+      let hasWaterBodyToken = tokens.contains { Self.waterBodyKeywords.contains($0) }
+      if hasWaterBodyToken {
+        let locationText = text
+          .trimmingCharacters(in: .whitespacesAndNewlines)
+          .components(separatedBy: .whitespaces)
+          .filter { !noiseWords.contains($0.lowercased()) }
+          .joined(separator: " ")
+        if !locationText.isEmpty {
+          riverName = locationText
+          riverNameWasCorrected = true
+          locationUpdated = true
+          recognized = true
+        }
+      }
+    }
+
+    // 5. Sex — keyword form first, then standalone tokens. Always runs so it
+    //    can combine with a location or species edit in the same message.
     if let val = valueAfterKeyword("sex", in: text, lower: lower), !val.isEmpty {
       sex = val.capitalized
       recognized = true
     } else {
-      // Infer sex from standalone keywords
       if tokens.contains("male") { sex = "Male"; recognized = true }
       else if tokens.contains("female") { sex = "Female"; recognized = true }
       else if tokens.contains("hen") { sex = "Hen"; recognized = true }
       else if tokens.contains("buck") { sex = "Buck"; recognized = true }
     }
 
-    // Try to extract lifecycle stage (before species fallback so we can strip it)
+    // 6. Lifecycle stage — also combinable with species or location.
     for keyword in Self.stageKeywords {
       if tokens.contains(keyword) {
         lifecycleStage = keyword.capitalized
@@ -667,23 +787,18 @@ final class ResearcherCatchFlowManager: ObservableObject {
       }
     }
 
-    // Fallback: if no "species:" keyword was found, check if the input
-    // (minus sex and lifecycle keywords) matches a known species name.
-    // This handles cases like "Steelhead", "Chinook male", "Steelhead Holding".
-    if !speciesUpdated {
-      // Strip sex and lifecycle keywords to isolate the species part
-      let noiseWords = Self.sexKeywords.union(Self.stageKeywords)
+    // 7. Species free-text fallback — the escape hatch for species names we
+    //    don't have in `knownSpecies` yet (e.g. "tiger muskie", "walleye").
+    //    Gated to skip whenever the message looks like a location, so
+    //    corrections like "Columbia River" can't leak into species the way
+    //    the ungated ≥3-char fallback used to allow.
+    if !speciesUpdated && !locationUpdated {
+      let hasWaterBodyToken = tokens.contains { Self.waterBodyKeywords.contains($0) }
       let speciesTokens = tokens.filter { !noiseWords.contains($0) }
       let candidate = speciesTokens.joined(separator: " ")
-
-      if let displayName = Self.knownSpecies[candidate] {
-        species = displayName
-        recognized = true
-      } else if candidate.count >= 3 {
-        // Not a recognized species but plausible enough to accept —
-        // treat as a species name (user may know something we don't).
-        // The ≥3-letter floor filters out "xx", stray punctuation, etc.
-        species = text.trimmingCharacters(in: .whitespacesAndNewlines)
+      if !hasWaterBodyToken && candidate.count >= 3 {
+        species = text
+          .trimmingCharacters(in: .whitespacesAndNewlines)
           .components(separatedBy: " ")
           .filter { !noiseWords.contains($0.lowercased()) }
           .joined(separator: " ")
@@ -692,6 +807,28 @@ final class ResearcherCatchFlowManager: ObservableObject {
     }
 
     return recognized
+  }
+
+  /// Matches the explicit location-prefix form ("location: X", "river: X",
+  /// "at: X", ...) only at the START of the trimmed message. Returns the
+  /// value after the colon or " is ", or nil if the message doesn't start
+  /// with one of `locationPrefixKeywords`.
+  private func locationPrefixValue(in text: String, lower: String) -> String? {
+    let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    let trimmedLower = lower.trimmingCharacters(in: .whitespacesAndNewlines)
+    for keyword in Self.locationPrefixKeywords {
+      let colonPrefix = "\(keyword):"
+      if trimmedLower.hasPrefix(colonPrefix) {
+        return String(trimmedText.dropFirst(colonPrefix.count))
+          .trimmingCharacters(in: .whitespacesAndNewlines)
+      }
+      let isPrefix = "\(keyword) is "
+      if trimmedLower.hasPrefix(isPrefix) {
+        return String(trimmedText.dropFirst(isPrefix.count))
+          .trimmingCharacters(in: .whitespacesAndNewlines)
+      }
+    }
+    return nil
   }
 
   private func valueAfterKeyword(_ keyword: String, in text: String, lower: String) -> String? {
