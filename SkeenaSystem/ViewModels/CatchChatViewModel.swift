@@ -609,6 +609,19 @@ final class CatchChatViewModel: ObservableObject {
     return msg
   }
 
+  /// Label used in place of a named water body when neither the river
+  /// locator nor the water-body locator produced a match. Falls back to a
+  /// formatted lat/long derived from `currentLocation` so the pending-upload
+  /// row shows something useful to the user instead of a diagnostic string.
+  /// The raw GPS is still uploaded separately via the snapshot's latitude
+  /// and longitude fields — this string is display-only.
+  private func unresolvedLocationLabel() -> String {
+    if let loc = currentLocation {
+      return String(format: "%.4f, %.4f", loc.coordinate.latitude, loc.coordinate.longitude)
+    }
+    return "Unknown location"
+  }
+
   private func cleanedField(_ s: String) -> String {
     var t = s
     let junk = [
@@ -822,7 +835,7 @@ final class CatchChatViewModel: ObservableObject {
     let flowRiver = researcherFlow?.riverName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     let analysisRiver = cleanedField(currentAnalysis?.riverName ?? "")
     let rawRiver = !flowRiver.isEmpty ? flowRiver : analysisRiver
-    let saveRiver = rawRiver.isEmpty ? "Unable to Detect via GPS" : rawRiver
+    let saveRiver = rawRiver.isEmpty ? unresolvedLocationLabel() : rawRiver
     lines.append("River: \(saveRiver)")
 
     if let flow = researcherFlow {
@@ -998,7 +1011,7 @@ final class CatchChatViewModel: ObservableObject {
     let flowRiverRaw = researcherFlow?.riverName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     let analysisRiverRaw = cleanedField(analysis.riverName ?? "")
     let cleanedRiverRaw = !flowRiverRaw.isEmpty ? flowRiverRaw : analysisRiverRaw
-    let finalRiver = cleanedRiverRaw.isEmpty ? "Unable to Detect via GPS" : cleanedRiverRaw
+    let finalRiver = cleanedRiverRaw.isEmpty ? unresolvedLocationLabel() : cleanedRiverRaw
 
     let (species, stage) = splitSpecies(analysis.species)
     let sexValueRaw = stripLeadingLabel(analysis.sex, label: "sex")

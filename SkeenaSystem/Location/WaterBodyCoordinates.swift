@@ -102,5 +102,40 @@ enum WaterBodyAtlas {
         // Add new water bodies below this line.
         // Key must match the name in LODGE_WATER_BODIES xcconfig.
         // ─────────────────────────────────────────────
+
+        "Lake Washington": [
+            // Large freshwater lake east of Seattle, WA. Clockwise from the
+            // north end (Kenmore), down the east shore, south end (Renton),
+            // back up the west shore (Seward Park, Madison Park, Sand Point).
+            // NOTE: Mercer Island sits inside this polygon — not cut out; the
+            // simplified outline treats the island as part of the lake extent,
+            // consistent with the Puget Sound / Hood Canal simplifications.
+            // --- North end (Kenmore / Sammamish River mouth) ---
+            CLLocationCoordinate2D(latitude: 47.760, longitude: -122.245),  // Kenmore, Sammamish River mouth
+            CLLocationCoordinate2D(latitude: 47.745, longitude: -122.230),  // Arrowhead Point / Inglewood, interpolated
+            // --- East shore (going south) ---
+            CLLocationCoordinate2D(latitude: 47.705, longitude: -122.215),  // Juanita Bay, Kirkland
+            CLLocationCoordinate2D(latitude: 47.676, longitude: -122.208),  // Kirkland waterfront / Marina Park
+            CLLocationCoordinate2D(latitude: 47.646, longitude: -122.215),  // Yarrow Point
+            CLLocationCoordinate2D(latitude: 47.618, longitude: -122.225),  // Medina waterfront
+            CLLocationCoordinate2D(latitude: 47.612, longitude: -122.202),  // Meydenbauer Bay, Bellevue
+            CLLocationCoordinate2D(latitude: 47.589, longitude: -122.200),  // Enatai / I-90 east approach
+            CLLocationCoordinate2D(latitude: 47.558, longitude: -122.195),  // Newcastle Beach / Coal Creek, interpolated
+            CLLocationCoordinate2D(latitude: 47.535, longitude: -122.198),  // Newport Shores area, interpolated
+            // --- South end (Renton / Cedar River mouth) ---
+            CLLocationCoordinate2D(latitude: 47.509, longitude: -122.206),  // Gene Coulon Park, Renton
+            CLLocationCoordinate2D(latitude: 47.502, longitude: -122.217),  // Cedar River mouth, Renton (south tip)
+            // --- West shore (going north) ---
+            CLLocationCoordinate2D(latitude: 47.525, longitude: -122.270),  // Rainier Beach / Pritchard Island, interpolated
+            CLLocationCoordinate2D(latitude: 47.552, longitude: -122.248),  // Seward Park tip (Bailey Peninsula)
+            CLLocationCoordinate2D(latitude: 47.560, longitude: -122.265),  // Andrews Bay / Lakewood, interpolated
+            CLLocationCoordinate2D(latitude: 47.601, longitude: -122.285),  // Leschi waterfront
+            CLLocationCoordinate2D(latitude: 47.636, longitude: -122.280),  // Madison Park
+            CLLocationCoordinate2D(latitude: 47.656, longitude: -122.272),  // Webster Point / Union Bay entrance
+            CLLocationCoordinate2D(latitude: 47.683, longitude: -122.250),  // Sand Point / Magnuson Park
+            CLLocationCoordinate2D(latitude: 47.698, longitude: -122.270),  // Matthews Beach, interpolated
+            CLLocationCoordinate2D(latitude: 47.735, longitude: -122.278),  // Lake Forest Park waterfront
+            CLLocationCoordinate2D(latitude: 47.759, longitude: -122.260),  // Kenmore west shore, closing polygon
+        ],
     ]
 }

@@ -770,6 +770,53 @@ enum RiverAtlas {
             CLLocationCoordinate2D(latitude: 42.4900, longitude: -121.4000),
             CLLocationCoordinate2D(latitude: 42.4378, longitude: -121.1094),
         ],
+
+        // ─────────────────────────────────────────────
+        // Alaska — Southeast / Tongass National Forest
+        // ─────────────────────────────────────────────
+
+        // Chuck River: ~10-mile river in the Chuck River Wilderness (Tongass NF),
+        // flows north from headwaters near Port Houghton divide to Windham Bay,
+        // ~64 mi SE of Juneau. No dedicated USGS or NOAA NWPS gauge; nearest
+        // tidal reference is the Port Houghton subordinate NOAA station.
+        "Chuck River": [
+            // Mile 0 — Mouth at Windham Bay, former Chuck Mining Camp site (Verified — GNIS 57°35'12"N 133°21'20"W)
+            CLLocationCoordinate2D(latitude: 57.5867, longitude: -133.3556),
+            // Mile 5 — Mid-river, Chuck River Wilderness corridor (interpolated)
+            CLLocationCoordinate2D(latitude: 57.5150, longitude: -133.3500),
+            // Mile 10 — Headwaters near Port Houghton divide, Coast Mountains foothills (interpolated)
+            CLLocationCoordinate2D(latitude: 57.4430, longitude: -133.3480),
+        ],
+
+        // Kadake Creek: ~10-mile stream on northeast Kuiu Island (Tongass NF).
+        // Drains interior Kuiu muskeg / forest ponds NE into Kadake Bay, which
+        // opens onto Keku Strait across from Kake. Kuiu's largest pink-salmon
+        // producer; no USGS or NOAA NWPS gauge on the system. Official GNIS
+        // name is "Kadake Creek"; locally also called "Kadake River".
+        "Kadake Creek": [
+            // Mile 0 — Mouth at Kadake Bay, Kadake Bay USFS Cabin (Verified — cabin sits at stream mouth)
+            CLLocationCoordinate2D(latitude: 56.7831, longitude: -133.9822),
+            // Mile 5 — Mid-creek valley, NE Kuiu interior (interpolated)
+            CLLocationCoordinate2D(latitude: 56.7500, longitude: -134.0800),
+            // Mile 10 — Headwaters, interior Kuiu muskeg ponds (interpolated, no published source)
+            CLLocationCoordinate2D(latitude: 56.7200, longitude: -134.1700),
+        ],
+
+        // Farragut River: ~15-mile mainland river in the Coast Mountains east
+        // of Frederick Sound (Tongass NF, Petersburg Ranger District). Heads
+        // at Glory Lake and flows southwest through a glacial U-valley to
+        // Francis Anchorage at the south end of Farragut Bay. No USGS or
+        // NOAA NWPS gauge; nearest tide reference is NOAA Petersburg (9451204).
+        "Farragut River": [
+            // Mile 0 — Mouth at Francis Anchorage, SW arm of Farragut Bay (interpolated from NOAA Chart 17367 and bay geometry)
+            CLLocationCoordinate2D(latitude: 57.1200, longitude: -133.0800),
+            // Mile 5 — Lower valley, tidal / braided reach (interpolated)
+            CLLocationCoordinate2D(latitude: 57.1900, longitude: -133.0200),
+            // Mile 10 — Upper valley, approaching Coast Mountains front (interpolated)
+            CLLocationCoordinate2D(latitude: 57.2800, longitude: -132.9500),
+            // Mile 15 — Headwaters at Glory Lake (Verified — GNIS source coords 57°21'28"N 132°54'39"W)
+            CLLocationCoordinate2D(latitude: 57.3578, longitude: -132.9108),
+        ],
     ]
 
     /// Default search radius (km) from any spine point to count as "on" a river.

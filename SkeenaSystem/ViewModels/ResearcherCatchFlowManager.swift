@@ -494,12 +494,12 @@ final class ResearcherCatchFlowManager: ObservableObject {
   func identificationSummary() -> String {
     var lines: [String] = []
 
+    // Only show the location line when the analyzer matched a named river or
+    // water body. When we only have raw GPS (no match), hide the line from
+    // the confirmation prompt — the coordinates still flow into the final
+    // summary and the upload payload via `gpsLocationText` / `currentLocation`.
     if let r = riverName, !r.isEmpty {
       lines.append("Location: \(r)")
-    } else if let g = gpsLocationText, !g.isEmpty {
-      lines.append("Location: \(g)")
-    } else {
-      lines.append("Location: Unknown")
     }
 
     if let s = species, !s.isEmpty {
@@ -524,7 +524,11 @@ final class ResearcherCatchFlowManager: ObservableObject {
   /// Identification prompt shown when user edits species/sex/location.
   func identificationPrompt() -> String {
     let summary = identificationSummary()
-    return "\(summary)\n§\nConfirm the species, sex, and location, or type corrections."
+    let hasLocation = (riverName?.isEmpty == false)
+    let tail = hasLocation
+      ? "Confirm the species, sex, and location, or type corrections."
+      : "Confirm the species and sex, or type corrections."
+    return "\(summary)\n§\n\(tail)"
   }
 
   private func lengthPrompt() -> String {
@@ -560,7 +564,7 @@ final class ResearcherCatchFlowManager: ObservableObject {
 
   /// Final analysis showing derived weight with the inputs used for the calculation.
   func finalAnalysisText() -> String {
-    var lines: [String] = ["Final Measurements"]
+    var lines: [String] = ["Final Analysis"]
     lines.append("")
 
     if let r = riverName, !r.isEmpty {
@@ -714,6 +718,7 @@ final class ResearcherCatchFlowManager: ObservableObject {
     let noiseWords = Self.sexKeywords.union(Self.stageKeywords)
     var recognized = false
     var speciesUpdated = false
+    var lifecycleUpdated = false
     var locationUpdated = false
 
     // 1. Species via `species:` / `species is` prefix (explicit).
@@ -782,6 +787,7 @@ final class ResearcherCatchFlowManager: ObservableObject {
     for keyword in Self.stageKeywords {
       if tokens.contains(keyword) {
         lifecycleStage = keyword.capitalized
+        lifecycleUpdated = true
         recognized = true
         break
       }
@@ -802,8 +808,18 @@ final class ResearcherCatchFlowManager: ObservableObject {
           .components(separatedBy: " ")
           .filter { !noiseWords.contains($0.lowercased()) }
           .joined(separator: " ")
+        speciesUpdated = true
         recognized = true
       }
+    }
+
+    // When the user corrects the species but doesn't say anything about
+    // lifecycle stage, drop the old stage. The analyzer attaches
+    // "(Holding)" / "(Traveler)" to Steelhead specifically; if the user
+    // reclassifies the fish as Rainbow Trout, the steelhead-specific stage
+    // no longer applies and would otherwise linger as "Rainbow Trout (Holding)".
+    if speciesUpdated && !lifecycleUpdated {
+      lifecycleStage = nil
     }
 
     return recognized

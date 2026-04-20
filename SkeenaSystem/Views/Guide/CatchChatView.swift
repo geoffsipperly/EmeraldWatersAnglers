@@ -51,9 +51,12 @@ struct CatchChatView: View {
           showSampleTypeIcons = false
           viewModel.resetForNewCatch()
         } label: {
-          Image(systemName: "arrow.counterclockwise")
-            .font(.caption)
-            .foregroundColor(hasInteracted ? .white.opacity(0.5) : .white.opacity(0.15))
+          HStack(spacing: 4) {
+            Image(systemName: "arrow.counterclockwise")
+            Text("Reset")
+          }
+          .font(.caption)
+          .foregroundColor(hasInteracted ? .white.opacity(0.5) : .white.opacity(0.15))
         }
         .disabled(!hasInteracted)
         .padding(.trailing, 8)
@@ -472,15 +475,23 @@ struct CatchChatView: View {
               Button {
                 viewModel.chooseCatch()
               } label: {
-                Image(systemName: "square.and.pencil")
-                  .font(.title2)
+                VStack(spacing: 2) {
+                  Image(systemName: "square.and.pencil")
+                    .font(.title2)
+                  Text("Catch")
+                    .font(.caption2)
+                }
               }
 
               Button {
                 viewModel.chooseObservation()
               } label: {
-                Image(systemName: "mic.fill")
-                  .font(.title2)
+                VStack(spacing: 2) {
+                  Image(systemName: "mic.fill")
+                    .font(.title2)
+                  Text("Observation")
+                    .font(.caption2)
+                }
               }
             }
 
@@ -531,8 +542,8 @@ struct CatchChatView: View {
         )
         .padding(2)
     } else if let text = message.text {
-      // Style "Final Analysis" / "Final Measurements" title in blue when it's the first line
-      if !isUser && (text.hasPrefix("Final Analysis") || text.hasPrefix("Final Measurements")) {
+      // Style "Final Analysis" title in blue when it's the first line
+      if !isUser && text.hasPrefix("Final Analysis") {
         finalAnalysisBubble(text)
       } else if !isUser && text.contains("§") {
         // The "§" separator splits primary content (estimates, prompts)

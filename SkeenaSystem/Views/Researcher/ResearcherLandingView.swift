@@ -191,6 +191,14 @@ struct ResearcherLandingView: View {
     let communityName = CommunityService.shared.activeCommunityName
     let communityId = CommunityService.shared.activeCommunityId
 
+    // The pending-upload row reuses the `guideName` column to display the
+    // report author's name regardless of role (see `CatchReportRow` in
+    // ReportsListView). Populating it here lets researcher rows show
+    // "Researcher: <name>" instead of "Researcher: —".
+    let researcherFirst = (AuthService.shared.currentFirstName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    let researcherLast = (AuthService.shared.currentLastName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    let researcherName = "\(researcherFirst) \(researcherLast)".trimmingCharacters(in: .whitespaces)
+
     AppLogging.log("[ResearcherSave] memberId='\(memberId)' communityId='\(communityId ?? "nil")' communityName='\(communityName ?? "nil")'", level: .debug, category: .catch)
     AppLogging.log("[ResearcherSave] store \(CatchReportStore.shared.bindingDebugDescription)", level: .debug, category: .catch)
     AppLogging.log("[ResearcherSave] snapshot species='\(snapshot.species ?? "nil")' photo='\(snapshot.photoFilename ?? "nil")' headPhoto='\(snapshot.headPhotoFilename ?? "nil")'", level: .debug, category: .catch)
@@ -225,7 +233,7 @@ struct ResearcherLandingView: View {
       tripName: nil,
       tripStartDate: nil,
       tripEndDate: nil,
-      guideName: nil,
+      guideName: researcherName.isEmpty ? nil : researcherName,
       community: communityName,
       communityId: communityId,
       lodge: nil,
