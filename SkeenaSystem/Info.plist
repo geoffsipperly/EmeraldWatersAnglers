@@ -80,6 +80,8 @@
 	<string>$(GEAR_URL)</string>
 	<key>IMAGE_COMPRESSION_QUALITY</key>
 	<string>$(IMAGE_COMPRESSION_QUALITY)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LODGE_RIVERS</key>
 	<string>$(LODGE_RIVERS)</string>
 	<key>LODGE_WATER_BODIES</key>

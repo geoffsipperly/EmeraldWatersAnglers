@@ -555,9 +555,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Mad Thinker";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access allows adding a photo of the catch";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Used for streamlined login";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "We use location to help identify where catches occur";
-				INFOPLIST_KEY_NSLocationUsageDescription = "We tag notes with your location to help conservation efforts";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Location is used to stamp catch reports with GPS coordinates";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Your location tags each catch report with the river or water body where you caught the fish, so you can find and share exactly where it happened.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "We use the microphone so you can record field notes";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Used to save selected photos if needed";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Photo library access allows selecting a photo of the catch";
@@ -604,9 +602,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Mad Thinker";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access allows adding a photo of the catch";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Used for streamlined login";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "We use location to help identify where catches occur";
-				INFOPLIST_KEY_NSLocationUsageDescription = "We tag notes with your location to help conservation efforts";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Location is used to stamp catch reports with GPS coordinates";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Your location tags each catch report with the river or water body where you caught the fish, so you can find and share exactly where it happened.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "We use the microphone so you can record field notes";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Used to save selected photos if needed";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Photo library access allows selecting a photo of the catch";
@@ -852,9 +848,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Mad Thinker";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access allows adding a photo of the catch";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Used for streamlined login";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "We use location to help identify where catches occur";
-				INFOPLIST_KEY_NSLocationUsageDescription = "We tag notes with your location to help conservation efforts";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Location is used to stamp catch reports with GPS coordinates";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Your location tags each catch report with the river or water body where you caught the fish, so you can find and share exactly where it happened.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "We use the microphone so you can record field notes";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Used to save selected photos if needed";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Photo library access allows selecting a photo of the catch";
@@ -992,9 +986,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Mad Thinker";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access allows adding a photo of the catch";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Used for streamlined login";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "We use location to help identify where catches occur";
-				INFOPLIST_KEY_NSLocationUsageDescription = "We tag notes with your location to help conservation efforts";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Location is used to stamp catch reports with GPS coordinates";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Your location tags each catch report with the river or water body where you caught the fish, so you can find and share exactly where it happened.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "We use the microphone so you can record field notes";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Used to save selected photos if needed";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Photo library access allows selecting a photo of the catch";
