@@ -76,6 +76,7 @@ struct PublicLandingView: View {
   private var E_CATCH_MAP: Bool { communityService.activeCommunityConfig.flag("E_CATCH_MAP") }
 
   @State private var goToAssistant = false
+  @State private var goToManageAccount = false
   @State private var showRecordActivity = false
 
   // Catch report data
@@ -108,6 +109,9 @@ struct PublicLandingView: View {
           goToAssistant = false
         })
           .navigationBarTitleDisplayMode(.inline)
+      }
+      .navigationDestination(isPresented: $goToManageAccount) {
+        ManageProfileView().environmentObject(auth)
       }
       .navigationDestination(isPresented: $showRecordActivity) {
         RecordActivityView()
@@ -161,7 +165,14 @@ struct PublicLandingView: View {
       }
       .toolbar {
         ToolbarItem(placement: .navigationBarLeading) {
-          CommunityToolbarButton()
+          HStack(spacing: 12) {
+            Button(action: { goToManageAccount = true }) {
+              Image(systemName: "person.circle")
+                .font(.title3.weight(.semibold))
+                .foregroundColor(.white)
+            }
+            CommunityToolbarButton()
+          }
         }
         ToolbarItem(placement: .navigationBarTrailing) {
           Button(action: logoutTapped) {

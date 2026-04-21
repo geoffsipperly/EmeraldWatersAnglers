@@ -77,6 +77,7 @@ enum ManageProfileAPI {
 struct ManageProfileView: View {
   @Environment(\.dismiss) private var dismiss
   @EnvironmentObject private var auth: AuthService
+  @ObservedObject private var communityService = CommunityService.shared
 
   @State private var profile = MyProfile()
   @State private var originalProfile = MyProfile()
@@ -85,6 +86,8 @@ struct ManageProfileView: View {
   @State private var errorText: String?
   @State private var infoText: String?
   @State private var showUnsavedConfirm = false
+  @State private var showLeaveCommunityConfirm = false
+  @State private var showDeleteAccountConfirm = false
 
   @State private var dobDate: Date = Date()
   @State private var originalDobDate: Date = Date()
@@ -104,12 +107,14 @@ struct ManageProfileView: View {
         if #available(iOS 16.0, *) {
           Form {
             profileFields
+            dangerSection
           }
           .scrollContentBackground(.hidden)
           .background(Color.black)
         } else {
           Form {
             profileFields
+            dangerSection
           }
           .background(Color.black)
         }
@@ -153,7 +158,71 @@ struct ManageProfileView: View {
       Button("Discard Changes", role: .destructive) { dismiss() }
       Button("Cancel", role: .cancel) {}
     }
+    .alert("Leave \(communityService.activeCommunityName)?", isPresented: $showLeaveCommunityConfirm) {
+      Button("Cancel", role: .cancel) {}
+      Button("OK", role: .destructive) { Task { await leaveCommunityTapped() } }
+    } message: {
+      Text("This cannot be undone. All member data associated with \(communityService.activeCommunityName) will be permanently deleted.")
+    }
+    .alert("Delete Mad Thinker Account?", isPresented: $showDeleteAccountConfirm) {
+      Button("Cancel", role: .cancel) {}
+      Button("OK", role: .destructive) { Task { await deleteAccountTapped() } }
+    } message: {
+      Text("This cannot be undone. All member data associated with Mad Thinker will be permanently deleted.")
+    }
     .task { await loadProfile() }
+  }
+
+  // MARK: - Danger zone
+
+  @ViewBuilder
+  private var dangerSection: some View {
+    Section {
+      Button(role: .destructive) {
+        showLeaveCommunityConfirm = true
+      } label: {
+        HStack {
+          Image(systemName: "person.fill.xmark")
+          Text("Leave \(communityService.activeCommunityName)")
+        }
+        .font(.callout.weight(.semibold))
+        .foregroundColor(.red)
+      }
+      .accessibilityIdentifier("leaveCommunityButton")
+
+      Button(role: .destructive) {
+        showDeleteAccountConfirm = true
+      } label: {
+        HStack {
+          Image(systemName: "trash")
+          Text("Delete Mad Thinker Account")
+        }
+        .font(.callout.weight(.semibold))
+        .foregroundColor(.red)
+      }
+      .accessibilityIdentifier("deleteAccountButton")
+    }
+    .listRowBackground(Color.white.opacity(0.04))
+  }
+
+  // MARK: - Destructive actions (backend stubs)
+
+  private func leaveCommunityTapped() async {
+    // TODO: Call backend `leave-community` service. On success, sign out so
+    // AppRootView returns the user to the login screen.
+    AppLogging.log("[ManageProfile] Leave community tapped — backend not yet wired.", level: .info, category: .auth)
+    await MainActor.run {
+      infoText = "Leave Community is coming soon."
+    }
+  }
+
+  private func deleteAccountTapped() async {
+    // TODO: Call backend `delete-account` service. On success, sign out so
+    // AppRootView returns the user to the login screen.
+    AppLogging.log("[ManageProfile] Delete account tapped — backend not yet wired.", level: .info, category: .auth)
+    await MainActor.run {
+      infoText = "Delete Account is coming soon."
+    }
   }
 
   // MARK: - Profile Fields

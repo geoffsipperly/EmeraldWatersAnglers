@@ -21,6 +21,7 @@ struct GuideLandingView: View {
 
   // Navigation
   @State private var showRecordActivity = false
+  @State private var goToManageAccount = false
 
   // Location (for weather)
   @StateObject private var locationManager = LocationManager()
@@ -57,6 +58,9 @@ struct GuideLandingView: View {
         .environment(\.guideNavigateTo, handleGuideNavigateTo)
         .environmentObject(auth)
       }
+      .navigationDestination(isPresented: $goToManageAccount) {
+        ManageProfileView().environmentObject(auth)
+      }
       // Farmed list nav removed — farmed marks are now in Activities → Observations → Marks
       .navigationDestination(for: GuideDestination.self) { dest in
         switch dest {
@@ -91,9 +95,16 @@ struct GuideLandingView: View {
         }
       }
       .toolbar {
-        // Leading community switcher (only visible with multiple communities)
+        // Leading manage-profile + community switcher
         ToolbarItem(placement: .navigationBarLeading) {
-          CommunityToolbarButton()
+          HStack(spacing: 12) {
+            Button(action: { goToManageAccount = true }) {
+              Image(systemName: "person.circle")
+                .font(.title3.weight(.semibold))
+                .foregroundColor(.white)
+            }
+            CommunityToolbarButton()
+          }
         }
         // Leading ops tickets button (guides only, when isOpsActive)
         if isOpsActive {

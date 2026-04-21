@@ -16,6 +16,7 @@ struct ResearcherLandingView: View {
   @StateObject private var loc = LocationManager()
 
   @State private var showConfirmation = false
+  @State private var goToManageAccount = false
 
   // Path-based nav so the bottom toolbar's "Catches" button can push the
   // reports list the same way guide/public landing views do.
@@ -54,6 +55,9 @@ struct ResearcherLandingView: View {
           CatchChatView(viewModel: chatVM)
         }
       }
+      .navigationDestination(isPresented: $goToManageAccount) {
+        ManageProfileView().environmentObject(auth)
+      }
       .navigationDestination(for: GuideDestination.self) { dest in
         // Researchers share the publicToolbar layout (Home, Catches, Social,
         // Learn) so we only handle destinations that the toolbar actually
@@ -78,7 +82,14 @@ struct ResearcherLandingView: View {
       }
       .toolbar {
         ToolbarItem(placement: .navigationBarLeading) {
-          CommunityToolbarButton()
+          HStack(spacing: 12) {
+            Button(action: { goToManageAccount = true }) {
+              Image(systemName: "person.circle")
+                .font(.title3.weight(.semibold))
+                .foregroundColor(.white)
+            }
+            CommunityToolbarButton()
+          }
         }
         ToolbarItem(placement: .navigationBarTrailing) {
           Button(action: logoutTapped) {
