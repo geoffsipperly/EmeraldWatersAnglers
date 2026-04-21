@@ -22,7 +22,6 @@ struct MemberRegistrationView: View {
 
   // MARK: - Form fields
 
-  @State private var userType: AuthService.UserType = .guide
   @State private var communityCode: String = ""
 
   @State private var firstName: String = ""
@@ -43,12 +42,11 @@ struct MemberRegistrationView: View {
 
   @State private var isBusy = false
   @State private var errorText: String?
-  @State private var showAnglerLanding = false
 
+  // MARK: - Policy URLs
 
-  // Terms & Conditions
-  @State private var hasAgreedToTerms = false
-  @State private var showTermsSheet = false
+  private let privacyPolicyURL = URL(string: "https://madthinkertech.com/privacy-policy")!
+  private let acceptableUsePolicyURL = URL(string: "https://madthinkertech.com/acceptable-use-policy")!
 
   // MARK: - Password requirements
 
@@ -85,25 +83,13 @@ struct MemberRegistrationView: View {
   }
 
   private var canRegister: Bool {
-    !isBusy && hasAgreedToTerms && isPasswordValid && allFieldsFilled
+    !isBusy && isPasswordValid && allFieldsFilled
   }
 
   /// Validation for the invite-based registration path (no name/license required)
   private var canRegisterInvite: Bool {
-    !isBusy && hasAgreedToTerms && isPasswordValid && isEmailValid && isCommunityCodeValid
+    !isBusy && isPasswordValid && isEmailValid && isCommunityCodeValid
   }
-
-    private var termsRole: TermsRole {
-      userType == .guide ? .guide : .angler
-    }
-
-    private var termsTitle: String {
-      TermsStore.title(for: termsRole)
-    }
-
-    private var termsBodyText: String {
-      TermsStore.bodyText(for: termsRole)
-    }
 
   // Shared style for compact fields
   private func fieldBackground<Content: View>(_ content: Content) -> some View {
@@ -140,20 +126,6 @@ struct MemberRegistrationView: View {
     }
     .navigationBarTitleDisplayMode(.inline)
     .navigationTitle("Registration")
-    // Route anglers to the new screen
-    .fullScreenCover(isPresented: $showAnglerLanding) {
-      AnglerLandingView()
-        .preferredColorScheme(.dark)
-    }
-
-    // Terms sheet
-    .sheet(isPresented: $showTermsSheet) {
-      TermsAndConditionsView(
-        title: termsTitle,
-        bodyText: termsBodyText
-      )
-      .preferredColorScheme(.dark)
-    }
   }
 
   // MARK: - Composed subviews
@@ -263,48 +235,15 @@ struct MemberRegistrationView: View {
       communityCodeField
       emailField
       passwordFields
-      inviteTermsBlock
     }
     .padding(.horizontal)
   }
 
   @ViewBuilder
-  private var inviteTermsBlock: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      HStack(alignment: .top, spacing: 8) {
-        Button {
-          hasAgreedToTerms.toggle()
-        } label: {
-          Image(systemName: hasAgreedToTerms ? "checkmark.square.fill" : "square")
-            .font(.title3.weight(.semibold))
-            .foregroundColor(hasAgreedToTerms ? .blue : .white)
-        }
-        .buttonStyle(.plain)
-
-        VStack(alignment: .leading, spacing: 4) {
-          Text("By checking this box, I agree to the terms & conditions.")
-            .font(.footnote)
-            .foregroundColor(.white)
-            .fixedSize(horizontal: false, vertical: true)
-
-          Button {
-            showTermsSheet = true
-          } label: {
-            Text("View Terms & Conditions")
-              .font(.footnote.weight(.semibold))
-              .underline()
-              .foregroundColor(.blue)
-          }
-          .buttonStyle(.plain)
-        }
-      }
-    }
-    .padding(.top, 2)
-  }
-
-  @ViewBuilder
   private var inviteRegisterButtonBar: some View {
-    VStack {
+    VStack(spacing: 8) {
+      policyAgreementText
+
       Button {
         Task { await createInviteAccountTapped() }
       } label: {
@@ -323,9 +262,9 @@ struct MemberRegistrationView: View {
         .padding(.horizontal)
       }
       .disabled(!canRegisterInvite)
-      .padding(.top, 4)
       .padding(.bottom, 10)
     }
+    .padding(.top, 4)
     .background(Color.black.ignoresSafeArea(edges: .bottom))
   }
 
@@ -359,42 +298,12 @@ struct MemberRegistrationView: View {
   @ViewBuilder
   private var registrationForm: some View {
     VStack(spacing: 10) {
-      rolePicker
       nameFields
       telephoneField
       emailField
       passwordFields
-      termsBlock
     }
     .padding(.horizontal)
-  }
-
-  @ViewBuilder
-  private var rolePicker: some View {
-    HStack(spacing: 0) {
-      roleTab("Guide", type: .guide)
-      roleTab("Angler", type: .angler)
-    }
-    .background(Color.white.opacity(0.08))
-    .cornerRadius(10)
-  }
-
-  private func roleTab(_ label: String, type: AuthService.UserType) -> some View {
-    Button {
-      if userType != type {
-        userType = type
-        resetFormForRoleChange()
-      }
-    } label: {
-      Text(label)
-        .font(.subheadline.weight(.semibold))
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(userType == type ? Color.blue : Color.clear)
-        .foregroundColor(userType == type ? .white : .gray)
-        .cornerRadius(10)
-    }
-    .buttonStyle(.plain)
   }
 
   @ViewBuilder
@@ -531,51 +440,36 @@ struct MemberRegistrationView: View {
 
   private func passwordRequirement(_ text: String, met: Bool) -> some View {
     HStack(spacing: 4) {
-      Image(systemName: met ? "checkmark.circle.fill" : "xmark.circle")
-        .foregroundColor(met ? .green : .red)
+      Image(systemName: met ? "checkmark.circle.fill" : "circle")
         .font(.caption2)
-        .foregroundColor(.green)
+        .foregroundColor(met ? .green : .gray)
         .frame(width: 12)
       Text(text)
         .font(.caption2)
-        .foregroundColor(met ? .green : .red)
+        .foregroundColor(met ? .green : .gray)
     }
   }
 
   @ViewBuilder
-  private var termsBlock: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      HStack(alignment: .top, spacing: 8) {
-        Button {
-          hasAgreedToTerms.toggle()
-        } label: {
-          Image(systemName: hasAgreedToTerms ? "checkmark.square.fill" : "square")
-            .font(.title3.weight(.semibold))
-            .foregroundColor(hasAgreedToTerms ? .blue : .white)
-        }
-        .buttonStyle(.plain)
-
-        VStack(alignment: .leading, spacing: 4) {
-          Text(
-            "By checking this box, I agree to the \(userType == .guide ? "guide" : "angler") terms & conditions."
-          )
-          .font(.footnote)
-          .foregroundColor(.white)
-          .fixedSize(horizontal: false, vertical: true)
-
-          Button {
-            showTermsSheet = true
-          } label: {
-            Text("View \(termsTitle)")
-              .font(.footnote.weight(.semibold))
-              .underline()
-              .foregroundColor(.blue)
-          }
-          .buttonStyle(.plain)
-        }
+  private var policyAgreementText: some View {
+    VStack(spacing: 2) {
+      Text("By clicking Register, you agree to our")
+        .font(.caption)
+        .foregroundColor(.gray)
+      HStack(spacing: 4) {
+        Link("Privacy Policy", destination: privacyPolicyURL)
+          .font(.caption.weight(.semibold))
+          .foregroundColor(.blue)
+        Text("and")
+          .font(.caption)
+          .foregroundColor(.gray)
+        Link("Acceptable Use Policy", destination: acceptableUsePolicyURL)
+          .font(.caption.weight(.semibold))
+          .foregroundColor(.blue)
       }
     }
-    .padding(.top, 2)
+    .multilineTextAlignment(.center)
+    .padding(.horizontal)
   }
 
   @ViewBuilder
@@ -591,7 +485,9 @@ struct MemberRegistrationView: View {
 
   @ViewBuilder
   private var registerButtonBar: some View {
-    VStack {
+    VStack(spacing: 8) {
+      policyAgreementText
+
       Button {
         Task { await createAccountTapped() }
       } label: {
@@ -610,9 +506,9 @@ struct MemberRegistrationView: View {
         .padding(.horizontal)
       }
       .disabled(!canRegister)
-      .padding(.top, 4)
       .padding(.bottom, 10)
     }
+    .padding(.top, 4)
     .background(Color.black.ignoresSafeArea(edges: .bottom))
   }
 
@@ -620,10 +516,6 @@ struct MemberRegistrationView: View {
 
   /// Invite-based registration (Path A): only community code, email, password
   private func createInviteAccountTapped() async {
-    guard hasAgreedToTerms else {
-      errorText = "Please agree to the Terms and Conditions before registering."
-      return
-    }
     guard !email.isEmpty, !password.isEmpty else {
       errorText = "Please enter email and password."
       return
@@ -656,11 +548,6 @@ struct MemberRegistrationView: View {
 
   /// Full registration (Path B): all fields required
   private func createAccountTapped() async {
-    guard hasAgreedToTerms else {
-      errorText = "Please agree to the Terms and Conditions before registering."
-      return
-    }
-
     guard !email.isEmpty, !password.isEmpty else {
       errorText = "Please enter email and password."
       return
@@ -691,28 +578,9 @@ struct MemberRegistrationView: View {
     errorText = nil
     isBusy = true
 
-    if userType == .guide {
-      // GUIDE REGISTRATION FLOW
-      do {
-        try await auth.signUp(
-          email: email.trimmingCharacters(in: .whitespaces),
-          password: password,
-          firstName: firstName,
-          lastName: lastName,
-          userType: userType,
-          communityCode: code.isEmpty ? nil : code
-        )
-        dismiss()
-      } catch {
-        errorText = error.localizedDescription
-      }
-      isBusy = false
-      return
-    }
-
-    // ANGLER REGISTRATION FLOW — member_id auto-generated on backend
+    // Public-community registration — member_id auto-generated on backend
     do {
-      try await supabaseSignUpAngler(
+      try await supabaseSignUp(
         email: email.trimmingCharacters(in: .whitespaces),
         password: password,
         firstName: firstName,
@@ -730,23 +598,21 @@ struct MemberRegistrationView: View {
       )
       AppLogging.log("[MemberRegistration] signIn complete — isAuthenticated=\(auth.isAuthenticated)", level: .info, category: .auth)
 
-      // Fetch memberships now so the community is auto-selected before the
-      // landing view appears. Without this, checkOnboarding() in
-      // AnglerLandingView fires before activeCommunityTypeName is set.
+      // Fetch memberships so AppRootView has the role + active community
+      // before it picks a landing view.
       await communityService.fetchMemberships()
       AppLogging.log("[MemberRegistration] fetchMemberships complete — activeCommunityId=\(communityService.activeCommunityId ?? "nil") typeName=\(communityService.activeCommunityTypeName ?? "nil") memberships=\(communityService.memberships.count)", level: .info, category: .auth)
 
-      showAnglerLanding = true
-      AppLogging.log("[MemberRegistration] showAnglerLanding = true", level: .info, category: .auth)
+      dismiss()
     } catch {
       errorText = error.localizedDescription
     }
     isBusy = false
   }
 
-  // MARK: - Supabase Signup (Anglers only)
+  // MARK: - Supabase Signup
 
-  private func supabaseSignUpAngler(
+  private func supabaseSignUp(
     email: String,
     password: String,
     firstName: String,
@@ -766,7 +632,7 @@ struct MemberRegistrationView: View {
     var dataPayload: [String: Any] = [
       "first_name": firstName,
       "last_name": lastName,
-      "user_type": "angler"
+      "user_type": "public"
     ]
     if let code = communityCode, !code.isEmpty { dataPayload["community_code"] = code }
 
@@ -811,21 +677,15 @@ struct MemberRegistrationView: View {
 
   // MARK: - Reset helpers
 
-  private func resetFormForRoleChange() {
+  private func resetAllFields() {
     firstName = ""
     lastName = ""
     email = ""
     password = ""
     confirm = ""
 
-    hasAgreedToTerms = false
     errorText = nil
 
     communityCode = ""
-  }
-
-  private func resetAllFields() {
-    resetFormForRoleChange()
-    userType = .guide
   }
 }

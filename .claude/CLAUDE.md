@@ -70,10 +70,10 @@ SkeenaSystem/
 ├── Services/           # API clients: TripAPI, OpsTicketsAPI, MapReportService, WeatherSnapshot,
 │                       #   CatchStoryService, MemberProfileFieldsAPI, APIURLUtilities
 ├── Stores/             # Observable state: CatchReportStore, ObservationStore, FarmedReportStore,
-│                       #   PhotoStore, TermsStore
+│                       #   PhotoStore
 ├── ViewModels/         # CatchChatViewModel, CatchCaptureContext, ResearcherCatchFlowManager
 ├── Views/
-│   ├── Auth/           # LoginView, CommunityPicker, CommunitySwitcher, JoinCommunity, Terms
+│   ├── Auth/           # LoginView, CommunityPicker, CommunitySwitcher, JoinCommunity
 │   ├── Shared/         # DarkPageTemplate, SectionChrome, Toast, SplashVideoView
 │   ├── Components/     # CommunityLogoView, SocialFeed
 │   ├── Map/            # Map views + callout views
@@ -81,7 +81,6 @@ SkeenaSystem/
 │   ├── Guide/          # Guide role views (landing, trips, reports, chat, observations, ops)
 │   ├── Public/         # Public role views (landing, explore, record activity)
 │   └── Researcher/     # Researcher role views (landing, conservation, catch confirmation)
-├── Terms/              # Markdown terms documents (angler_terms.md, guide_terms.md)
 ├── Persistence.swift   # Core Data stack + community seed
 └── SkeenaSystemApp.swift
 ```
