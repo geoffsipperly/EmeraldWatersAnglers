@@ -929,6 +929,7 @@ struct ReportChatView: View {
       initialGirthRatio: snapshot.initialGirthRatio,
       initialGirthRatioSource: snapshot.initialGirthRatioSource,
       conservationOptIn: snapshot.conservationOptIn,
+      mlTrainingOptOut: snapshot.mlTrainingOptOut,
       floyId: snapshot.floyId,
       pitId: snapshot.pitId,
       scaleCardId: snapshot.scaleCardId,

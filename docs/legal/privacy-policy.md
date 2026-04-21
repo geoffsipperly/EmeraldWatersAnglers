@@ -100,7 +100,7 @@ The Service uses machine-learning models to analyze photos you capture and estim
 
 **Model outputs are estimates, not authoritative identifications.** You can correct any AI-generated value in-app before submitting. Where accuracy matters (for example, legal size verification or scientific reporting), you should verify measurements yourself.
 
-We may use anonymized photos and feature vectors to improve our models. Public users can opt out of model-improvement use at Settings → Privacy → ML Training Data. For guides accessing the Service through a lodge, your per-catch conservation-sharing choice also governs whether that catch's data is used to improve our models; catches you exclude from conservation sharing are also excluded from model-improvement use.
+We may use anonymized photos and feature vectors to improve our models. Public users can opt out of model-improvement use from Manage Profile → Privacy. When the "Help improve species detection" toggle is turned off, all future catch and non-catch submissions are excluded from model training. For guides accessing the Service through a lodge, your per-catch conservation-sharing choice also governs whether that catch's data is used to improve our models; catches you exclude from conservation sharing are also excluded from model-improvement use.
 
 ## 6. Your Rights and Choices
 
@@ -117,7 +117,7 @@ We will respond to rights requests within 30 days. We may decline requests that 
 ### Sharing preferences
 
 - **Guides — conservation sharing:** per-catch control from the Guide landing view at the time of submission. Each catch can be individually opted in or out before upload.
-- **Public users — ML training data use:** opt out at Settings → Privacy → ML Training Data. Opting out prevents your anonymized catches from being used to improve our species and length estimation models.
+- **Public users — ML training data use:** toggle "Help improve species detection" from Manage Profile → Privacy. Turning it off prevents your anonymized catches from being used to improve our species and length estimation models.
 
 ### Communication preferences
 

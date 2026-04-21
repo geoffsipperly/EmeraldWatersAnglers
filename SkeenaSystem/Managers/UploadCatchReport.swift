@@ -118,6 +118,7 @@ nonisolated final class UploadCatchReport {
     let scaleCardId: String?
     let dnaNumber: String?
     let conservationOptIn: Bool?
+    let mlTrainingOptOut: Bool?
     let location: Location?
     let photo: Photo?
     /// Close-up back-of-head shot. Same wire shape as `photo`. Populated by
@@ -695,6 +696,7 @@ nonisolated final class UploadCatchReport {
       scaleCardId: r.scaleCardId,
       dnaNumber: r.dnaNumber,
       conservationOptIn: r.conservationOptIn,
+      mlTrainingOptOut: r.mlTrainingOptOut,
       location: location,
       photo: photo,
       headPhoto: headPhoto,

@@ -109,6 +109,14 @@ public struct CatchReport: Identifiable, Codable, Equatable {
   /// Optional so existing locally-stored JSON records decode cleanly (absent → nil → treated as false).
   public var conservationOptIn: Bool?
 
+  /// Whether the user opted this catch OUT of being used to train ML models.
+  /// Only ever `true` for public users who disabled the toggle in
+  /// ManageProfileView → Privacy. Lodge-provisioned users (guide/angler) and
+  /// conservation-agency researchers always send `false`. Maps to the upload
+  /// field `catch.mlTrainingOptOut` (default false server-side).
+  /// Optional for backward-compatible JSON decode.
+  public var mlTrainingOptOut: Bool?
+
   // Research tag & sample IDs (captured in the researcher/conservation flow).
   // All optional — only populated when the researcher chose the corresponding
   // study type or sample type. Map to the v5 upload fields of the same name.
@@ -180,6 +188,7 @@ public struct CatchReport: Identifiable, Codable, Equatable {
     initialGirthRatio: Double? = nil,
     initialGirthRatioSource: String? = nil,
     conservationOptIn: Bool? = nil,
+    mlTrainingOptOut: Bool? = nil,
     floyId: String? = nil,
     pitId: String? = nil,
     scaleCardId: String? = nil,
@@ -240,6 +249,7 @@ public struct CatchReport: Identifiable, Codable, Equatable {
     self.initialGirthRatio = initialGirthRatio
     self.initialGirthRatioSource = initialGirthRatioSource
     self.conservationOptIn = conservationOptIn
+    self.mlTrainingOptOut = mlTrainingOptOut
     self.floyId = floyId
     self.pitId = pitId
     self.scaleCardId = scaleCardId

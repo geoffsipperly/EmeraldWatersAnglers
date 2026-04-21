@@ -57,9 +57,16 @@ public struct FarmedReport: Identifiable, Codable, Equatable {
   /// still be decoded — the migration path drops such records.
   public var communityId: String?
 
+  /// Whether the user opted this report OUT of being used to train ML models.
+  /// Only ever `true` for public users who disabled the toggle in
+  /// ManageProfileView → Privacy. Lodge-provisioned users always send `false`.
+  /// Maps to the top-level upload field `mlTrainingOptOut` (default false
+  /// server-side). Optional for backward-compatible JSON decode.
+  public var mlTrainingOptOut: Bool?
+
   // Coding keys with default for backward compatibility with existing JSON on disk
   enum CodingKeys: String, CodingKey {
-    case id, createdAt, status, eventType, guideName, lat, lon, memberId, communityId
+    case id, createdAt, status, eventType, guideName, lat, lon, memberId, communityId, mlTrainingOptOut
   }
 
   public init(from decoder: Decoder) throws {
@@ -73,6 +80,7 @@ public struct FarmedReport: Identifiable, Codable, Equatable {
     lon = try container.decodeIfPresent(Double.self, forKey: .lon)
     memberId = try container.decodeIfPresent(String.self, forKey: .memberId)
     communityId = try container.decodeIfPresent(String.self, forKey: .communityId)
+    mlTrainingOptOut = try container.decodeIfPresent(Bool.self, forKey: .mlTrainingOptOut)
   }
 
   public init(
@@ -84,7 +92,8 @@ public struct FarmedReport: Identifiable, Codable, Equatable {
     lat: Double? = nil,
     lon: Double? = nil,
     memberId: String? = nil,
-    communityId: String? = nil
+    communityId: String? = nil,
+    mlTrainingOptOut: Bool? = nil
   ) {
     self.id = id
     self.createdAt = createdAt
@@ -95,6 +104,7 @@ public struct FarmedReport: Identifiable, Codable, Equatable {
     self.lon = lon
     self.memberId = memberId
     self.communityId = communityId
+    self.mlTrainingOptOut = mlTrainingOptOut
   }
 
   // Convenience

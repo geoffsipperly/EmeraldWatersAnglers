@@ -1,6 +1,6 @@
 {
   "version": "2026-04-10",
-  "generated": "2026-04-11T20:37:36.192Z",
+  "generated": "2026-04-21T20:56:02.365Z",
   "key_concepts": {
     "member_id": "UUID foreign key reference to a member record",
     "member_number": "Human-readable identifier in MAD Crockford Base32 format: MAD + 6 random chars (e.g., MAD4ZQ7H9)",
@@ -384,6 +384,11 @@
           "required": false,
           "description": "Conservation data sharing opt-in (default false)"
         },
+        "catch.mlTrainingOptOut": {
+          "type": "boolean",
+          "required": false,
+          "description": "Set true to opt this report OUT of being used to train ML models. Default false (data CAN be used)."
+        },
         "catch.location.lat": {
           "type": "number",
           "required": false,
@@ -577,6 +582,11 @@
           "type": "string",
           "required": true,
           "description": "App version"
+        },
+        "mlTrainingOptOut": {
+          "type": "boolean",
+          "required": false,
+          "description": "Set true to opt this report OUT of being used to train ML models. Default false (data CAN be used)."
         }
       }
     },

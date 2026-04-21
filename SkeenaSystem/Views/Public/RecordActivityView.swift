@@ -121,7 +121,10 @@ struct RecordActivityView: View {
       lat: locationManager.lastLocation?.coordinate.latitude,
       lon: locationManager.lastLocation?.coordinate.longitude,
       memberId: auth.currentMemberId,
-      communityId: CommunityService.shared.activeCommunityId
+      communityId: CommunityService.shared.activeCommunityId,
+      mlTrainingOptOut: auth.currentUserType == .public
+        ? MLTrainingOptOutStore.shared.isOptedOut
+        : false
     )
     FarmedReportStore.shared.add(report)
 

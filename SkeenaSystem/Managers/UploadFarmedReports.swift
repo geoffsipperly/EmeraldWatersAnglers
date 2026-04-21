@@ -59,6 +59,7 @@ nonisolated final class UploadFarmedReports {
     let guideName: String?
     let river: String
     let meta: MetaDTO
+    let mlTrainingOptOut: Bool?
   }
 
   private struct MetaDTO: Codable {
@@ -197,7 +198,8 @@ nonisolated final class UploadFarmedReports {
           appVersion: appVersion,
           device: device,
           platform: "iOS"
-        )
+        ),
+        mlTrainingOptOut: report.mlTrainingOptOut
       )
     }
 

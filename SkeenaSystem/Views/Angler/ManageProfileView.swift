@@ -79,6 +79,12 @@ struct ManageProfileView: View {
   @EnvironmentObject private var auth: AuthService
   @ObservedObject private var communityService = CommunityService.shared
 
+  // ML training opt-out (public users only). Uses a draft/original pair so
+  // the toggle participates in the Save button's dirty-state logic just like
+  // profile fields. Committed to `MLTrainingOptOutStore.shared` on save only.
+  @State private var mlOptOutDraft: Bool = MLTrainingOptOutStore.shared.isOptedOut
+  @State private var originalMlOptOut: Bool = MLTrainingOptOutStore.shared.isOptedOut
+
   @State private var profile = MyProfile()
   @State private var originalProfile = MyProfile()
   @State private var isLoading = false
@@ -89,10 +95,18 @@ struct ManageProfileView: View {
   @State private var showLeaveCommunityConfirm = false
   @State private var showDeleteAccountConfirm = false
 
-  @State private var dobDate: Date = Date()
-  @State private var originalDobDate: Date = Date()
+  // Optional so we can distinguish "never set" (nil) from "intentionally set".
+  // Previously defaulted to `Date()` which caused today's date to be silently
+  // written to the backend any time a user saved other profile changes without
+  // touching the DOB picker.
+  @State private var dobDate: Date? = nil
+  @State private var originalDobDate: Date? = nil
 
-  private var hasUnsavedChanges: Bool { originalProfile != profile || dobDate != originalDobDate }
+  private var hasUnsavedChanges: Bool {
+    originalProfile != profile
+      || dobDate != originalDobDate
+      || mlOptOutDraft != originalMlOptOut
+  }
 
   var body: some View {
     DarkPageTemplate {
@@ -107,6 +121,9 @@ struct ManageProfileView: View {
         if #available(iOS 16.0, *) {
           Form {
             profileFields
+            if auth.currentUserType == .public {
+              privacySection
+            }
             dangerSection
           }
           .scrollContentBackground(.hidden)
@@ -114,6 +131,9 @@ struct ManageProfileView: View {
         } else {
           Form {
             profileFields
+            if auth.currentUserType == .public {
+              privacySection
+            }
             dangerSection
           }
           .background(Color.black)
@@ -171,6 +191,31 @@ struct ManageProfileView: View {
       Text("This cannot be undone. All member data associated with Mad Thinker will be permanently deleted.")
     }
     .task { await loadProfile() }
+  }
+
+  // MARK: - Privacy (public users only)
+
+  @ViewBuilder
+  private var privacySection: some View {
+    Section {
+      Toggle(isOn: Binding(
+        get: { !mlOptOutDraft },
+        set: { mlOptOutDraft = !$0 }
+      )) {
+        Text("Help improve species detection")
+          .foregroundColor(.blue)
+          .font(.callout)
+      }
+      .tint(.blue)
+      .accessibilityIdentifier("mlTrainingOptOutToggle")
+    } header: {
+      Text("Privacy")
+    } footer: {
+      Text("Your anonymized catch photos and measurements help our models get better at identifying fish and improve your usability. Turn off to opt out of this use.")
+        .font(.caption)
+        .foregroundColor(.gray)
+    }
+    .listRowBackground(Color.white.opacity(0.04))
   }
 
   // MARK: - Danger zone
@@ -258,9 +303,27 @@ struct ManageProfileView: View {
       HStack {
         Text("Date of Birth").foregroundColor(.blue).font(.callout)
         Spacer()
-        DatePicker("Date of Birth", selection: $dobDate, displayedComponents: .date)
+        if let currentDob = dobDate {
+          DatePicker(
+            "Date of Birth",
+            selection: Binding(
+              get: { currentDob },
+              set: { dobDate = $0 }
+            ),
+            displayedComponents: .date
+          )
           .labelsHidden()
           .foregroundColor(.white)
+        } else {
+          Button("Set") {
+            // Seed with today when the user taps to set. They'll open the
+            // picker wheel to pick their actual DOB.
+            dobDate = Date()
+          }
+          .font(.callout.weight(.semibold))
+          .foregroundColor(.blue)
+          .accessibilityIdentifier("setDateOfBirthButton")
+        }
       }
       VStack(alignment: .leading, spacing: 4) {
         HStack {
@@ -344,6 +407,8 @@ struct ManageProfileView: View {
         f.dateFormat = "yyyy-MM-dd"
         if let d = f.date(from: dob) { dobDate = d }
       }
+      // If backend returned no DOB, dobDate stays nil so the UI shows
+      // "Set" instead of today's date.
 
       originalProfile = profile
       originalDobDate = dobDate
@@ -368,12 +433,17 @@ struct ManageProfileView: View {
       return
     }
 
-    let df = DateFormatter()
-    df.calendar = Calendar(identifier: .gregorian)
-    df.locale = Locale(identifier: "en_US_POSIX")
-    df.timeZone = TimeZone(secondsFromGMT: 0)
-    df.dateFormat = "yyyy-MM-dd"
-    profile.dateOfBirth = df.string(from: dobDate)
+    if let dob = dobDate {
+      let df = DateFormatter()
+      df.calendar = Calendar(identifier: .gregorian)
+      df.locale = Locale(identifier: "en_US_POSIX")
+      df.timeZone = TimeZone(secondsFromGMT: 0)
+      df.dateFormat = "yyyy-MM-dd"
+      profile.dateOfBirth = df.string(from: dob)
+    } else {
+      // User never set a DOB — don't send a stale/default value.
+      profile.dateOfBirth = nil
+    }
 
     let url: URL
     do {
@@ -411,6 +481,12 @@ struct ManageProfileView: View {
         let msg = String(data: data, encoding: .utf8) ?? ""
         errorText = "Save failed (\(code)). \(msg)"
         return
+      }
+
+      // Persist ML opt-out (public users) once the server save succeeded.
+      if auth.currentUserType == .public, mlOptOutDraft != originalMlOptOut {
+        MLTrainingOptOutStore.shared.isOptedOut = mlOptOutDraft
+        originalMlOptOut = mlOptOutDraft
       }
 
       infoText = "Saved."

@@ -989,6 +989,12 @@ final class CatchChatViewModel: ObservableObject {
     /// Maps to the v5 upload field `catch.conservationOptIn`.
     var conservationOptIn: Bool
 
+    /// Whether the user opted this catch OUT of ML training data use.
+    /// Only `true` for public users who turned off the toggle in
+    /// ManageProfileView → Privacy. Always `false` for guides, anglers,
+    /// and researchers. Maps to `catch.mlTrainingOptOut`.
+    var mlTrainingOptOut: Bool
+
     // Research tag / sample IDs — only populated when the researcher chose a
     // corresponding study or sample type during the post-measurement flow.
     // Map to the v5 upload fields of the same name.
@@ -1081,6 +1087,9 @@ final class CatchChatViewModel: ObservableObject {
       initialGirthRatio: researcherFlow?.initialGirthRatio,
       initialGirthRatioSource: researcherFlow?.initialGirthRatioSource,
       conservationOptIn: isResearcherRole || conservationMode,
+      mlTrainingOptOut: AuthService.shared.currentUserType == .public
+        ? MLTrainingOptOutStore.shared.isOptedOut
+        : false,
       // Floy tag and scale card barcode are captured today by the existing
       // researcher flow. PIT and DNA fields ship in Phase 3.5 and stay nil
       // until then — leaving them as stubs avoids a second round of plumbing.

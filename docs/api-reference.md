@@ -1,7 +1,7 @@
 # Mad Thinker Platform API Reference
 
 **Version:** 2026-04-10
-**Generated:** 2026-04-11T20:37:34.761Z
+**Generated:** 2026-04-21T20:56:01.963Z
 
 ## Key Concepts
 
@@ -255,6 +255,7 @@ Upload catch reports with conservation research fields. Writes to catch_reports 
 | catch.scaleCardId | string | ❌ | Scale card barcode ID |
 | catch.dnaNumber | string | ❌ | DNA sample number |
 | catch.conservationOptIn | boolean | ❌ | Conservation data sharing opt-in (default false) |
+| catch.mlTrainingOptOut | boolean | ❌ | Set true to opt this report OUT of being used to train ML models. Default false (data CAN be used). |
 | catch.location.lat | number | ❌ | Latitude |
 | catch.location.lon | number | ❌ | Longitude |
 | catch.photo | object | ❌ | Full fish photo: { filename, mimeType, data_base64 } or { url } |
@@ -369,6 +370,7 @@ Report non-catch events (active fishing, farmed out, promising water, passed wat
 | location.lat | number | ✅ | Latitude |
 | location.lon | number | ✅ | Longitude |
 | meta.appVersion | string | ✅ | App version |
+| mlTrainingOptOut | boolean | ❌ | Set true to opt this report OUT of being used to train ML models. Default false (data CAN be used). |
 
 ---
 
