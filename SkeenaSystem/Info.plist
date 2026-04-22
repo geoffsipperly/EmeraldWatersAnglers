@@ -86,6 +86,8 @@
 	<string>$(LODGE_RIVERS)</string>
 	<key>LODGE_WATER_BODIES</key>
 	<string>$(LODGE_WATER_BODIES)</string>
+	<key>LOG_CATEGORIES</key>
+	<string>$(LOG_CATEGORIES)</string>
 	<key>LOG_LEVEL</key>
 	<string>$(LOG_LEVEL)</string>
 	<key>MANAGE_TRIP_URL</key>

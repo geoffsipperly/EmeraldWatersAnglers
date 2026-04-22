@@ -137,7 +137,7 @@ final class CatchPhotoAnalyzer {
 
     let speciesText: String?
     var detectedSpeciesLabel: String? = nil
-    let lowConfidenceThreshold: Float = 0.3
+    let lowConfidenceThreshold = AppEnvironment.shared.speciesDetectionThreshold
     if let vit = vitResult,
        vit.index >= 0,
        vit.index < speciesLabels.count {

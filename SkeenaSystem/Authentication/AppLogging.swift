@@ -30,10 +30,11 @@ public enum LogCategory: String, CaseIterable, Hashable {
 
 public struct AppLogging {
   // Global master switch
-  public static var enabled: Bool = true 
+  public static var enabled: Bool = true
 
-  // Per-category switches (default to all enabled)
-  public static var enabledCategories: Set<LogCategory> = Set(LogCategory.allCases)
+  // Per-category switches. Resolved from Info.plist "LOG_CATEGORIES" (comma-separated
+  // category names, e.g. "ml,catch,angler"). Empty/missing = all categories enabled.
+  public static var enabledCategories: Set<LogCategory> = resolveCategoriesFromInfoPlist()
 
   // Resolve minimum log level from Info.plist keys: prefers "LOG_LEVEL", falls back to "Log Level".
   private static func resolveMinimumLevelFromInfoPlist() -> LogLevel {
@@ -49,6 +50,25 @@ public struct AppLogging {
     default:
       return .debug
     }
+  }
+
+  /// Parse a comma-separated category list. Empty/whitespace-only yields all categories.
+  /// Unknown tokens are ignored. Matching is case-insensitive against `LogCategory.rawValue`.
+  /// If every token is unknown, falls back to all categories so logging isn't silently disabled.
+  static func parseCategories(_ raw: String) -> Set<LogCategory> {
+    let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    if trimmed.isEmpty { return Set(LogCategory.allCases) }
+
+    let tokens = trimmed.split(separator: ",").map {
+      $0.trimmingCharacters(in: .whitespaces).lowercased()
+    }
+    let resolved = tokens.compactMap { LogCategory(rawValue: $0) }
+    return resolved.isEmpty ? Set(LogCategory.allCases) : Set(resolved)
+  }
+
+  private static func resolveCategoriesFromInfoPlist() -> Set<LogCategory> {
+    let raw = (Bundle.main.object(forInfoDictionaryKey: "LOG_CATEGORIES") as? String) ?? ""
+    return parseCategories(raw)
   }
 
   public static var minimumLevel: LogLevel = resolveMinimumLevelFromInfoPlist()
@@ -83,6 +103,9 @@ public struct AppLogging {
               (Bundle.main.object(forInfoDictionaryKey: "Log Level") as? String) ?? "<missing>"
     let logger = Logger(subsystem: subsystem, category: "system")
     logger.error("Resolved LOG_LEVEL (Info.plist): \(raw, privacy: .public). Effective minimum: \(String(describing: minimumLevel), privacy: .public)")
+    let rawCats = (Bundle.main.object(forInfoDictionaryKey: "LOG_CATEGORIES") as? String) ?? "<missing>"
+    let effectiveCats = enabledCategories.map { $0.rawValue }.sorted().joined(separator: ",")
+    logger.error("Resolved LOG_CATEGORIES (Info.plist): \(rawCats, privacy: .public). Effective: \(effectiveCats, privacy: .public)")
   }()
 
   // Primary logging API

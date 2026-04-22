@@ -14,6 +14,9 @@ SUPABASE_PROJECT_URL = https://koyegehcwcrvxpfthkxq.supabase.co
 API_BASE_URL = koyegehcwcrvxpfthkxq.supabase.co
 SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtveWVnZWhjd2NydnhwZnRoa3hxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjE3MzMsImV4cCI6MjA4OTMzNzczM30.XVjI2BRX0-XdHQFK_Vas2jc7zZN32DCXRVKtnsbQQGk
 LOG_LEVEL = error
+// Comma-separated log category allowlist. Empty = all categories enabled.
+// Leave empty in prod so error logs from any subsystem are preserved.
+LOG_CATEGORIES =
 
 // ──────────────────────────────────────────────
 // MARK: - Entitlements
@@ -104,7 +107,7 @@ IMAGE_COMPRESSION_QUALITY = 0.85
 // MARK: - Fish Detection ML Calibration
 // ──────────────────────────────────────────────
 
-SPECIES_DETECTION_THRESHOLD = 0.80
+SPECIES_DETECTION_THRESHOLD = 0.3
 FISH_DETECT_MIN_CONFIDENCE = 0.08
 FISH_BOX_SCALE_FACTOR = 0.59
 FISH_PIXELS_PER_INCH = 11.7

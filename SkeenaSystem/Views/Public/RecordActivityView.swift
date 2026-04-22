@@ -19,6 +19,7 @@ struct RecordActivityView: View {
 
   // Navigation
   @State private var goToAssistant = false
+  @State private var showRecordObservation = false
 
   // No-catch tile feedback
   @State private var savedEventType: NoCatchEventType? = nil
@@ -34,7 +35,7 @@ struct RecordActivityView: View {
             }
             .accessibilityIdentifier("landedTile")
 
-            Button { guideNavigateTo(.observations) } label: {
+            Button { showRecordObservation = true } label: {
               actionTile(icon: "waveform", label: "Record Observation")
             }
             .accessibilityIdentifier("observationsTile")
@@ -106,6 +107,14 @@ struct RecordActivityView: View {
     .onAppear {
       locationManager.request()
       locationManager.start()
+    }
+    .fullScreenCover(isPresented: $showRecordObservation) {
+      RecordObservationSheet { _ in
+        showRecordObservation = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+          dismiss()
+        }
+      }
     }
   }
 
