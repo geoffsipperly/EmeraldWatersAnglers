@@ -8,6 +8,11 @@ final class ObservationStore: ObservableObject {
 
   @Published private(set) var observations: [Observation] = []
 
+  /// Count of observations still waiting to be uploaded.
+  var pendingCount: Int {
+    observations.filter { $0.status == .savedLocally }.count
+  }
+
   private let fm = FileManager.default
   private let directoryURL: URL
   private let encoder: JSONEncoder

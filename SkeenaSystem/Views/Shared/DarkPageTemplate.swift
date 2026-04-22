@@ -68,6 +68,7 @@ struct RoleAwareToolbar: View {
   @Environment(\.navigateTo) private var navigateTo
   @Environment(\.guideNavigateTo) private var guideNavigateTo
   @ObservedObject private var communityService = CommunityService.shared
+  @ObservedObject private var pendingUploads = PendingUploadSummary.shared
 
   private var socialDisabled: Bool { !communityService.isSocialActive }
 
@@ -107,7 +108,7 @@ struct RoleAwareToolbar: View {
     ToolbarTab(icon: "house", label: "Home") {
       guideNavigateTo(nil)
     }
-    ToolbarTab(icon: "safari", label: "Activities") {
+    ToolbarTab(icon: "safari", label: "Activities", badgeCount: pendingUploads.totalPending) {
       if activeTab != "activities" { guideNavigateTo(.activities) }
     }
     if !socialDisabled {
@@ -128,7 +129,7 @@ struct RoleAwareToolbar: View {
     ToolbarTab(icon: "mountain.2", label: "Trips") {
       if activeTab != "trips" { guideNavigateTo(.trips) }
     }
-    ToolbarTab(icon: "safari", label: "Activities") {
+    ToolbarTab(icon: "safari", label: "Activities", badgeCount: pendingUploads.totalPending) {
       if activeTab != "activities" { guideNavigateTo(.activities) }
     }
     if !socialDisabled {
@@ -246,10 +247,12 @@ struct AppHeader: View {
 /// A single tab button used in the pinned bottom toolbar.
 /// Provides a consistent icon + label layout across all views.
 /// Set `disabled: true` to render the tab greyed-out and non-interactive.
+/// Set `badgeCount` > 0 to overlay a small upload-pending indicator.
 struct ToolbarTab: View {
   let icon: String
   let label: String
   var disabled: Bool = false
+  var badgeCount: Int? = nil
   let action: () -> Void
 
   var body: some View {
@@ -258,6 +261,20 @@ struct ToolbarTab: View {
         Image(systemName: icon)
           .font(.system(size: 22))
           .foregroundColor(disabled ? .gray.opacity(0.4) : .white.opacity(0.85))
+          .overlay(alignment: .topTrailing) {
+            if let count = badgeCount, count > 0 {
+              Image(systemName: "arrow.up.circle.fill")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.blue)
+                .background(
+                  Circle()
+                    .fill(Color(UIColor.systemGray6))
+                    .frame(width: 14, height: 14)
+                )
+                .offset(x: 8, y: -4)
+                .accessibilityLabel("\(count) pending upload\(count == 1 ? "" : "s")")
+            }
+          }
         Text(label)
           .font(.caption2)
           .foregroundColor(disabled ? .gray.opacity(0.4) : .gray)

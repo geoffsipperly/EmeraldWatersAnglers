@@ -26,6 +26,11 @@ nonisolated final class FarmedReportStore: ObservableObject {
 
   @Published private(set) var reports: [FarmedReport] = []
 
+  /// Count of farmed reports still waiting to be uploaded.
+  var pendingCount: Int {
+    reports.filter { $0.status == .savedLocally }.count
+  }
+
   private let fm = FileManager.default
   private let rootDirectoryURL: URL
   private let encoder: JSONEncoder
