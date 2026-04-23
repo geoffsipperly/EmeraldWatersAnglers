@@ -78,6 +78,7 @@ struct PublicLandingView: View {
   @State private var goToAssistant = false
   @State private var goToManageAccount = false
   @State private var showRecordActivity = false
+  @State private var showWelcome = false
 
   // Catch report data
   @State private var reports: [CatchReportDTO] = []
@@ -189,6 +190,7 @@ struct PublicLandingView: View {
       .onAppear {
         locationManager.request()
         locationManager.start()
+        checkWelcome()
         Task {
           await fetchReports()
           await fetchMapReports()
@@ -211,10 +213,18 @@ struct PublicLandingView: View {
         AppLogging.log("[PublicLandingView] onChange(currentMemberId) -> \(newValue ?? "nil") — clearing stale reports and refetching", level: .info, category: .catch)
         reports = []
         mapReports = []
+        checkWelcome()
         Task {
           await fetchReports()
           await fetchMapReports()
         }
+      }
+      .fullScreenCover(isPresented: $showWelcome) {
+        PublicWelcomeView(onDismiss: {
+          if let key = welcomeKey() {
+            UserDefaults.standard.set(true, forKey: key)
+          }
+        })
       }
     }
     .environment(\.userRole, .public)
@@ -620,6 +630,23 @@ struct PublicLandingView: View {
         AuthStore.shared.clear()
       }
     }
+  }
+
+  // MARK: - Welcome (first-login overview)
+
+  /// Per-member key so each new public member sees the welcome once.
+  /// Returns nil until auth has resolved a memberId — the onChange(currentMemberId)
+  /// handler re-runs checkWelcome() once it's available.
+  private func welcomeKey() -> String? {
+    guard let mid = auth.currentMemberId else { return nil }
+    return "publicWelcome_\(mid)"
+  }
+
+  private func checkWelcome() {
+    guard let key = welcomeKey() else { return }
+    guard !UserDefaults.standard.bool(forKey: key) else { return }
+    guard !showWelcome else { return }
+    showWelcome = true
   }
 
   // MARK: - Navigation
