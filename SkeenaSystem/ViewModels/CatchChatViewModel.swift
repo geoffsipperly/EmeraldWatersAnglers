@@ -679,6 +679,7 @@ final class CatchChatViewModel: ObservableObject {
   /// in `CatchPhotoAnalyzer.swift`. When adding a species, update both in lockstep
   /// (see the `/new-species` slash command in `.claude/commands/`).
   private static let speciesDisplayNames: [String: String] = [
+    "atlantic salmon": "Atlantic Salmon",
     "sea run trout": "Sea-Run Trout",
     "steelhead": "Steelhead",
     "other": "Bi-catch",
