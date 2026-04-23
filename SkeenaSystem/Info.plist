@@ -36,6 +36,8 @@
 	<string>$(DEFAULT_RIVER)</string>
 	<key>DEFAULT_WATER_BODY</key>
 	<string>$(DEFAULT_WATER_BODY)</string>
+	<key>DELETE_ACCOUNT_URL</key>
+	<string>$(DELETE_ACCOUNT_URL)</string>
 	<key>DOWNLOAD_CATCH_URL</key>
 	<string>$(DOWNLOAD_CATCH_URL)</string>
 	<key>E_CATCH_CAROUSEL</key>

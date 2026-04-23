@@ -16,7 +16,7 @@ LOG_LEVEL = debug
 // Comma-separated log category allowlist. Empty = all categories.
 // Valid: auth, network, trip, ui, catch, ml, persistence, audio, angler,
 //        location, upload, weather, observation, community, map, research
-LOG_CATEGORIES = ml,catch,angler
+LOG_CATEGORIES = ml,catch,angler,auth,network
 BETA_RELEASE = true
 
 // ──────────────────────────────────────────────
@@ -46,6 +46,7 @@ ANGLER_PROFILE_URL = /functions/v1/angler-profile
 ANGLER_CONTEXT_URL = /functions/v1/angler-context
 ANGLER_DETAILS_URL = /functions/v1/angler-details
 MY_PROFILE_URL = /functions/v1/my-profile
+DELETE_ACCOUNT_URL = /functions/v1/delete-account
 PROFICIENCY_URL = /functions/v1/proficiency
 GEAR_URL = /functions/v1/gear
 MEMBER_PROFILE_FIELDS_URL = /functions/v1/member-profile-fields

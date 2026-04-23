@@ -1,6 +1,6 @@
 {
-  "version": "2026-04-10",
-  "generated": "2026-04-21T20:56:02.365Z",
+  "version": "2026-04-23",
+  "generated": "2026-04-23T16:19:06.260Z",
   "key_concepts": {
     "member_id": "UUID foreign key reference to a member record",
     "member_number": "Human-readable identifier in MAD Crockford Base32 format: MAD + 6 random chars (e.g., MAD4ZQ7H9)",
@@ -196,6 +196,34 @@
           "description": "Phone number"
         }
       }
+    },
+    {
+      "name": "Delete Account",
+      "path": "/functions/v1/delete-account",
+      "method": "POST",
+      "description": "Permanently delete the authenticated user's account, all related records, and storage objects. Implemented for Apple App Store account-deletion compliance.",
+      "auth": "required",
+      "body": {
+        "confirmationText": {
+          "type": "string",
+          "required": true,
+          "description": "Must be exactly the string 'DELETE' to confirm intent."
+        }
+      },
+      "response": {
+        "success": "boolean",
+        "message": "string — human-readable status",
+        "deletedAt": "ISO timestamp of deletion"
+      },
+      "notes": [
+        "Gated by the 'tca-phase1-mvp-account-lifecycle' feature flag — returns 403 when disabled.",
+        "Rate limited to 5 attempts per hour per user (tracked in account_lifecycle_audit). Returns 429 when exceeded.",
+        "Cascading deletion: catch_reports, no_catch_reports, archived_catch_reports, enriched_catch_reports, anglers, trips, trip_roster, user_communities, user_roles, angler_licenses, flight_details, ops_tickets, forum_posts, profiles, then auth.users.",
+        "Storage cleanup: recursively deletes the user's prefix in catch-media, forum-media, and voice-notes buckets.",
+        "All attempts (success and failure) are written to account_lifecycle_audit for compliance.",
+        "JWT identity is the only acceptable user identifier — users can only delete their own account.",
+        "Common errors: 400 (missing/invalid confirmationText), 401 (no/invalid JWT), 403 (feature flag off), 429 (rate limited), 500 (deletion failure — partial state recorded in audit log)."
+      ]
     },
     {
       "name": "Angler Profile",

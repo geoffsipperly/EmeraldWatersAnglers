@@ -94,6 +94,8 @@ struct ManageProfileView: View {
   @State private var showUnsavedConfirm = false
   @State private var showLeaveCommunityConfirm = false
   @State private var showDeleteAccountConfirm = false
+  @State private var deleteConfirmationInput = ""
+  @State private var isDeletingAccount = false
 
   // Optional so we can distinguish "never set" (nil) from "intentionally set".
   // Previously defaulted to `Date()` which caused today's date to be silently
@@ -101,6 +103,8 @@ struct ManageProfileView: View {
   // touching the DOB picker.
   @State private var dobDate: Date? = nil
   @State private var originalDobDate: Date? = nil
+
+  @State private var showAppOverview = false
 
   private var hasUnsavedChanges: Bool {
     originalProfile != profile
@@ -122,6 +126,7 @@ struct ManageProfileView: View {
           Form {
             profileFields
             if auth.currentUserType == .public {
+              appOverviewSection
               privacySection
             }
             dangerSection
@@ -132,6 +137,7 @@ struct ManageProfileView: View {
           Form {
             profileFields
             if auth.currentUserType == .public {
+              appOverviewSection
               privacySection
             }
             dangerSection
@@ -185,12 +191,49 @@ struct ManageProfileView: View {
       Text("This cannot be undone. All member data associated with \(communityService.activeCommunityName) will be permanently deleted.")
     }
     .alert("Delete Mad Thinker Account?", isPresented: $showDeleteAccountConfirm) {
-      Button("Cancel", role: .cancel) {}
-      Button("OK", role: .destructive) { Task { await deleteAccountTapped() } }
+      TextField("Type DELETE", text: $deleteConfirmationInput)
+        .textInputAutocapitalization(.characters)
+        .autocorrectionDisabled()
+      Button("Cancel", role: .cancel) { deleteConfirmationInput = "" }
+      Button("Delete", role: .destructive) {
+        let input = deleteConfirmationInput
+        deleteConfirmationInput = ""
+        Task { await performDeleteAccount(confirmationText: input) }
+      }
     } message: {
-      Text("This cannot be undone. All member data associated with Mad Thinker will be permanently deleted.")
+      Text("This cannot be undone. All member data associated with Mad Thinker will be permanently deleted.\n\nType DELETE to confirm.")
     }
     .task { await loadProfile() }
+    .fullScreenCover(isPresented: $showAppOverview) {
+      PublicWelcomeView()
+    }
+  }
+
+  // MARK: - App overview (public users only)
+
+  @ViewBuilder
+  private var appOverviewSection: some View {
+    Section {
+      Button { showAppOverview = true } label: {
+        HStack(spacing: 10) {
+          Image(systemName: "sparkles")
+            .foregroundColor(.blue)
+          Text("App Overview")
+            .foregroundColor(.blue)
+            .font(.callout.weight(.semibold))
+          Spacer()
+          Image(systemName: "chevron.right")
+            .font(.caption.weight(.semibold))
+            .foregroundColor(.white.opacity(0.4))
+        }
+      }
+      .accessibilityIdentifier("appOverviewButton")
+    } footer: {
+      Text("Revisit the welcome overview — what Mad Thinker does, and links to the privacy and acceptable use policies.")
+        .font(.caption)
+        .foregroundColor(.gray)
+    }
+    .listRowBackground(Color.white.opacity(0.04))
   }
 
   // MARK: - Privacy (public users only)
@@ -236,15 +279,21 @@ struct ManageProfileView: View {
       .accessibilityIdentifier("leaveCommunityButton")
 
       Button(role: .destructive) {
+        deleteConfirmationInput = ""
         showDeleteAccountConfirm = true
       } label: {
         HStack {
-          Image(systemName: "trash")
+          if isDeletingAccount {
+            ProgressView()
+          } else {
+            Image(systemName: "trash")
+          }
           Text("Delete Mad Thinker Account")
         }
         .font(.callout.weight(.semibold))
         .foregroundColor(.red)
       }
+      .disabled(isDeletingAccount)
       .accessibilityIdentifier("deleteAccountButton")
     }
     .listRowBackground(Color.white.opacity(0.04))
@@ -261,12 +310,61 @@ struct ManageProfileView: View {
     }
   }
 
-  private func deleteAccountTapped() async {
-    // TODO: Call backend `delete-account` service. On success, sign out so
-    // AppRootView returns the user to the login screen.
-    AppLogging.log("[ManageProfile] Delete account tapped — backend not yet wired.", level: .info, category: .auth)
-    await MainActor.run {
-      infoText = "Delete Account is coming soon."
+  private func performDeleteAccount(confirmationText: String) async {
+    errorText = nil
+    infoText = nil
+
+    guard confirmationText == "DELETE" else {
+      errorText = "Please type DELETE exactly to confirm account deletion."
+      return
+    }
+
+    guard let token = await auth.currentAccessToken(), !token.isEmpty else {
+      errorText = "You are not signed in."
+      return
+    }
+
+    isDeletingAccount = true
+    defer { isDeletingAccount = false }
+
+    let url = AppEnvironment.shared.deleteAccountURL
+
+    var req = URLRequest(url: url)
+    req.httpMethod = "POST"
+    req.setValue("application/json", forHTTPHeaderField: "Accept")
+    req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    req.setValue(auth.publicAnonKey, forHTTPHeaderField: "apikey")
+    req.httpBody = try? JSONSerialization.data(withJSONObject: ["confirmationText": "DELETE"])
+
+    AppLogging.log("[ManageProfile] deleteAccount POST url=\(url.absoluteString) scheme=\(url.scheme ?? "nil") host=\(url.host ?? "nil") path=\(url.path)", level: .info, category: .auth)
+
+    do {
+      let (data, resp) = try await URLSession.shared.data(for: req)
+      let code = (resp as? HTTPURLResponse)?.statusCode ?? -1
+      let bodyText = String(data: data, encoding: .utf8) ?? ""
+      AppLogging.log("[ManageProfile] deleteAccount response status=\(code) body=\(bodyText)", level: .info, category: .auth)
+
+      guard (200..<300).contains(code) else {
+        let body = bodyText
+        AppLogging.log("[ManageProfile] deleteAccount failed status=\(code) body=\(body)", level: .error, category: .auth)
+        switch code {
+        case 400: errorText = "Confirmation text did not match. Please try again."
+        case 401: errorText = "Your session has expired. Please sign in again."
+        case 403: errorText = "Account deletion is not currently available."
+        case 429: errorText = "Too many attempts. Please try again later."
+        default:  errorText = "Account deletion failed (\(code)). Please contact support."
+        }
+        return
+      }
+
+      AppLogging.log("[ManageProfile] account deleted; clearing local session.", level: .info, category: .auth)
+      // Server already invalidated the session via cascade; local sign-out is
+      // enough to return AppRootView to the login screen.
+      await auth.signOut()
+    } catch {
+      AppLogging.log("[ManageProfile] deleteAccount error: \(error)", level: .error, category: .auth)
+      errorText = "Account deletion failed: \(error.localizedDescription)"
     }
   }
 

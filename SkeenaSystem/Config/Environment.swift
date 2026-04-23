@@ -43,6 +43,7 @@ public final class AppEnvironment {
     public var overrideNotesUploadURL: URL?
     public var overrideAnglerProfileURL: URL?
     public var overrideMyProfileURL: URL?
+    public var overrideDeleteAccountURL: URL?
     public var overrideAnglerContextURL: URL?
     public var overrideProficiencyURL: URL?
     public var overrideGearURL: URL?
@@ -298,6 +299,19 @@ public final class AppEnvironment {
         if let v = overrideMyProfileURL { return v }
         if let url = urlFromInfo("MY_PROFILE_URL") { return url }
         return projectURL.appendingPathComponent("/functions/v1/my-profile")
+    }
+
+    /// Delete-account endpoint (functions/v1/delete-account).
+    public var deleteAccountURL: URL {
+        if let v = overrideDeleteAccountURL { return v }
+        if let raw = stringFromInfo("DELETE_ACCOUNT_URL")?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty {
+            // If raw is already a full URL with scheme, use it directly
+            if let url = URL(string: raw), url.scheme != nil { return url }
+            // Otherwise treat as relative path: append to projectURL
+            let path = raw.hasPrefix("/") ? String(raw.dropFirst()) : raw
+            return projectURL.appendingPathComponent(path)
+        }
+        return projectURL.appendingPathComponent("/functions/v1/delete-account")
     }
 
     /// Angler-context endpoint (functions/v1/angler-context).

@@ -1,7 +1,7 @@
 # Mad Thinker Platform API Reference
 
-**Version:** 2026-04-10
-**Generated:** 2026-04-21T20:56:01.963Z
+**Version:** 2026-04-23
+**Generated:** 2026-04-23T16:19:03.935Z
 
 ## Key Concepts
 
@@ -143,6 +143,38 @@ Update the authenticated user's profile fields.
 | sex | string | ❌ | male, female, or other |
 | mailing_address | string | ❌ | Mailing address |
 | telephone_number | string | ❌ | Phone number |
+
+---
+
+## Delete Account
+
+**POST** `/functions/v1/delete-account`
+
+Permanently delete the authenticated user's account, all related records, and storage objects. Implemented for Apple App Store account-deletion compliance.
+
+**Auth:** required
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| confirmationText | string | ✅ | Must be exactly the string 'DELETE' to confirm intent. |
+
+**Response:**
+
+- `success`: boolean
+- `message`: string — human-readable status
+- `deletedAt`: ISO timestamp of deletion
+
+**Notes:**
+
+- Gated by the 'tca-phase1-mvp-account-lifecycle' feature flag — returns 403 when disabled.
+- Rate limited to 5 attempts per hour per user (tracked in account_lifecycle_audit). Returns 429 when exceeded.
+- Cascading deletion: catch_reports, no_catch_reports, archived_catch_reports, enriched_catch_reports, anglers, trips, trip_roster, user_communities, user_roles, angler_licenses, flight_details, ops_tickets, forum_posts, profiles, then auth.users.
+- Storage cleanup: recursively deletes the user's prefix in catch-media, forum-media, and voice-notes buckets.
+- All attempts (success and failure) are written to account_lifecycle_audit for compliance.
+- JWT identity is the only acceptable user identifier — users can only delete their own account.
+- Common errors: 400 (missing/invalid confirmationText), 401 (no/invalid JWT), 403 (feature flag off), 429 (rate limited), 500 (deletion failure — partial state recorded in audit log).
 
 ---
 
