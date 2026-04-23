@@ -65,6 +65,7 @@ final class CatchPhotoAnalyzer {
 
   // Species labels for ViT
     private let speciesLabels: [String] = [
+        "other",
         "sea_run_trout",
         "steelhead_holding",
         "steelhead_traveler"
@@ -239,7 +240,7 @@ final class CatchPhotoAnalyzer {
       }, level: .debug, category: .ml)
 
       // Species that haven't been calibrated with the regressor — use heuristic only
-      let regressorBypassSpecies: Set<String> = ["sea_run_trout"]
+      let regressorBypassSpecies: Set<String> = ["sea_run_trout", "other"]
       let useRegressorForSpecies = !regressorBypassSpecies.contains(detectedSpeciesLabel ?? "")
 
       // Always log regressor prediction for future training data
@@ -295,8 +296,11 @@ final class CatchPhotoAnalyzer {
   // MARK: - ViT inference (species)
 
   /// Runs the ViT species model on a UIImage and returns the best species index + softmax confidence.
+  /// Uses Inception-style normalization (mean/std 0.5) — timm's default for `vit_tiny_patch16_224`,
+  /// which is what the species model was trained with. Matching the training preprocessing is
+  /// load-bearing: the previous ImageNet-norm default silently produced wrong-distribution inputs.
   private func runViT(on image: UIImage) -> (index: Int, confidence: Float)? {
-    guard let inputArray = try? makeInputArray(from: image) else {
+    guard let inputArray = try? makeInputArray(from: image, mean: [0.5, 0.5, 0.5], std: [0.5, 0.5, 0.5]) else {
       return nil
     }
 
@@ -1302,7 +1306,7 @@ final class CatchPhotoAnalyzer {
     }, level: .info, category: .ml)
 
     // Check if this species bypasses the regressor
-    let regressorBypassSpecies: Set<String> = ["sea_run_trout"]
+    let regressorBypassSpecies: Set<String> = ["sea_run_trout", "other"]
     let useRegressor = !regressorBypassSpecies.contains(resolvedLabel)
 
     // Build updated feature vector with corrected species index

@@ -416,10 +416,19 @@ final class CatchChatViewModel: ObservableObject {
     // length → girth → final summary → voice memo, skipping the extras.
     let flow = ResearcherCatchFlowManager()
     flow.includeStudyAndSampleSteps = isResearcherRole || conservationMode
+
+    // Bi-catch branch: the ML sex classifier's output is meaningless when the
+    // species classifier bailed to "other" — skip sex and force the user to
+    // correct the species before proceeding.
+    let isBiCatch = speciesName.lowercased() == "bi-catch"
+    let sexForFlow: String? = isBiCatch
+      ? nil
+      : (prettySexValue.isEmpty ? nil : prettySexValue)
+
     flow.initialize(
       species: speciesName.isEmpty || speciesName == "-" ? nil : speciesName,
       lifecycleStage: stage,
-      sex: prettySexValue.isEmpty ? nil : prettySexValue,
+      sex: sexForFlow,
       lengthInches: lengthValue,
       riverName: hasRealRiver ? cleanedRiverForFlow : nil,
       gpsLocationText: gpsFallback
@@ -672,6 +681,7 @@ final class CatchChatViewModel: ObservableObject {
   private static let speciesDisplayNames: [String: String] = [
     "sea run trout": "Sea-Run Trout",
     "steelhead": "Steelhead",
+    "other": "Bi-catch",
   ]
 
   private func splitSpecies(_ raw: String?) -> (species: String, stage: String?) {

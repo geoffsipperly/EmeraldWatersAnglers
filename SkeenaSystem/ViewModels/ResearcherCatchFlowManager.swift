@@ -514,6 +514,10 @@ final class ResearcherCatchFlowManager: ObservableObject {
 
     if let sx = sex, !sx.isEmpty {
       lines.append("Sex: \(sx)")
+    } else if species?.lowercased() == "bi-catch" {
+      // Bi-catch: don't pretend to know the sex — the classifier's output is
+      // meaningless for OOD species.
+      lines.append("Sex: -")
     } else {
       lines.append("Sex: Unknown")
     }
@@ -525,9 +529,21 @@ final class ResearcherCatchFlowManager: ObservableObject {
   func identificationPrompt() -> String {
     let summary = identificationSummary()
     let hasLocation = (riverName?.isEmpty == false)
-    let tail = hasLocation
-      ? "Confirm the species, sex, and location, or type corrections."
-      : "Confirm the species and sex, or type corrections."
+    let currentIsBiCatch = (species?.lowercased() == "bi-catch")
+    let wasBiCatch = (originalSpecies?.lowercased() == "bi-catch")
+
+    let tail: String
+    if currentIsBiCatch {
+      tail = "This was a bi-catch, please provide the name of the species below."
+    } else if wasBiCatch {
+      // User just corrected the species away from Bi-catch. Sex was never
+      // reliably detected, so prompt for it as optional.
+      tail = "If you know the sex of the fish enter it below, otherwise let's move on to measurements."
+    } else if hasLocation {
+      tail = "Confirm the species, sex, and location, or type corrections."
+    } else {
+      tail = "Confirm the species and sex, or type corrections."
+    }
     return "\(summary)\n§\n\(tail)"
   }
 
