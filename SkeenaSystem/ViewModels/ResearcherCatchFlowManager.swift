@@ -359,9 +359,35 @@ final class ResearcherCatchFlowManager: ObservableObject {
       }
       return ("Please enter the Fin Tip ID.", false, false)
 
+    case .finalSummary:
+      // Accept typed updates to any identification field after measurements
+      // are done. Uses the structured parser (free-text species fallback
+      // disabled) so a proper-noun river name like "Bitterroot River" routes
+      // to riverName instead of silently overwriting species. Species /
+      // river changes can affect the weight-divisor lookup, so we
+      // recalculate before re-rendering.
+      let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+      let recognized = parseStructuredEdit(text)
+      if !recognized {
+        if trimmed.isEmpty {
+          return (
+            "I didn't catch that. Try a species (e.g. \"Rainbow Trout\"), sex (\"male\"/\"female\"), lifecycle (\"holding\"/\"traveler\"), or a location.",
+            false,
+            false
+          )
+        }
+        // Unrecognized non-empty text at the final step is almost always a
+        // location the user wants to fill in — mirror the identification
+        // summary's behavior.
+        riverName = trimmed
+        riverNameWasCorrected = true
+      }
+      recalculate()
+      return (finalAnalysisText(), false, true)
+
     default:
-      // .studyParticipation, .sampleCollection, .voiceMemo, .finalSummary,
-      // .complete — these are button-driven steps; typed input isn't expected.
+      // .studyParticipation, .sampleCollection, .voiceMemo, .complete —
+      // these are button-driven steps; typed input isn't expected.
       return (
         "I'm not expecting typed input right now — use the buttons above, or upload a new photo.",
         false,

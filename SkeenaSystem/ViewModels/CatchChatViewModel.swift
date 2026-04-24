@@ -37,7 +37,22 @@ enum ChatCapsuleAction: Equatable {
   case selectSpecies(label: String)
   case selectLifecycle(stage: String)   // "Holding" | "Traveler"
   case selectSex(sex: String?)          // "Male" | "Female" | nil (Unknown)
+  case keepAsBiCatch                    // user confirmed Bi-catch; keep species unknown
   case confirmIdentificationSummary     // final recap → advance to length
+  case confirmMeasurement               // generic "confirm current measurement" (length/girth)
+  // Pre-analysis (researcher/conservation entry points)
+  case recordCatch                      // "What would you like to record?" → catch
+  case recordObservation                // "What would you like to record?" → observation
+  case confirmHeadPhoto                 // head photo confirm (conservation)
+  case retakeHeadPhoto                  // head photo retake (conservation)
+  // Post-measurement research flow
+  case studyParticipate(yes: Bool)      // "Are you participating in a study?"
+  case selectStudyType(rawValue: String) // "Pit" | "Floy" | "Radio Telemetry"
+  case sampleCollect(yes: Bool)         // "Are you taking a sample?"
+  case selectSampleType(rawValue: String) // "Scale" | "Fin Tip" | "Both"
+  case voiceMemoChoice(yes: Bool)       // add voice memo or skip
+  case confirmID                        // floy / scale / fin: accept typed ID
+  case retryID                          // floy / scale / fin: clear + re-prompt
 }
 
 struct ChatCapsule: Identifiable, Equatable {
@@ -136,6 +151,11 @@ final class CatchChatViewModel: ObservableObject {
   /// Set to true by `chooseObservation()` so the view can present RecordObservationSheet.
   @Published var showRecordObservation: Bool = false
 
+  /// Set to true when the user taps the "Yes" voice-memo capsule so the chat
+  /// view can present its voice-note sheet. The view flips it back to false
+  /// after consuming — matches the one-shot pattern of `showRecordObservation`.
+  @Published var requestVoiceNoteSheet: Bool = false
+
   // Photo analyzer (modular)
     private let analyzer = CatchPhotoAnalyzer()
 
@@ -163,6 +183,7 @@ final class CatchChatViewModel: ObservableObject {
     case confirmLocation       // ML matched a location — offer Confirm / Wrong
     case enterLocation         // user rejected; accepting typed input or Skip
     case confirmSpecies        // pick species from capsules (or type override)
+    case enterBiCatchSpecies   // user confirmed Bi-catch; prompt for actual species
     case confirmLifecycle      // only when species is steelhead
     case confirmSex            // Male / Female / Unknown
     case confirmSummary        // final recap before advancing to length
@@ -249,8 +270,17 @@ final class CatchChatViewModel: ObservableObject {
     let firstPrompt: ChatMessage
     if isResearcherRole {
       awaitingActivityChoice = true
-      firstPrompt = appendAssistant("Hi \(namePart)you can record a catch or an observation.")
+      firstPrompt = appendAssistant("Hi \(namePart)what would you like to do?")
       activityChoiceAnchorMessageID = firstPrompt.id
+      // Capsule UX for the catch/observation choice. The underlying
+      // awaitingActivityChoice + activityChoiceAnchorMessageID state stays
+      // intact (other dismissal logic depends on it); the icon column just
+      // auto-hides when capsules are present.
+      capsulesAnchorMessageID = firstPrompt.id
+      chatCapsules = [
+        ChatCapsule(id: "activity-catch",       label: "Report a Catch",        color: .green, confidence: nil, action: .recordCatch),
+        ChatCapsule(id: "activity-observation", label: "Record an Observation", color: .green, confidence: nil, action: .recordObservation),
+      ]
       step = .idle
       return
     } else if conservationMode {
@@ -397,6 +427,15 @@ final class CatchChatViewModel: ObservableObject {
 
     let confirmPrompt = appendAssistant("Tap Confirm to continue, or Retake to try again.")
     headConfirmAnchorMessageID = confirmPrompt.id
+    // Capsule UX for head-photo confirm/retake. headConfirmAnchorMessageID
+    // stays set so any remaining icon-based behavior works in isolation; the
+    // capsules are the primary affordance now (right-side icon column is
+    // auto-hidden while capsules are anchored here).
+    capsulesAnchorMessageID = confirmPrompt.id
+    chatCapsules = [
+      ChatCapsule(id: "head-confirm", label: "Confirm", color: .green, confidence: nil, action: .confirmHeadPhoto),
+      ChatCapsule(id: "head-retake",  label: "Retake",  color: .grey,  confidence: nil, action: .retakeHeadPhoto),
+    ]
   }
 
   /// User confirmed the pending head photo. Promote the pending filename to
@@ -721,7 +760,38 @@ final class CatchChatViewModel: ObservableObject {
 
   /// Central dispatch for any capsule tap during the identification sub-flow.
   /// Keeps the view a dumb renderer — the capsule carries its own action.
+  ///
+  /// Note: `researcherFlow` is nil before the first photo is analyzed, so the
+  /// pre-analysis capsule actions (record-catch / observation / head-photo
+  /// confirm / retake) are handled up front before the flow-required cases.
   func handleCapsuleTap(_ action: ChatCapsuleAction) {
+    // Pre-analysis actions — no researcherFlow yet.
+    switch action {
+    case .recordCatch:
+      chatCapsules = []
+      capsulesAnchorMessageID = nil
+      chooseCatch()
+      return
+    case .recordObservation:
+      chatCapsules = []
+      capsulesAnchorMessageID = nil
+      chooseObservation()
+      return
+    case .confirmHeadPhoto:
+      chatCapsules = []
+      capsulesAnchorMessageID = nil
+      confirmHeadPhoto()
+      return
+    case .retakeHeadPhoto:
+      chatCapsules = []
+      capsulesAnchorMessageID = nil
+      retakeHeadPhoto()
+      return
+    default:
+      break
+    }
+
+    // All remaining actions require an active flow.
     guard let flow = researcherFlow else { return }
 
     switch action {
@@ -750,9 +820,118 @@ final class CatchChatViewModel: ObservableObject {
       flow.sex = sex
       postIdentificationSummaryStep()
 
+    case .keepAsBiCatch:
+      // User accepted Bi-catch as the final species. Sex is meaningless for
+      // an unidentified fish, so skip the sex step and jump straight to
+      // summary. `flow.sex` stays nil → summary shows "Sex: Unknown".
+      flow.sex = nil
+      postIdentificationSummaryStep()
+
     case .confirmIdentificationSummary:
       finishIdentificationPhase()
+
+    case .confirmMeasurement:
+      // Single green Confirm capsule at .confirmLength / .confirmGirth —
+      // simply advance the flow manager which posts the next bubble and
+      // re-attaches capsules if the new step warrants them.
+      researcherConfirm()
+
+    case .recordCatch, .recordObservation, .confirmHeadPhoto, .retakeHeadPhoto:
+      // Handled by the pre-analysis switch above — unreachable here.
+      return
+
+    // MARK: Post-measurement research steps (study / sample / voice)
+
+    case .studyParticipate(let yes):
+      chatCapsules = []
+      capsulesAnchorMessageID = nil
+      if yes {
+        // Show the Pit / Floy / Radio choice.
+        postStudyTypeStep()
+      } else {
+        // "No" is equivalent to confirming past the study step — existing
+        // confirm() transitions from .studyParticipation → .sampleCollection.
+        researcherConfirm()
+      }
+
+    case .selectStudyType(let rawValue):
+      chatCapsules = []
+      capsulesAnchorMessageID = nil
+      guard let type = ResearcherCatchFlowManager.StudyType(rawValue: rawValue) else { return }
+      // Pit and Radio are known-unsupported; keep behavior parity with the
+      // old disabled icons by treating their taps as a quiet no-op.
+      if type == .pit || type == .radioTelemetry {
+        // Re-post the study type step so capsules remain available.
+        postStudyTypeStep()
+        return
+      }
+      researcherSelectStudy(type)
+
+    case .sampleCollect(let yes):
+      chatCapsules = []
+      capsulesAnchorMessageID = nil
+      if yes {
+        postSampleTypeStep()
+      } else {
+        researcherConfirm()
+      }
+
+    case .selectSampleType(let rawValue):
+      chatCapsules = []
+      capsulesAnchorMessageID = nil
+      guard let type = ResearcherCatchFlowManager.SampleType(rawValue: rawValue) else { return }
+      researcherSelectSample(type)
+
+    case .voiceMemoChoice(let yes):
+      chatCapsules = []
+      capsulesAnchorMessageID = nil
+      if yes {
+        // Signal the view to present the voice-note sheet.
+        requestVoiceNoteSheet = true
+      } else {
+        researcherSkipVoiceMemo()
+      }
+
+    case .confirmID:
+      // Generic "accept typed ID" for Floy / Scale / Fin Tip steps. Works
+      // identically to a checkmark-icon tap: advance the flow manager which
+      // transitions to the next step and re-attaches capsules if warranted.
+      researcherConfirm()
+
+    case .retryID:
+      // Clear whichever stored ID matches the current step, re-post the
+      // original "Please enter the X" prompt, and keep the user on the same
+      // step so they can type again.
+      chatCapsules = []
+      capsulesAnchorMessageID = nil
+      switch flow.currentStep {
+      case .floyTagID:
+        flow.floyTagNumber = nil
+        let msg = appendAssistant("Please enter the Floy Tag ID.")
+        flow.confirmAnchorID = msg.id
+      case .scaleScan:
+        flow.scaleSampleBarcode = nil
+        let msg = appendAssistant("Please enter the Scale Card ID from the envelope.")
+        flow.confirmAnchorID = msg.id
+      case .finTipScan:
+        flow.finTipSampleBarcode = nil
+        let msg = appendAssistant("Please enter the Fin Tip ID from the envelope.")
+        flow.confirmAnchorID = msg.id
+      default:
+        break
+      }
     }
+  }
+
+  /// Attach the Confirm / Retry capsule pair to an existing bubble. Used after
+  /// the user types a Floy / Scale / Fin Tip ID and the flow echoes it back
+  /// for confirmation.
+  private func attachConfirmRetryIDCapsules(to anchor: UUID) {
+    capsulesAnchorMessageID = anchor
+    chatCapsules = [
+      ChatCapsule(id: "id-confirm", label: "Confirm", color: .green, confidence: nil, action: .confirmID),
+      ChatCapsule(id: "id-retry",   label: "Retry",   color: .grey,  confidence: nil, action: .retryID),
+    ]
   }
 
   /// Apply a species choice from the species-step capsules. Uses the same
@@ -769,12 +948,32 @@ final class CatchChatViewModel: ObservableObject {
       flow.lifecycleStage = nil
     }
 
-    // Steelhead branches to lifecycle; everything else skips straight to sex.
+    // Routing by species:
+    //   - Steelhead → lifecycle sub-step (holding vs traveler).
+    //   - "Other" (Bi-catch) → prompt the user to name the actual species,
+    //     since "Bi-catch" isn't a useful final classification.
+    //   - Everything else → skip straight to sex.
     if key == "steelhead" {
       postLifecycleStep()
+    } else if key == "other" {
+      postBiCatchSpeciesEntryStep()
     } else {
       postSexStep()
     }
+  }
+
+  /// Prompt the user to type the actual species after they confirmed Bi-catch
+  /// as the primary species at the species step. Offers a single grey
+  /// "Keep as Bi-catch" escape hatch — tapping it skips sex entirely and
+  /// jumps to the summary since sex is meaningless for unidentified species.
+  private func postBiCatchSpeciesEntryStep() {
+    identificationSubStep = .enterBiCatchSpecies
+
+    let msg = appendAssistant("Got it — this was a bi-catch.\n§\nType the actual species name below, or tap Keep as Bi-catch if you don't know.")
+    capsulesAnchorMessageID = msg.id
+    chatCapsules = [
+      ChatCapsule(id: "bc-keep", label: "Keep as Bi-catch", color: .grey, confidence: nil, action: .keepAsBiCatch)
+    ]
   }
 
   /// Resolves a raw model label (e.g. `"atlantic_salmon"` or `"steelhead_holding"`)
@@ -835,16 +1034,101 @@ final class CatchChatViewModel: ObservableObject {
     let nextMessage = flow.confirm()
 
     if flow.currentStep == .voiceMemo {
-      // Show voice memo buttons (Memo / Skip)
       let msg = appendAssistant(nextMessage)
       voiceMemoAnchorMessageID = msg.id
+      attachVoiceMemoCapsules(to: msg.id)
     } else if flow.currentStep == .complete {
       // Trigger save
       saveRequested = true
     } else if !nextMessage.isEmpty {
       let msg = appendAssistant(nextMessage)
       flow.confirmAnchorID = msg.id
+
+      // Anchor the new capsule UX for measurements + post-measurement research
+      // steps. Length / girth get a single green Confirm capsule; study /
+      // sample get a Yes/No pair; everything else continues to use the
+      // icon-column confirm pattern.
+      switch flow.currentStep {
+      case .confirmLength, .confirmGirth:
+        attachConfirmMeasurementCapsule(to: msg.id)
+      case .studyParticipation:
+        attachYesNoCapsules(
+          to: msg.id,
+          yesAction: .studyParticipate(yes: true),
+          noAction: .studyParticipate(yes: false)
+        )
+      case .sampleCollection:
+        attachYesNoCapsules(
+          to: msg.id,
+          yesAction: .sampleCollect(yes: true),
+          noAction: .sampleCollect(yes: false)
+        )
+      default:
+        break
+      }
     }
+  }
+
+  /// Attach the single green "Confirm" capsule used at `.confirmLength` and
+  /// `.confirmGirth`. Tap routes through `researcherConfirm()` which advances
+  /// the flow manager to the next step (girth or final summary).
+  private func attachConfirmMeasurementCapsule(to anchor: UUID) {
+    capsulesAnchorMessageID = anchor
+    chatCapsules = [
+      ChatCapsule(
+        id: "measure-confirm",
+        label: "Confirm",
+        color: .green,
+        confidence: nil,
+        action: .confirmMeasurement
+      )
+    ]
+  }
+
+  /// Attach a generic [Yes (green)] [No (grey)] capsule pair to an existing bubble.
+  private func attachYesNoCapsules(
+    to anchor: UUID,
+    yesAction: ChatCapsuleAction,
+    noAction: ChatCapsuleAction
+  ) {
+    capsulesAnchorMessageID = anchor
+    chatCapsules = [
+      ChatCapsule(id: "cap-yes", label: "Yes", color: .green, confidence: nil, action: yesAction),
+      ChatCapsule(id: "cap-no",  label: "No",  color: .grey,  confidence: nil, action: noAction),
+    ]
+  }
+
+  /// Attach the voice-memo Yes / Maybe later capsules to the voice-prompt bubble.
+  private func attachVoiceMemoCapsules(to anchor: UUID) {
+    capsulesAnchorMessageID = anchor
+    chatCapsules = [
+      ChatCapsule(id: "voice-yes",  label: "Yes",         color: .green, confidence: nil, action: .voiceMemoChoice(yes: true)),
+      ChatCapsule(id: "voice-skip", label: "Maybe later", color: .grey,  confidence: nil, action: .voiceMemoChoice(yes: false)),
+    ]
+  }
+
+  /// Attach the study-type capsule row (Pit disabled, Floy primary, Radio disabled)
+  /// to the "What kind of study?" bubble.
+  private func postStudyTypeStep() {
+    let msg = appendAssistant("What kind of study?")
+    capsulesAnchorMessageID = msg.id
+    chatCapsules = [
+      ChatCapsule(id: "study-pit",   label: "Pit",   color: .grey,  confidence: nil, action: .selectStudyType(rawValue: "Pit")),
+      ChatCapsule(id: "study-floy",  label: "Floy",  color: .green, confidence: nil, action: .selectStudyType(rawValue: "Floy")),
+      ChatCapsule(id: "study-radio", label: "Radio", color: .grey,  confidence: nil, action: .selectStudyType(rawValue: "Radio Telemetry")),
+    ]
+  }
+
+  /// Attach the sample-type capsule row (Scale, Fin, Both) to the "What
+  /// kind of sample?" bubble.
+  private func postSampleTypeStep() {
+    let msg = appendAssistant("What kind of sample?")
+    capsulesAnchorMessageID = msg.id
+    chatCapsules = [
+      ChatCapsule(id: "sample-scale", label: "Scale",   color: .green, confidence: nil, action: .selectSampleType(rawValue: "Scale")),
+      ChatCapsule(id: "sample-fin",   label: "Fin Tip", color: .green, confidence: nil, action: .selectSampleType(rawValue: "Fin Tip")),
+      ChatCapsule(id: "sample-both",  label: "Both",    color: .green, confidence: nil, action: .selectSampleType(rawValue: "Both")),
+    ]
   }
 
   /// Researcher edits the current step value via text input.
@@ -870,10 +1154,12 @@ final class CatchChatViewModel: ObservableObject {
       postSpeciesStep()
       return
 
-    case .confirmSpecies:
-      // Allow free-text override at the species step. Reuse the flow manager's
-      // species parser for consistency with the pre-capsule behavior — it
-      // handles "species: X" prefixes and the knownSpecies map.
+    case .confirmSpecies, .enterBiCatchSpecies:
+      // Allow free-text override at the species step (or after Bi-catch was
+      // confirmed and the user now wants to name the actual species). Reuse
+      // the flow manager's species parser for consistency with the
+      // pre-capsule behavior — it handles "species: X" prefixes and the
+      // knownSpecies map.
       flow.confirmAnchorID = nil
       let (_, _, recognized) = flow.applyEdit(text)
       if !recognized {
@@ -883,8 +1169,9 @@ final class CatchChatViewModel: ObservableObject {
       }
       chatCapsules = []
       capsulesAnchorMessageID = nil
-      // Re-render species step with the user's typed value, then branch on
-      // whether it resolved to steelhead.
+      // Advance based on the resolved species. Steelhead → lifecycle;
+      // everything else → sex. If the user (from Bi-catch entry) typed a
+      // salmonid here, the normal lifecycle/sex sequence applies.
       let resolvedKey = (flow.species ?? "").lowercased()
       if resolvedKey == "steelhead" {
         postLifecycleStep()
@@ -955,18 +1242,34 @@ final class CatchChatViewModel: ObservableObject {
     capsulesAnchorMessageID = nil
 
     if autoAdvanced {
-      // Value entry auto-confirmed the step and advanced
-      if flow.currentStep == .finalSummary {
-        // Show final analysis with Confirm button
-        let msg = appendAssistant(updatedPrompt)
-        flow.confirmAnchorID = msg.id
-      } else {
-        let msg = appendAssistant(updatedPrompt)
-        flow.confirmAnchorID = msg.id
+      // Value entry (length/girth number) auto-confirmed the previous step
+      // and advanced. Post the next bubble and attach the measurement
+      // Confirm capsule when landing on another .confirmLength/.confirmGirth
+      // step. .finalSummary keeps its larger green checkmark icon in the
+      // side column — no capsule needed there.
+      let msg = appendAssistant(updatedPrompt)
+      flow.confirmAnchorID = msg.id
+      if flow.currentStep == .confirmLength || flow.currentStep == .confirmGirth {
+        attachConfirmMeasurementCapsule(to: msg.id)
       }
+    } else if flow.currentStep == .finalSummary {
+      // User edited an identification field at the final step. Post the
+      // re-rendered finalAnalysisText as-is (no "Got it, updated:" prefix)
+      // so the bubble dispatcher still matches the "Final Analysis" prefix
+      // and keeps the blue-title styling.
+      let msg = appendAssistant(updatedPrompt)
+      flow.confirmAnchorID = msg.id
     } else {
       let msg = appendAssistant("Got it, updated:\n\(updatedPrompt)")
       flow.confirmAnchorID = msg.id
+      // ID-entry steps (Floy / Scale / Fin Tip) echo the typed value back
+      // with a Confirm/Retry capsule pair — Confirm advances, Retry clears
+      // the stored value and re-prompts.
+      if flow.currentStep == .floyTagID
+          || flow.currentStep == .scaleScan
+          || flow.currentStep == .finTipScan {
+        attachConfirmRetryIDCapsules(to: msg.id)
+      }
     }
   }
 
@@ -1145,6 +1448,7 @@ final class CatchChatViewModel: ObservableObject {
   /// (see the `/new-species` slash command in `.claude/commands/`).
   private static let speciesDisplayNames: [String: String] = [
     "atlantic salmon": "Atlantic Salmon",
+    "chinook salmon": "Chinook Salmon",
     "sea run trout": "Sea-Run Trout",
     "steelhead": "Steelhead",
     "other": "Bi-catch",

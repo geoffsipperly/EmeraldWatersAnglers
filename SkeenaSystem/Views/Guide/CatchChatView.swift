@@ -172,6 +172,17 @@ struct CatchChatView: View {
         viewModel.attachVoiceNote(note)
       }
     }
+    // The voice-memo step is now capsule-driven — a tap on the "Yes" capsule
+    // flips `requestVoiceNoteSheet` on the VM. Mirror it into the view's
+    // local sheet binding and reset the flag immediately so it's one-shot.
+    // Using the single-param onChange signature since the project still
+    // deploys to iOS 16.6 (the two-param variant is iOS 17+).
+    .onChange(of: viewModel.requestVoiceNoteSheet) { requested in
+      if requested {
+        showVoiceNoteSheet = true
+        viewModel.requestVoiceNoteSheet = false
+      }
+    }
   }
 
   // MARK: - Input bar
@@ -383,11 +394,13 @@ struct CatchChatView: View {
       }
     } else {
       let useConfirmStyle = step == .identification || step == .confirmLength || step == .confirmGirth || step == .finalSummary
+      let isFinalSummary = step == .finalSummary
       Button {
         viewModel.researcherConfirm()
       } label: {
         Image(systemName: useConfirmStyle ? "checkmark.circle.fill" : "arrow.right.circle.fill")
-          .font(.title2)
+          .font(isFinalSummary ? .largeTitle : .title2)
+          .foregroundColor(isFinalSummary ? .green : .white)
       }
     }
   }

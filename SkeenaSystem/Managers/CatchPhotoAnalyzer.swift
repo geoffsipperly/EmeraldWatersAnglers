@@ -84,6 +84,7 @@ final class CatchPhotoAnalyzer {
   // Species labels for ViT
     private let speciesLabels: [String] = [
         "atlantic_salmon",
+        "chinook_salmon",
         "other",
         "sea_run_trout",
         "steelhead_holding",
@@ -175,12 +176,14 @@ final class CatchPhotoAnalyzer {
         // the user can correct an ambiguous classification with one tap instead
         // of having to type the right species name.
         //
-        // Skip when top-1 is "other" — the Bi-catch flow already has dedicated
-        // UX that asks the user to name the species. A "Bi-catch" capsule would
-        // be confusing because tapping primary ("confirm") has no meaningful
-        // semantics when the species itself is declared unknown.
+        // Also applies when top-1 is "other" (Bi-catch) — a strong salmonid
+        // runner-up (e.g. steelhead_holding 0.41 when top-1 is other 0.44)
+        // should still be offered. The capsule step renders
+        // [Bi-catch (green)] [Steelhead (yellow)]; user picks the real species
+        // with one tap, or confirms Bi-catch to stay in the name-it-yourself
+        // flow.
         let env = AppEnvironment.shared
-        if vit.confidence < env.speciesRunnerUpTrigger, rawLabel != "other" {
+        if vit.confidence < env.speciesRunnerUpTrigger {
           speciesAlternatives = computeSpeciesAlternatives(
             distribution: vit.distribution,
             winnerIndex: vit.index,
@@ -284,7 +287,7 @@ final class CatchPhotoAnalyzer {
       }, level: .debug, category: .ml)
 
       // Species that haven't been calibrated with the regressor — use heuristic only
-      let regressorBypassSpecies: Set<String> = ["sea_run_trout", "other", "atlantic_salmon"]
+      let regressorBypassSpecies: Set<String> = ["sea_run_trout", "other", "atlantic_salmon", "chinook_salmon"]
       let useRegressorForSpecies = !regressorBypassSpecies.contains(detectedSpeciesLabel ?? "")
 
       // Always log regressor prediction for future training data
@@ -1456,7 +1459,7 @@ final class CatchPhotoAnalyzer {
     }, level: .info, category: .ml)
 
     // Check if this species bypasses the regressor
-    let regressorBypassSpecies: Set<String> = ["sea_run_trout", "other", "atlantic_salmon"]
+    let regressorBypassSpecies: Set<String> = ["sea_run_trout", "other", "atlantic_salmon", "chinook_salmon"]
     let useRegressor = !regressorBypassSpecies.contains(resolvedLabel)
 
     // Build updated feature vector with corrected species index
