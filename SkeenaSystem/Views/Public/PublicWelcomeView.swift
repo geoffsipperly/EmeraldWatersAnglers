@@ -18,6 +18,22 @@ struct PublicWelcomeView: View {
   private let privacyPolicyURL = URL(string: "https://madthinkertech.com/privacy-policy")!
   private let acceptableUsePolicyURL = URL(string: "https://madthinkertech.com/acceptable-use-policy")!
 
+  /// Trimmed first name from AuthService, or `nil` when unavailable/empty.
+  /// Used to personalize the welcome title — gracefully falls back to the
+  /// unpersonalized form when the name hasn't been fetched yet.
+  private var firstName: String? {
+    let raw = AuthService.shared.currentFirstName
+    let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines)
+    return (trimmed?.isEmpty == false) ? trimmed : nil
+  }
+
+  private var greetingTitle: String {
+    if let name = firstName {
+      return "\(name), Welcome to Mad Thinker"
+    }
+    return "Welcome to Mad Thinker"
+  }
+
   var body: some View {
     ZStack {
       Color.black.ignoresSafeArea()
@@ -68,10 +84,15 @@ struct PublicWelcomeView: View {
 
   private var headerSection: some View {
     VStack(alignment: .leading, spacing: 10) {
-      Text("Welcome to Mad Thinker")
-        .font(.title.weight(.bold))
+      // Single-row greeting — `.title2` fits the average name comfortably;
+      // `.minimumScaleFactor` shrinks automatically for unusually long names
+      // so the title never wraps to a second row.
+      Text(greetingTitle)
+        .font(.title2.weight(.bold))
         .foregroundColor(.white)
-      Text("Thank you for helping with fisheries conservation efforts around the world.")
+        .lineLimit(1)
+        .minimumScaleFactor(0.6)
+      Text("You just became part of the living knowledge that protects wild places")
         .font(.callout)
         .foregroundColor(.white.opacity(0.85))
         .fixedSize(horizontal: false, vertical: true)
@@ -80,20 +101,15 @@ struct PublicWelcomeView: View {
   }
 
   private var speciesNote: some View {
-    VStack(alignment: .leading, spacing: 6) {
-      Text("Currently configured for")
-        .font(.caption.weight(.semibold))
-        .foregroundColor(.blue)
-      Text("Steelhead and Atlantic Salmon — but Mad Thinker can be used with any species and any fishery.")
-        .font(.subheadline)
-        .foregroundColor(.white)
-        .fixedSize(horizontal: false, vertical: true)
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .padding(.horizontal, 16)
-    .padding(.vertical, 14)
-    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
-    .padding(.horizontal, 20)
+    Text("Every contribution helps protect the wild places you love for the next generation")
+      .font(.subheadline)
+      .foregroundColor(.white)
+      .fixedSize(horizontal: false, vertical: true)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(.horizontal, 16)
+      .padding(.vertical, 14)
+      .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+      .padding(.horizontal, 20)
   }
 
   private var capabilitiesSection: some View {
@@ -106,27 +122,27 @@ struct PublicWelcomeView: View {
       capabilityRow(
         icon: "camera.fill",
         title: "Record catches",
-        subtitle: "Photo-based capture for every fish you land."
+        subtitle: "Photo-based capture for every fish you land"
       )
       capabilityRow(
         icon: "ruler",
         title: "Estimate length, girth & weight",
-        subtitle: "AI measurements derived from your catch photo."
+        subtitle: "AI measurements derived from your catch photo"
       )
       capabilityRow(
         icon: "leaf.fill",
         title: "Record environmental observations",
-        subtitle: "Log water, weather, and habitat notes in the field."
+        subtitle: "Log water, weather, and habitat notes in the field"
       )
       capabilityRow(
         icon: "map.fill",
         title: "Maps & catch journal",
-        subtitle: "See where catches happen and browse your full history."
+        subtitle: "See where catches happen and browse your full history"
       )
       capabilityRow(
         icon: "play.rectangle.fill",
         title: "Curated videos",
-        subtitle: "Tactics, fly tying, and conservation content."
+        subtitle: "Tactics, fly tying, and conservation content"
       )
     }
     .padding(.horizontal, 20)
@@ -176,21 +192,18 @@ struct PublicWelcomeView: View {
   @ViewBuilder
   private func capabilityRow(icon: String, title: String, subtitle: String) -> some View {
     HStack(alignment: .top, spacing: 12) {
-      Image(systemName: "checkmark.circle.fill")
+      // Functional icon doubles as the bullet — green to match the previous
+      // checkmark's visual weight, fixed-width so titles line up across rows.
+      Image(systemName: icon)
         .font(.subheadline)
         .foregroundColor(.green)
+        .frame(width: 20, alignment: .center)
         .padding(.top, 3)
 
       VStack(alignment: .leading, spacing: 3) {
-        HStack(spacing: 6) {
-          Image(systemName: icon)
-            .font(.caption)
-            .foregroundColor(.white.opacity(0.6))
-            .frame(width: 16)
-          Text(title)
-            .font(.callout.weight(.semibold))
-            .foregroundColor(.white)
-        }
+        Text(title)
+          .font(.callout.weight(.semibold))
+          .foregroundColor(.white)
         Text(subtitle)
           .font(.caption)
           .foregroundColor(.white.opacity(0.7))
