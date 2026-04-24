@@ -410,6 +410,8 @@ struct CatchChatView: View {
   @ViewBuilder
   private func messageRow(_ message: ChatMessage, index: Int) -> some View {
     let showResearcherButtons = (viewModel.researcherFlow?.confirmAnchorID == message.id)
+    let showCapsules = (viewModel.capsulesAnchorMessageID == message.id
+                        && !viewModel.chatCapsules.isEmpty)
 
     VStack(alignment: .leading, spacing: 8) {
       HStack(alignment: .center, spacing: 8) {
@@ -440,8 +442,12 @@ struct CatchChatView: View {
           let showActivityChoice = (viewModel.activityChoiceAnchorMessageID == message.id && viewModel.awaitingActivityChoice)
           let showSideResearcherButtons = showResearcherButtons
 
-          // Fixed-width icon area — always reserves space for up to 3 icons
-          // so every assistant bubble has a consistent width.
+          // Right-side icon area. Sized to content rather than a fixed 140 pt —
+          // a fixed reservation forced the bubble to wrap one-liners like
+          // "Hi Chris, upload a photo of the fish" even when only one small
+          // icon was visible. Hidden entirely during the multi-step capsule
+          // identification flow so bubbles can stretch full width.
+          if !showCapsules {
           HStack(spacing: 12) {
             if showPhotoButton {
               Button {
@@ -517,7 +523,8 @@ struct CatchChatView: View {
             }
           }
           .foregroundColor(.white)
-          .frame(width: 140, alignment: .trailing)
+          .fixedSize(horizontal: true, vertical: false)
+          } // end if !showCapsules
 
         } else {
           Spacer(minLength: 40)
@@ -525,6 +532,69 @@ struct CatchChatView: View {
         }
       }
 
+      // Capsule row — rendered directly below the anchored bubble during the
+      // multi-step identification flow (location → species → lifecycle → sex).
+      // Indented to align with the bubble (32 pt = 24 pt avatar + 8 pt HStack spacing).
+      if showCapsules {
+        capsuleRow
+          .padding(.leading, 32)
+          .padding(.top, 2)
+      }
+    }
+  }
+
+  /// Generic capsule row — renders whichever set the VM currently exposes.
+  /// Colors: green = primary/confirm, yellow = alternative, red = reject,
+  /// grey = neutral (e.g. "Skip" or "Unknown").
+  @ViewBuilder
+  private var capsuleRow: some View {
+    HStack(spacing: 8) {
+      ForEach(viewModel.chatCapsules) { capsule in
+        Button {
+          viewModel.handleCapsuleTap(capsule.action)
+        } label: {
+          HStack(spacing: 6) {
+            Text(capsule.label)
+              .font(.footnote.weight(.medium))
+            if let conf = capsule.confidence {
+              Text(String(format: "%.0f%%", conf * 100))
+                .font(.caption2)
+                .opacity(0.85)
+            }
+          }
+          .padding(.horizontal, 12)
+          .padding(.vertical, 6)
+          .background(
+            Capsule()
+              .fill(capsuleFill(capsule.color))
+          )
+          .overlay(
+            Capsule()
+              .stroke(capsuleBorder(capsule.color), lineWidth: 1)
+          )
+          .foregroundColor(.white)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(capsule.label)
+      }
+    }
+  }
+
+  private func capsuleFill(_ color: ChatCapsuleColor) -> Color {
+    switch color {
+    case .green:  return Color.green.opacity(0.25)
+    case .yellow: return Color.yellow.opacity(0.25)
+    case .red:    return Color.red.opacity(0.25)
+    case .grey:   return Color.gray.opacity(0.25)
+    }
+  }
+
+  private func capsuleBorder(_ color: ChatCapsuleColor) -> Color {
+    switch color {
+    case .green:  return Color.green.opacity(0.9)
+    case .yellow: return Color.yellow.opacity(0.9)
+    case .red:    return Color.red.opacity(0.9)
+    case .grey:   return Color.gray.opacity(0.9)
     }
   }
 

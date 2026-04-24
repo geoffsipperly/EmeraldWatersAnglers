@@ -135,6 +135,11 @@ final class ResearcherCatchFlowManager: ObservableObject {
   // Original ML-detected species (for detecting if user changed it)
   var originalSpecies: String?
   var originalLifecycleStage: String?
+  /// Original ML-detected sex (Male / Female / nil). Used by the capsule
+  /// identification flow to highlight the model's prediction green and the
+  /// remaining known sex yellow — the user still gets a third "Unknown" grey
+  /// capsule. Does not affect upload semantics; `sex` is what's persisted.
+  var originalSex: String?
 
   /// Whether the researcher changed the species from the original ML detection.
   var speciesWasCorrected: Bool {
@@ -169,6 +174,7 @@ final class ResearcherCatchFlowManager: ObservableObject {
     self.riverNameWasCorrected = false
     self.originalSpecies = species
     self.originalLifecycleStage = lifecycleStage
+    self.originalSex = sex
 
     currentStep = .identification
     AppLogging.log("[ResearcherFlow] Initialized: species=\(species ?? "nil") lifecycle=\(lifecycleStage ?? "nil") sex=\(sex ?? "nil") length=\(lengthInches.map { String($0) } ?? "nil") river=\(riverName ?? "nil")", level: .info, category: .research)
@@ -583,10 +589,16 @@ final class ResearcherCatchFlowManager: ObservableObject {
     var lines: [String] = ["Final Analysis"]
     lines.append("")
 
+    // Location: show the confirmed river/water-body name, or an em-dash when
+    // the user skipped it. We intentionally do NOT fall back to displaying
+    // raw GPS coordinates here — the user chose not to name a location, so
+    // surfacing lat/lon as "Location" is misleading. GPS still flows into
+    // the upload payload via `currentLocation` on the snapshot path,
+    // independent of this display string.
     if let r = riverName, !r.isEmpty {
       lines.append("Location: \(r)")
-    } else if let g = gpsLocationText, !g.isEmpty {
-      lines.append("Location: \(g)")
+    } else {
+      lines.append("Location: —")
     }
     if let s = species, !s.isEmpty {
       if let stage = lifecycleStage, !stage.isEmpty {
@@ -729,7 +741,26 @@ final class ResearcherCatchFlowManager: ObservableObject {
   ///   6. Species free-text fallback — gated: only accepts input with no
   ///      water-body token and no `location:` prefix, so location
   ///      corrections can never leak into species the way they used to.
-  private func parseIdentificationEdit(_ text: String, lower: String) -> Bool {
+  /// Structured-only variant of `parseIdentificationEdit` that disables the
+  /// "anything ≥3 chars becomes the species" free-text fallback (step 7 in
+  /// the ordering below).
+  ///
+  /// Used at the summary step where the user's intent is usually to fill in
+  /// a missing location — a single proper-noun river name like "Battenkill"
+  /// has no water-body token, isn't in `knownSpecies`, and would otherwise
+  /// be misclassified as a species by the fallback. Callers can then route
+  /// unrecognized text to `riverName` themselves.
+  func parseStructuredEdit(_ text: String) -> Bool {
+    if Self.containsProfanity(text) { return false }
+    let lower = text.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+    return parseIdentificationEdit(text, lower: lower, allowSpeciesFreeTextFallback: false)
+  }
+
+  private func parseIdentificationEdit(
+    _ text: String,
+    lower: String,
+    allowSpeciesFreeTextFallback: Bool = true
+  ) -> Bool {
     let tokens = lower.split { !$0.isLetter }.map(String.init)
     let noiseWords = Self.sexKeywords.union(Self.stageKeywords)
     var recognized = false
@@ -813,8 +844,11 @@ final class ResearcherCatchFlowManager: ObservableObject {
     //    don't have in `knownSpecies` yet (e.g. "tiger muskie", "walleye").
     //    Gated to skip whenever the message looks like a location, so
     //    corrections like "Columbia River" can't leak into species the way
-    //    the ungated ≥3-char fallback used to allow.
-    if !speciesUpdated && !locationUpdated {
+    //    the ungated ≥3-char fallback used to allow. Also gated off at the
+    //    summary step (via `allowSpeciesFreeTextFallback: false`) so proper-
+    //    noun river names like "Battenkill" don't get misclassified when the
+    //    user's real intent is to supply a missing location.
+    if allowSpeciesFreeTextFallback, !speciesUpdated && !locationUpdated {
       let hasWaterBodyToken = tokens.contains { Self.waterBodyKeywords.contains($0) }
       let speciesTokens = tokens.filter { !noiseWords.contains($0) }
       let candidate = speciesTokens.joined(separator: " ")

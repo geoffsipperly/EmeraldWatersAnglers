@@ -15,6 +15,19 @@ enum LengthEstimateSource: String, Codable {
   case manual     // user correction
 }
 
+/// A species candidate surfaced to the chat UI when the ML top-1 confidence is
+/// below the "pick-from-capsules" trigger threshold. The first candidate is
+/// always the ML top-1 (rendered as primary/green); subsequent candidates are
+/// runner-ups above the visibility floor (rendered yellow).
+struct SpeciesCandidate: Equatable {
+  /// Raw model label, e.g. `"atlantic_salmon"` or `"steelhead_holding"`.
+  let label: String
+  /// Softmax probability from ViT, 0.0–1.0.
+  let confidence: Float
+  /// True for the ML top-1; false for runner-ups. Drives capsule coloring.
+  let isPrimary: Bool
+}
+
 struct CatchPhotoAnalysis {
   let riverName: String?
   let species: String?
@@ -24,6 +37,9 @@ struct CatchPhotoAnalysis {
   let featureVector: CatchPhotoAnalyzer.LengthFeatureVector?
   let lengthSource: LengthEstimateSource?
   let modelVersion: String?
+  /// Alternative species candidates when the ML top-1 confidence is ambiguous.
+  /// Empty when the model was confident enough to commit directly.
+  let speciesAlternatives: [SpeciesCandidate]
 
   init(
     riverName: String?,
@@ -33,7 +49,8 @@ struct CatchPhotoAnalysis {
     lifecycleStage: String? = nil,
     featureVector: CatchPhotoAnalyzer.LengthFeatureVector? = nil,
     lengthSource: LengthEstimateSource? = nil,
-    modelVersion: String? = nil
+    modelVersion: String? = nil,
+    speciesAlternatives: [SpeciesCandidate] = []
   ) {
     self.riverName = riverName
     self.species = species
@@ -43,6 +60,7 @@ struct CatchPhotoAnalysis {
     self.featureVector = featureVector
     self.lengthSource = lengthSource
     self.modelVersion = modelVersion
+    self.speciesAlternatives = speciesAlternatives
   }
 }
 
@@ -139,6 +157,7 @@ final class CatchPhotoAnalyzer {
 
     let speciesText: String?
     var detectedSpeciesLabel: String? = nil
+    var speciesAlternatives: [SpeciesCandidate] = []
     let lowConfidenceThreshold = AppEnvironment.shared.speciesDetectionThreshold
     if let vit = vitResult,
        vit.index >= 0,
@@ -150,6 +169,30 @@ final class CatchPhotoAnalyzer {
         speciesText = "Species (model): \(prettyLabel)"
         detectedSpeciesLabel = rawLabel
         AppLogging.log({ "ViT species: \(prettyLabel), confidence: \(vit.confidence)" }, level: .info, category: .ml)
+
+        // Runner-up capsule logic: when top-1 is below the trigger, surface up to
+        // 2 candidates (primary + best runner-up above the visibility floor) so
+        // the user can correct an ambiguous classification with one tap instead
+        // of having to type the right species name.
+        //
+        // Skip when top-1 is "other" — the Bi-catch flow already has dedicated
+        // UX that asks the user to name the species. A "Bi-catch" capsule would
+        // be confusing because tapping primary ("confirm") has no meaningful
+        // semantics when the species itself is declared unknown.
+        let env = AppEnvironment.shared
+        if vit.confidence < env.speciesRunnerUpTrigger, rawLabel != "other" {
+          speciesAlternatives = computeSpeciesAlternatives(
+            distribution: vit.distribution,
+            winnerIndex: vit.index,
+            minProb: env.speciesRunnerUpMinProb
+          )
+          AppLogging.log({
+            let names = speciesAlternatives.map {
+              String(format: "%@=%.2f%@", $0.label, $0.confidence, $0.isPrimary ? "★" : "")
+            }.joined(separator: ", ")
+            return "Runner-up capsules triggered (top1=\(String(format: "%.2f", vit.confidence)) < \(env.speciesRunnerUpTrigger)): [\(names)]"
+          }, level: .info, category: .ml)
+        }
       } else {
         AppLogging.log({ "ViT species below threshold: best=\(prettyLabel), confidence=\(vit.confidence) (min \(lowConfidenceThreshold))" }, level: .debug, category: .ml)
         speciesText = "Species: Unable to confidently detect"
@@ -290,17 +333,61 @@ final class CatchPhotoAnalyzer {
       estimatedLength: lengthText,
       featureVector: featureVector,
       lengthSource: lengthSource,
-      modelVersion: CatchPhotoAnalyzer._lengthRegressorVersion
+      modelVersion: CatchPhotoAnalyzer._lengthRegressorVersion,
+      speciesAlternatives: speciesAlternatives
     )
+  }
+
+  /// Build up to 2 species candidates (primary + runner-up) from the full ViT
+  /// softmax distribution. Returns an empty array if the best runner-up falls
+  /// below `minProb`, signalling that capsule UX should be skipped.
+  private func computeSpeciesAlternatives(
+    distribution probs: [Float],
+    winnerIndex: Int,
+    minProb: Float
+  ) -> [SpeciesCandidate] {
+    guard winnerIndex >= 0, winnerIndex < speciesLabels.count else { return [] }
+
+    // Find the best runner-up (any index except the winner).
+    var runnerUpIdx: Int? = nil
+    var runnerUpProb: Float = 0
+    for i in 0 ..< probs.count where i != winnerIndex {
+      if probs[i] > runnerUpProb {
+        runnerUpProb = probs[i]
+        runnerUpIdx = i
+      }
+    }
+
+    // If no runner-up clears the visibility floor, skip capsules entirely —
+    // the model strongly prefers the winner, so there's no ambiguity worth
+    // surfacing to the user.
+    guard let runnerIdx = runnerUpIdx,
+          runnerUpProb >= minProb,
+          runnerIdx < speciesLabels.count else {
+      return []
+    }
+
+    return [
+      SpeciesCandidate(label: speciesLabels[winnerIndex], confidence: probs[winnerIndex], isPrimary: true),
+      SpeciesCandidate(label: speciesLabels[runnerIdx], confidence: runnerUpProb, isPrimary: false)
+    ]
   }
 
   // MARK: - ViT inference (species)
 
-  /// Runs the ViT species model on a UIImage and returns the best species index + softmax confidence.
-  /// Uses Inception-style normalization (mean/std 0.5) — timm's default for `vit_tiny_patch16_224`,
-  /// which is what the species model was trained with. Matching the training preprocessing is
-  /// load-bearing: the previous ImageNet-norm default silently produced wrong-distribution inputs.
-  private func runViT(on image: UIImage) -> (index: Int, confidence: Float)? {
+  /// Runs the ViT species model on a UIImage and returns the best species index,
+  /// the winner's softmax confidence, and the full probability distribution
+  /// (used downstream to surface runner-up candidates to the user).
+  ///
+  /// Uses Inception-style normalization (mean/std 0.5) — timm's default for
+  /// `vit_tiny_patch16_224`, which is what the species model was trained with.
+  /// Matching the training preprocessing is load-bearing: the previous
+  /// ImageNet-norm default silently produced wrong-distribution inputs.
+  ///
+  /// Emits a diagnostic log with the full softmax distribution, runner-up margin,
+  /// and entropy at the `.info` level so misclassifications can be debugged
+  /// without re-running with extra instrumentation.
+  private func runViT(on image: UIImage) -> (index: Int, confidence: Float, distribution: [Float])? {
     guard let inputArray = try? makeInputArray(from: image, mean: [0.5, 0.5, 0.5], std: [0.5, 0.5, 0.5]) else {
       return nil
     }
@@ -320,34 +407,96 @@ final class CatchPhotoAnalyzer {
       return nil
     }
 
-    guard let bestIdx = argmax(logits) else { return nil }
+    // Compute the full softmax distribution once — reused for the returned
+    // winner confidence, the diagnostic log, and the runner-up capsule logic.
+    let probs = softmaxDistribution(logits)
+    guard let bestIdx = probs.indices.max(by: { probs[$0] < probs[$1] }) else { return nil }
+    let confidence = probs[bestIdx]
 
-    // Compute softmax confidence for the winning class
-    let confidence = softmaxConfidence(logits, at: bestIdx)
+    logViTBreakdown(probs: probs, logits: logits, bestIdx: bestIdx)
 
-    return (index: bestIdx, confidence: confidence)
+    return (index: bestIdx, confidence: confidence, distribution: probs)
   }
 
-  /// Computes the softmax probability for a specific index in a logits array.
-  private func softmaxConfidence(_ logits: MLMultiArray, at index: Int) -> Float {
-    // Find max for numerical stability
+  /// Computes the full softmax probability distribution from a logits array.
+  /// Numerically stable (subtracts max before exp).
+  private func softmaxDistribution(_ logits: MLMultiArray) -> [Float] {
+    guard logits.count > 0 else { return [] }  // swiftlint:disable:this empty_count
+
     var maxVal: Float = -.greatestFiniteMagnitude
     for i in 0 ..< logits.count {
       maxVal = max(maxVal, logits[i].floatValue)
     }
 
-    // Compute exp(logit - max) and sum
-    var sumExp: Float = 0.0
-    var targetExp: Float = 0.0
+    var exps = [Float](repeating: 0, count: logits.count)
+    var sumExp: Float = 0
     for i in 0 ..< logits.count {
       let e = exp(logits[i].floatValue - maxVal)
+      exps[i] = e
       sumExp += e
-      if i == index {
-        targetExp = e
-      }
     }
 
-    return targetExp / sumExp
+    guard sumExp > 0 else { return exps }
+    for i in 0 ..< exps.count {
+      exps[i] /= sumExp
+    }
+    return exps
+  }
+
+  /// Emits a structured diagnostic log showing the full ViT species distribution,
+  /// runner-up margin, and entropy — everything you need to understand why a
+  /// given class was picked. Flags close calls (small margin / high entropy) so
+  /// they stand out when scanning logs.
+  private func logViTBreakdown(probs: [Float], logits: MLMultiArray, bestIdx: Int) {
+    // Sorted (probability, originalIndex) pairs, descending.
+    let ranked = probs.enumerated()
+      .map { (idx: $0.offset, prob: $0.element) }
+      .sorted { $0.prob > $1.prob }
+
+    // Top-1 vs Top-2 margin (0 if only one class).
+    let margin: Float = ranked.count >= 2 ? ranked[0].prob - ranked[1].prob : ranked.first?.prob ?? 0
+
+    // Shannon entropy in nats. Uniform over N classes = ln(N). Peaky ≈ 0.
+    // Max possible entropy for sanity framing: ln(numClasses).
+    var entropy: Float = 0
+    for p in probs where p > 0 {
+      entropy -= p * log(p)
+    }
+    let maxEntropy = log(Float(max(probs.count, 1)))
+    let normalizedEntropy = maxEntropy > 0 ? entropy / maxEntropy : 0
+
+    // Heuristic close-call flag — surfaces the cases worth eyeballing.
+    let closeCall = margin < 0.15 || normalizedEntropy > 0.7
+
+    AppLogging.log({
+      var lines = ["── ViT species breakdown ──"]
+      for (rank, item) in ranked.enumerated() {
+        let label = item.idx < self.speciesLabels.count ? self.speciesLabels[item.idx] : "idx\(item.idx)"
+        let logitValue = item.idx < logits.count ? logits[item.idx].floatValue : 0
+        let marker = (item.idx == bestIdx) ? "★" : " "
+        lines.append(String(
+          format: "  %@ %d. %-22@ %.3f (logit %.3f)",
+          marker, rank + 1, label as NSString, item.prob, logitValue
+        ))
+      }
+      lines.append(String(
+        format: "  margin (top1-top2): %.3f  |  entropy: %.3f nats (%.0f%% of max)%@",
+        margin,
+        entropy,
+        normalizedEntropy * 100,
+        closeCall ? "  ⚠️ CLOSE CALL" : ""
+      ))
+      return lines.joined(separator: "\n")
+    }, level: .info, category: .ml)
+  }
+
+  /// Computes the softmax probability for a specific index in a logits array.
+  /// Kept for any callers still using it directly; new code should prefer
+  /// `softmaxDistribution(_:)` which returns the full vector in one pass.
+  private func softmaxConfidence(_ logits: MLMultiArray, at index: Int) -> Float {
+    let probs = softmaxDistribution(logits)
+    guard index >= 0, index < probs.count else { return 0 }
+    return probs[index]
   }
 
   /// Returns the index of the largest value in the MLMultiArray (assumed 1-D or flattenable).

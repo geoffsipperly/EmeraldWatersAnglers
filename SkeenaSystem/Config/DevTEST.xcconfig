@@ -119,6 +119,11 @@ IMAGE_COMPRESSION_QUALITY = 0.85
 // ──────────────────────────────────────────────
 
 SPECIES_DETECTION_THRESHOLD = 0.3
+// Top-1 softmax below this triggers the "pick-from-capsules" UX in chat.
+// Above = trust the model, commit directly.
+SPECIES_RUNNER_UP_TRIGGER = 0.85
+// Runner-up must exceed this to appear as a capsule. Filters out noise.
+SPECIES_RUNNER_UP_MIN_PROB = 0.15
 
 // ──────────────────────────────────────────────
 // MARK: - Length Detection ML Calibration (Fallback)

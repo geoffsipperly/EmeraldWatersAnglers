@@ -18,6 +18,38 @@ struct ChatMessage: Identifiable {
   let image: UIImage?
 }
 
+/// Visual affordance for a capsule button in the chat flow.
+/// - `green`: the ML top-1 or the currently confirmed value (the "primary" choice).
+/// - `yellow`: a runner-up / alternative the user might pick instead.
+/// - `red`: reject / disagree (only used by the location step).
+/// - `grey`: neutral / "Unknown" option that carries no ML preference.
+enum ChatCapsuleColor: Equatable {
+  case green, yellow, red, grey
+}
+
+/// Semantic action dispatched when a capsule is tapped. Carried by the capsule
+/// itself so the view doesn't need to know which identification sub-step is
+/// active — the VM's `handleCapsuleTap(_:)` routes by action.
+enum ChatCapsuleAction: Equatable {
+  case confirmLocation
+  case rejectLocation
+  case skipLocation
+  case selectSpecies(label: String)
+  case selectLifecycle(stage: String)   // "Holding" | "Traveler"
+  case selectSex(sex: String?)          // "Male" | "Female" | nil (Unknown)
+  case confirmIdentificationSummary     // final recap → advance to length
+}
+
+struct ChatCapsule: Identifiable, Equatable {
+  let id: String
+  let label: String
+  let color: ChatCapsuleColor
+  /// Optional confidence shown as "72%" next to the label. Used for species;
+  /// nil for confirm/reject, lifecycle, sex.
+  let confidence: Float?
+  let action: ChatCapsuleAction
+}
+
 final class CatchChatViewModel: ObservableObject {
   @Published var messages: [ChatMessage] = []
   @Published var userInput: String = ""
@@ -112,6 +144,34 @@ final class CatchChatViewModel: ObservableObject {
   /// finalSummary → voiceMemo transition so they skip research-only steps.
   /// Nil until a photo is analyzed.
   @Published var researcherFlow: ResearcherCatchFlowManager?
+
+  /// Capsules rendered under the currently-anchored bubble. Drives the
+  /// multi-step identification UI (location → species → lifecycle → sex).
+  /// Empty outside the identification phase.
+  @Published var chatCapsules: [ChatCapsule] = []
+
+  /// Message ID the capsules are anchored to. Capsules render directly under
+  /// whichever assistant bubble carries this ID.
+  @Published var capsulesAnchorMessageID: UUID?
+
+  /// Internal sub-step for the identification phase. Drives which capsule
+  /// group is shown and how text input is interpreted. `.none` outside
+  /// identification — the flow manager's own `currentStep` takes over from
+  /// `.confirmLength` onward.
+  private enum IdentificationSubStep {
+    case none
+    case confirmLocation       // ML matched a location — offer Confirm / Wrong
+    case enterLocation         // user rejected; accepting typed input or Skip
+    case confirmSpecies        // pick species from capsules (or type override)
+    case confirmLifecycle      // only when species is steelhead
+    case confirmSex            // Male / Female / Unknown
+    case confirmSummary        // final recap before advancing to length
+  }
+  private var identificationSubStep: IdentificationSubStep = .none
+
+  /// Saved analyzer result — the `speciesAlternatives` (top-1 + runner-up) get
+  /// re-used when re-entering the species sub-step after a rejected edit.
+  private var lastAnalysisAlternatives: [SpeciesCandidate] = []
 
   // High-level conversation state. Detailed step handling lives inside
   // ResearcherCatchFlowManager once a photo has been analyzed.
@@ -435,13 +495,321 @@ final class CatchChatViewModel: ObservableObject {
     )
     researcherFlow = flow
 
-    // Step 1: show location + species + lifecycle + sex for confirmation.
-    // The flow owns the full location line now (including GPS fallback), so
-    // we no longer prepend it here. Measurements are shown after
-    // species/sex/location are confirmed.
-    let msg = appendAssistant("Here's what I identified:\n\(flow.identificationPrompt())")
+    // Remember the ML runner-ups so we can re-post the species step if the
+    // user backs out of a correction mid-flow.
+    lastAnalysisAlternatives = analysis.speciesAlternatives
 
-    flow.confirmAnchorID = msg.id
+    // Kick off the multi-step capsule flow. Location is always offered —
+    // either as a Confirm/Wrong pair when the analyzer matched something, or
+    // as an Entry prompt (type or Skip) when no match came through. The user
+    // should never be forced past an unknown location without the chance to
+    // supply one.
+    if hasRealRiver {
+      postLocationConfirmStep()
+    } else {
+      postLocationEntryStep(afterReject: false)
+    }
+  }
+
+  // MARK: - Multi-step identification UI
+
+  /// Post the bubble + capsules for the location-confirmation step.
+  /// Shown only when the ML analyzer matched a named river / water body.
+  private func postLocationConfirmStep() {
+    guard let flow = researcherFlow, let river = flow.riverName else {
+      // Defensive — shouldn't happen because callers gate on hasRealRiver.
+      postSpeciesStep()
+      return
+    }
+    identificationSubStep = .confirmLocation
+
+    let msg = appendAssistant("I matched your location to **\(river)**.\n§\nIs that right?")
+    capsulesAnchorMessageID = msg.id
+    chatCapsules = [
+      ChatCapsule(id: "loc-confirm", label: "Yes",   color: .green, confidence: nil, action: .confirmLocation),
+      ChatCapsule(id: "loc-reject",  label: "Wrong", color: .red,   confidence: nil, action: .rejectLocation),
+    ]
+  }
+
+  /// Prompt the user to type a location or Skip. Used both when no GPS match
+  /// came through (afterReject = false) and after the user rejected an
+  /// auto-matched location (afterReject = true) — wording shifts accordingly.
+  private func postLocationEntryStep(afterReject: Bool) {
+    identificationSubStep = .enterLocation
+
+    let intro = afterReject
+      ? "No problem."
+      : "I couldn't match your location from GPS."
+    let msg = appendAssistant("\(intro)\n§\nType the correct location below, or tap Skip.")
+    capsulesAnchorMessageID = msg.id
+    chatCapsules = [
+      ChatCapsule(id: "loc-skip", label: "Skip", color: .grey, confidence: nil, action: .skipLocation)
+    ]
+  }
+
+  /// Post the bubble + capsules for the species step. Steelhead variants collapse
+  /// into a single "Steelhead" capsule regardless of lifecycle — lifecycle is
+  /// confirmed at the next step when the user picks steelhead.
+  private func postSpeciesStep() {
+    guard let flow = researcherFlow else { return }
+    identificationSubStep = .confirmSpecies
+
+    let summary: String
+    if let species = flow.species, !species.isEmpty {
+      summary = "Species: **\(species)**"
+    } else {
+      summary = "Species: **Unknown**"
+    }
+
+    let msg = appendAssistant("\(summary)\n§\nConfirm, pick an alternative, or type a different species name.")
+    capsulesAnchorMessageID = msg.id
+    chatCapsules = buildSpeciesCapsules(alternatives: lastAnalysisAlternatives)
+  }
+
+  /// Build the species capsule group. Collapses steelhead_holding /
+  /// steelhead_traveler into a single "Steelhead" capsule — lifecycle is
+  /// confirmed at the next sub-step.
+  private func buildSpeciesCapsules(alternatives: [SpeciesCandidate]) -> [ChatCapsule] {
+    // Deduplicate steelhead variants — sum their probs, keep the primary flag
+    // if either variant was the ML top-1.
+    var seenSpeciesKeys: [String: (confidence: Float, isPrimary: Bool)] = [:]
+    for alt in alternatives {
+      let key = Self.speciesKey(forLabel: alt.label)
+      if let existing = seenSpeciesKeys[key] {
+        seenSpeciesKeys[key] = (
+          confidence: existing.confidence + alt.confidence,
+          isPrimary: existing.isPrimary || alt.isPrimary
+        )
+      } else {
+        seenSpeciesKeys[key] = (confidence: alt.confidence, isPrimary: alt.isPrimary)
+      }
+    }
+
+    // If there were no alternatives (high-confidence ML), synthesize a single
+    // confirm capsule for the current species. Keeps the UX uniform.
+    if seenSpeciesKeys.isEmpty, let species = researcherFlow?.species, !species.isEmpty {
+      let key = species.lowercased()
+      seenSpeciesKeys[key] = (confidence: 1.0, isPrimary: true)
+    }
+
+    // Order: primary (green) first, then runner-up (yellow).
+    let ordered = seenSpeciesKeys
+      .sorted { $0.value.isPrimary && !$1.value.isPrimary }
+      .sorted { $0.value.confidence > $1.value.confidence }
+
+    return ordered.map { key, meta in
+      let displayLabel = Self.displayName(forSpeciesKey: key)
+      return ChatCapsule(
+        id: "species-\(key)",
+        label: displayLabel,
+        color: meta.isPrimary ? .green : .yellow,
+        confidence: meta.confidence < 1.0 ? meta.confidence : nil,
+        action: .selectSpecies(label: key)
+      )
+    }
+  }
+
+  /// Post the bubble + capsules for the lifecycle step. Only reached when the
+  /// user picked steelhead. The ML-predicted stage (if any) is highlighted green;
+  /// the remaining stage is yellow.
+  private func postLifecycleStep() {
+    guard let flow = researcherFlow else { return }
+    identificationSubStep = .confirmLifecycle
+
+    let mlStage = flow.originalLifecycleStage?.lowercased() ?? ""
+    let msg = appendAssistant("Is this fish a holding or traveling steelhead?\n§\nTap to confirm.")
+    capsulesAnchorMessageID = msg.id
+
+    let holdingColor: ChatCapsuleColor = (mlStage == "holding") ? .green : .yellow
+    let travelerColor: ChatCapsuleColor = (mlStage == "traveler") ? .green : .yellow
+    chatCapsules = [
+      ChatCapsule(id: "lc-holding",  label: "Holding",  color: holdingColor,  confidence: nil, action: .selectLifecycle(stage: "Holding")),
+      ChatCapsule(id: "lc-traveler", label: "Traveler", color: travelerColor, confidence: nil, action: .selectLifecycle(stage: "Traveler")),
+    ]
+  }
+
+  /// Post the bubble + capsules for the sex step. The ML prediction (if any)
+  /// is green and rendered leftmost; the other real sex is yellow in the
+  /// middle; Unknown is always grey and rightmost. When no ML prediction
+  /// came through, Male and Female are both yellow and order is Male first.
+  private func postSexStep() {
+    guard let flow = researcherFlow else { return }
+    identificationSubStep = .confirmSex
+
+    let msg = appendAssistant("What's the sex of this fish?\n§\nSelect one.")
+    capsulesAnchorMessageID = msg.id
+
+    let male = ChatCapsule(id: "sex-male",   label: "Male",   color: .yellow, confidence: nil, action: .selectSex(sex: "Male"))
+    let female = ChatCapsule(id: "sex-female", label: "Female", color: .yellow, confidence: nil, action: .selectSex(sex: "Female"))
+    let unknown = ChatCapsule(id: "sex-unknown", label: "Unknown", color: .grey,  confidence: nil, action: .selectSex(sex: nil))
+
+    switch flow.originalSex?.lowercased() {
+    case "male":
+      // Predicted male → [Male (green), Female (yellow), Unknown (grey)]
+      chatCapsules = [
+        ChatCapsule(id: male.id, label: male.label, color: .green, confidence: nil, action: male.action),
+        female,
+        unknown,
+      ]
+    case "female":
+      // Predicted female → [Female (green), Male (yellow), Unknown (grey)]
+      chatCapsules = [
+        ChatCapsule(id: female.id, label: female.label, color: .green, confidence: nil, action: female.action),
+        male,
+        unknown,
+      ]
+    default:
+      // No prediction (e.g. Bi-catch path) — no green, Male first by convention.
+      chatCapsules = [male, female, unknown]
+    }
+  }
+
+  /// Post a summary of everything just confirmed (location, species,
+  /// lifecycle if applicable, sex) with a single green "Looks good" capsule.
+  /// User taps it to advance to the length step — this gives them one last
+  /// chance to visually verify before measurements kick in.
+  private func postIdentificationSummaryStep() {
+    guard let flow = researcherFlow else { return }
+    identificationSubStep = .confirmSummary
+
+    var lines: [String] = ["Here's what I've got:"]
+    if let river = flow.riverName, !river.isEmpty {
+      lines.append("• Location: \(river)")
+    } else {
+      lines.append("• Location: —")
+    }
+    if let species = flow.species, !species.isEmpty {
+      lines.append("• Species: \(species)")
+    } else {
+      lines.append("• Species: —")
+    }
+    if let stage = flow.lifecycleStage, !stage.isEmpty {
+      lines.append("• Lifecycle: \(stage)")
+    }
+    if let sex = flow.sex, !sex.isEmpty {
+      lines.append("• Sex: \(sex)")
+    } else {
+      lines.append("• Sex: Unknown")
+    }
+
+    let primary = lines.joined(separator: "\n")
+    let msg = appendAssistant("\(primary)\n§\nMake any updates using the message box below.")
+    capsulesAnchorMessageID = msg.id
+    chatCapsules = [
+      ChatCapsule(
+        id: "summary-confirm",
+        label: "Continue",
+        color: .green,
+        confidence: nil,
+        action: .confirmIdentificationSummary
+      )
+    ]
+  }
+
+  /// Advance the flow manager past identification once the user has confirmed
+  /// the summary. Runs the same cascade the old single-step confirmation did:
+  /// re-estimate length if species was corrected, snapshot initial estimates,
+  /// move into `.confirmLength`.
+  private func finishIdentificationPhase() {
+    identificationSubStep = .none
+    chatCapsules = []
+    capsulesAnchorMessageID = nil
+    researcherConfirm()
+  }
+
+  // MARK: - Capsule tap dispatch
+
+  /// Central dispatch for any capsule tap during the identification sub-flow.
+  /// Keeps the view a dumb renderer — the capsule carries its own action.
+  func handleCapsuleTap(_ action: ChatCapsuleAction) {
+    guard let flow = researcherFlow else { return }
+
+    switch action {
+    case .confirmLocation:
+      // Location as-is — advance to species.
+      postSpeciesStep()
+
+    case .rejectLocation:
+      // Clear the ML-detected location since the user disagrees with it.
+      flow.riverName = nil
+      flow.riverNameWasCorrected = true
+      postLocationEntryStep(afterReject: true)
+
+    case .skipLocation:
+      // Leave riverName nil (user declined to supply); jump to species.
+      postSpeciesStep()
+
+    case .selectSpecies(let key):
+      applySpeciesSelection(key: key)
+
+    case .selectLifecycle(let stage):
+      flow.lifecycleStage = stage
+      postSexStep()
+
+    case .selectSex(let sex):
+      flow.sex = sex
+      postIdentificationSummaryStep()
+
+    case .confirmIdentificationSummary:
+      finishIdentificationPhase()
+    }
+  }
+
+  /// Apply a species choice from the species-step capsules. Uses the same
+  /// update path text entry would, so `speciesWasCorrected` fires correctly
+  /// and the downstream length-re-estimation cascade still runs when the user
+  /// confirms sex.
+  private func applySpeciesSelection(key: String) {
+    guard let flow = researcherFlow else { return }
+
+    flow.species = Self.displayName(forSpeciesKey: key)
+    // Drop any stale lifecycle from the ML prediction. The lifecycle step
+    // writes a fresh one if species is steelhead; otherwise it stays nil.
+    if key != "steelhead" {
+      flow.lifecycleStage = nil
+    }
+
+    // Steelhead branches to lifecycle; everything else skips straight to sex.
+    if key == "steelhead" {
+      postLifecycleStep()
+    } else {
+      postSexStep()
+    }
+  }
+
+  /// Resolves a raw model label (e.g. `"atlantic_salmon"` or `"steelhead_holding"`)
+  /// to the user-facing display name. Mirrors the lookup `splitSpecies` performs
+  /// when it parses the analyzer's species string, so a capsule tap produces the
+  /// same downstream text a manual type would.
+  ///
+  /// Exposed for the chat view to render capsule labels with the same
+  /// hyphenation / casing conventions the rest of the chat uses
+  /// (e.g. `"Sea-Run Trout"`, not the auto-capitalized `"Sea Run Trout"`).
+  static func displayName(forLabel label: String) -> String {
+    displayName(forSpeciesKey: Self.speciesKey(forLabel: label))
+  }
+
+  /// Resolves an already-collapsed species key (e.g. `"steelhead"`,
+  /// `"atlantic salmon"`) to its user-facing display name via
+  /// `speciesDisplayNames`, falling back to a capitalized form.
+  static func displayName(forSpeciesKey key: String) -> String {
+    if let mapped = speciesDisplayNames[key] { return mapped }
+    return key.split(separator: " ").map { $0.capitalized }.joined(separator: " ")
+  }
+
+  /// Canonical dictionary key used for species comparisons — the raw model
+  /// label with the underscore stripped and any lifecycle suffix dropped.
+  /// Example: `"steelhead_holding" → "steelhead"`, `"atlantic_salmon" → "atlantic salmon"`.
+  static func speciesKey(forLabel label: String) -> String {
+    let parts = label.replacingOccurrences(of: "_", with: " ").split(separator: " ")
+    let lifecycle: Set<String> = ["holding", "traveler"]
+    let speciesParts: [Substring]
+    if let last = parts.last, lifecycle.contains(String(last).lowercased()) {
+      speciesParts = Array(parts.dropLast())
+    } else {
+      speciesParts = parts
+    }
+    return speciesParts.joined(separator: " ").lowercased()
   }
 
   // MARK: - Researcher flow actions (called from CatchChatView)
@@ -449,6 +817,12 @@ final class CatchChatViewModel: ObservableObject {
   /// Researcher confirms the current step.
   func researcherConfirm() {
     guard let flow = researcherFlow else { return }
+
+    // Advancing past the current step ⇒ any capsules on the previous bubble
+    // are stale. This is a belt-and-suspenders clear — the multi-step
+    // identification flow already clears as it advances.
+    chatCapsules = []
+    capsulesAnchorMessageID = nil
 
     // If confirming identification and species was corrected, re-estimate length
     // using the corrected species before advancing to measurements.
@@ -474,8 +848,92 @@ final class CatchChatViewModel: ObservableObject {
   }
 
   /// Researcher edits the current step value via text input.
+  ///
+  /// Identification-phase sub-steps (location entry, species) have their own
+  /// text-input handling; later flow-manager steps (length, girth, floy, etc.)
+  /// fall through to the shared `flow.applyEdit` path.
   func researcherApplyEdit(_ text: String) {
     guard let flow = researcherFlow else { return }
+
+    // Multi-step identification: interpret text based on which sub-step we're
+    // on rather than funneling through the flow manager's multi-field parser.
+    switch identificationSubStep {
+    case .enterLocation:
+      let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+      if !trimmed.isEmpty {
+        flow.riverName = trimmed
+        flow.riverNameWasCorrected = true
+      }
+      // Whether the user typed something or not, advance.
+      chatCapsules = []
+      capsulesAnchorMessageID = nil
+      postSpeciesStep()
+      return
+
+    case .confirmSpecies:
+      // Allow free-text override at the species step. Reuse the flow manager's
+      // species parser for consistency with the pre-capsule behavior — it
+      // handles "species: X" prefixes and the knownSpecies map.
+      flow.confirmAnchorID = nil
+      let (_, _, recognized) = flow.applyEdit(text)
+      if !recognized {
+        let msg = appendAssistant("I didn't catch a species name there. Tap one of the capsules above or type a species (e.g. \"Rainbow Trout\", \"Chinook\").")
+        flow.confirmAnchorID = msg.id
+        return
+      }
+      chatCapsules = []
+      capsulesAnchorMessageID = nil
+      // Re-render species step with the user's typed value, then branch on
+      // whether it resolved to steelhead.
+      let resolvedKey = (flow.species ?? "").lowercased()
+      if resolvedKey == "steelhead" {
+        postLifecycleStep()
+      } else {
+        postSexStep()
+      }
+      return
+
+    case .confirmLocation, .confirmLifecycle, .confirmSex:
+      // These steps are capsule-driven — typed input at these moments is
+      // unexpected but still useful to parse if it's clearly a species name
+      // or location. Fall through to the shared parser.
+      break
+
+    case .confirmSummary:
+      // Summary step: accept typed corrections for any identification field
+      // (species, sex, lifecycle, location) and re-render the summary so the
+      // user sees the updated recap. If the edit changed the species, the
+      // length cascade will still re-run when they tap Continue — that path
+      // is handled in `researcherConfirm()`.
+      //
+      // Uses the *structured* parser (no species free-text fallback) so an
+      // unrecognized proper noun like "Battenkill" gets routed to the
+      // missing-location slot instead of silently overwriting species.
+      flow.confirmAnchorID = nil
+      let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+      let recognized = flow.parseStructuredEdit(text)
+      if !recognized {
+        // Parser couldn't match species/sex/lifecycle/explicit-location
+        // prefix. If it's non-empty, assume the user is supplying a
+        // location (proper-noun river/lake name).
+        if !trimmed.isEmpty {
+          flow.riverName = trimmed
+          flow.riverNameWasCorrected = true
+        } else {
+          let msg = appendAssistant("I didn't catch that. Try a species (e.g. \"Rainbow Trout\"), sex (\"male\"/\"female\"), lifecycle (\"holding\"/\"traveler\"), or a location.")
+          flow.confirmAnchorID = msg.id
+          return
+        }
+      }
+      chatCapsules = []
+      capsulesAnchorMessageID = nil
+      postIdentificationSummaryStep()
+      return
+
+    case .none:
+      // Outside identification — measurements, research steps, etc.
+      break
+    }
 
     flow.confirmAnchorID = nil
 
@@ -483,11 +941,18 @@ final class CatchChatViewModel: ObservableObject {
 
     if !recognized {
       // Input was empty, profane, or unparseable — show the step's re-prompt
-      // verbatim (no "Got it, updated:" prefix).
+      // verbatim (no "Got it, updated:" prefix). Keep capsules on screen in
+      // this case since the user hasn't successfully resolved the ambiguity.
       let msg = appendAssistant(updatedPrompt)
       flow.confirmAnchorID = msg.id
       return
     }
+
+    // A recognized edit resolved the identification (species/sex/lifecycle/
+    // location) — capsules are stale, clear them so they don't linger on the
+    // re-rendered bubble.
+    chatCapsules = []
+    capsulesAnchorMessageID = nil
 
     if autoAdvanced {
       // Value entry auto-confirmed the step and advanced
