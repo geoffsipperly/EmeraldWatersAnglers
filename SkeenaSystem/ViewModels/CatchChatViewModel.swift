@@ -1449,6 +1449,7 @@ final class CatchChatViewModel: ObservableObject {
   private static let speciesDisplayNames: [String: String] = [
     "atlantic salmon": "Atlantic Salmon",
     "chinook salmon": "Chinook Salmon",
+    "lingcod": "Lingcod",
     "sea run trout": "Sea-Run Trout",
     "steelhead": "Steelhead",
     "other": "Bi-catch",

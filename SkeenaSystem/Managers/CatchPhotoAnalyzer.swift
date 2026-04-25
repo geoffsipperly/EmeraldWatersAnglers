@@ -85,6 +85,7 @@ final class CatchPhotoAnalyzer {
     private let speciesLabels: [String] = [
         "atlantic_salmon",
         "chinook_salmon",
+        "lingcod",
         "other",
         "sea_run_trout",
         "steelhead_holding",
@@ -287,7 +288,7 @@ final class CatchPhotoAnalyzer {
       }, level: .debug, category: .ml)
 
       // Species that haven't been calibrated with the regressor — use heuristic only
-      let regressorBypassSpecies: Set<String> = ["sea_run_trout", "other", "atlantic_salmon", "chinook_salmon"]
+      let regressorBypassSpecies: Set<String> = ["sea_run_trout", "other", "atlantic_salmon", "chinook_salmon", "lingcod"]
       let useRegressorForSpecies = !regressorBypassSpecies.contains(detectedSpeciesLabel ?? "")
 
       // Always log regressor prediction for future training data
@@ -1459,7 +1460,7 @@ final class CatchPhotoAnalyzer {
     }, level: .info, category: .ml)
 
     // Check if this species bypasses the regressor
-    let regressorBypassSpecies: Set<String> = ["sea_run_trout", "other", "atlantic_salmon", "chinook_salmon"]
+    let regressorBypassSpecies: Set<String> = ["sea_run_trout", "other", "atlantic_salmon", "chinook_salmon", "lingcod"]
     let useRegressor = !regressorBypassSpecies.contains(resolvedLabel)
 
     // Build updated feature vector with corrected species index
