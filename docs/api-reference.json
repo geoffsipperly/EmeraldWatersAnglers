@@ -1,6 +1,6 @@
 {
-  "version": "2026-04-23",
-  "generated": "2026-04-23T16:19:06.260Z",
+  "version": "2026-04-24",
+  "generated": "2026-04-25T00:05:44.585Z",
   "key_concepts": {
     "member_id": "UUID foreign key reference to a member record",
     "member_number": "Human-readable identifier in MAD Crockford Base32 format: MAD + 6 random chars (e.g., MAD4ZQ7H9)",
@@ -703,18 +703,80 @@
     {
       "name": "Manage Community",
       "path": "/functions/v1/manage-community",
-      "method": "GET",
-      "description": "Get community details including is_active status.",
+      "method": "POST",
+      "description": "Create or update a community. Admin-only (or community admin for update).",
       "auth": "required",
-      "parameters": {
+      "body": {
+        "action": {
+          "type": "string",
+          "required": true,
+          "description": "'create' or 'update'"
+        },
         "community_id": {
           "type": "uuid",
-          "required": true,
-          "description": "Community UUID"
+          "required": false,
+          "description": "Required for update"
+        },
+        "name": {
+          "type": "string",
+          "required": false,
+          "description": "Community name"
+        },
+        "community_type_id": {
+          "type": "uuid",
+          "required": false,
+          "description": "Community type"
+        },
+        "is_active": {
+          "type": "boolean",
+          "required": false,
+          "description": "Active status"
+        },
+        "logo_url": {
+          "type": "string",
+          "required": false,
+          "description": "Logo image URL"
+        },
+        "logo_asset_name": {
+          "type": "string",
+          "required": false,
+          "description": "Bundled asset fallback"
+        },
+        "tagline": {
+          "type": "string",
+          "required": false,
+          "description": "Short tagline"
+        },
+        "display_name": {
+          "type": "string",
+          "required": false,
+          "description": "Display name"
+        },
+        "geography": {
+          "type": "object",
+          "required": false,
+          "description": "Geography config (rivers/water bodies)"
+        },
+        "learn_url": {
+          "type": "string",
+          "required": false,
+          "description": "DEPRECATED — use custom_urls. Mirrors first custom_urls entry for legacy clients."
+        },
+        "custom_urls": {
+          "type": "array",
+          "required": false,
+          "description": "Up to 5 named links: [{ name: string (≤100), url: string (≤2048) }, ...]. Empty array clears."
+        },
+        "units": {
+          "type": "string",
+          "required": false,
+          "description": "'imperial' or 'metric'"
         }
       },
       "notes": [
-        "Response includes is_active: false for inactive communities; app must handle this state."
+        "Response includes is_active: false for inactive communities; app must handle this state.",
+        "custom_urls replaces the single learn_url. Mobile apps should render the array as a list of named links (e.g. on a community profile/learn screen). learn_url remains populated with the first entry's URL for backward compatibility but will be removed in a future release.",
+        "Validation: max 5 entries, each entry requires non-empty name (≤100 chars) and url (≤2048 chars). Violations return 400."
       ]
     },
     {

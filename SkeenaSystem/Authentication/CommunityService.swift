@@ -128,7 +128,7 @@ final class CommunityService: ObservableObject {
         // Build URL: GET /rest/v1/user_communities with nested joins for branding, geography + entitlements
         var comps = URLComponents(url: projectURL.appendingPathComponent("/rest/v1/user_communities"), resolvingAgainstBaseURL: false)!
         comps.queryItems = [
-            URLQueryItem(name: "select", value: "id,community_id,role,is_active,communities(id,name,code,is_active,community_type_id,logo_url,logo_asset_name,tagline,display_name,learn_url,geography,units,community_types(id,name,entitlements))")
+            URLQueryItem(name: "select", value: "id,community_id,role,is_active,communities(id,name,code,is_active,community_type_id,logo_url,logo_asset_name,tagline,display_name,learn_url,custom_urls,geography,units,community_types(id,name,entitlements))")
         ]
 
         var request = URLRequest(url: comps.url!)
@@ -167,7 +167,11 @@ final class CommunityService: ObservableObject {
                 for m in fetched {
                     let typeName = m.communities.communityTypes?.name ?? "nil"
                     let flagCount = m.communities.communityTypes?.entitlements.count ?? 0
-                    AppLogging.log("[CommunityService]   • \(m.communities.name) role=\(m.role) type=\(typeName) flags=\(flagCount) logo=\(m.communities.logoUrl ?? "bundled")", level: .debug, category: .community)
+                    let customUrls = m.communities.customUrls ?? []
+                    AppLogging.log("[CommunityService]   • \(m.communities.name) role=\(m.role) type=\(typeName) flags=\(flagCount) logo=\(m.communities.logoUrl ?? "bundled") custom_urls=\(customUrls.count)", level: .debug, category: .community)
+                    for (idx, link) in customUrls.enumerated() {
+                        AppLogging.log("[CommunityService]       custom_urls[\(idx)] name=\(link.name) url=\(link.url)", level: .debug, category: .community)
+                    }
                 }
 
                 // Validate cached selection or leave nil so picker is shown
@@ -254,7 +258,11 @@ final class CommunityService: ObservableObject {
         }
 
         let typeName = membership?.communities.communityTypes?.name ?? "nil"
-        AppLogging.log("[CommunityService] Active community set: id=\(id) role=\(activeRole ?? "nil") type=\(typeName) memberActive=\(isMemberActive) flags=\(activeCommunityConfig.entitlements.count) logo=\(activeCommunityConfig.logoUrl ?? "bundled") name=\(activeCommunityName)", level: .info, category: .community)
+        let customUrlCount = activeCommunityConfig.resolvedCustomUrls.count
+        AppLogging.log("[CommunityService] Active community set: id=\(id) role=\(activeRole ?? "nil") type=\(typeName) memberActive=\(isMemberActive) flags=\(activeCommunityConfig.entitlements.count) logo=\(activeCommunityConfig.logoUrl ?? "bundled") custom_urls=\(customUrlCount) name=\(activeCommunityName)", level: .info, category: .community)
+        for (idx, link) in activeCommunityConfig.resolvedCustomUrls.enumerated() {
+            AppLogging.log("[CommunityService]   custom_urls[\(idx)] name=\(link.name) url=\(link.url)", level: .info, category: .community)
+        }
 
         // Fetch add-ons for the newly active community
         Task { await fetchAddons() }

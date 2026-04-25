@@ -1,7 +1,7 @@
 # Mad Thinker Platform API Reference
 
-**Version:** 2026-04-23
-**Generated:** 2026-04-23T16:19:03.935Z
+**Version:** 2026-04-24
+**Generated:** 2026-04-25T00:05:44.123Z
 
 ## Key Concepts
 
@@ -484,21 +484,35 @@ Join a community using its code.
 
 ## Manage Community
 
-**GET** `/functions/v1/manage-community`
+**POST** `/functions/v1/manage-community`
 
-Get community details including is_active status.
+Create or update a community. Admin-only (or community admin for update).
 
 **Auth:** required
 
-**Query Parameters:**
+**Request Body:**
 
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| community_id | uuid | ✅ | Community UUID |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| action | string | ✅ | 'create' or 'update' |
+| community_id | uuid | ❌ | Required for update |
+| name | string | ❌ | Community name |
+| community_type_id | uuid | ❌ | Community type |
+| is_active | boolean | ❌ | Active status |
+| logo_url | string | ❌ | Logo image URL |
+| logo_asset_name | string | ❌ | Bundled asset fallback |
+| tagline | string | ❌ | Short tagline |
+| display_name | string | ❌ | Display name |
+| geography | object | ❌ | Geography config (rivers/water bodies) |
+| learn_url | string | ❌ | DEPRECATED — use custom_urls. Mirrors first custom_urls entry for legacy clients. |
+| custom_urls | array | ❌ | Up to 5 named links: [{ name: string (≤100), url: string (≤2048) }, ...]. Empty array clears. |
+| units | string | ❌ | 'imperial' or 'metric' |
 
 **Notes:**
 
 - Response includes is_active: false for inactive communities; app must handle this state.
+- custom_urls replaces the single learn_url. Mobile apps should render the array as a list of named links (e.g. on a community profile/learn screen). learn_url remains populated with the first entry's URL for backward compatibility but will be removed in a future release.
+- Validation: max 5 entries, each entry requires non-empty name (≤100 chars) and url (≤2048 chars). Violations return 400.
 
 ---
 

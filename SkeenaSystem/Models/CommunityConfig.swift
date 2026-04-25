@@ -19,6 +19,7 @@ struct CommunityConfig: Codable, Equatable {
     let tagline: String?
     let displayName: String?
     let learnUrl: String?
+    let customUrls: [CustomURL]?
 
     // MARK: - Entitlements (from community_types.entitlements JSONB)
 
@@ -31,6 +32,30 @@ struct CommunityConfig: Codable, Equatable {
     // MARK: - Units ("imperial" | "metric", defaults to "metric")
 
     let units: String?
+
+    // MARK: - Init (customUrls defaults to nil so existing call sites stay compatible)
+
+    init(
+        logoUrl: String?,
+        logoAssetName: String?,
+        tagline: String?,
+        displayName: String?,
+        learnUrl: String?,
+        customUrls: [CustomURL]? = nil,
+        entitlements: [String: Bool],
+        geography: CommunityGeography,
+        units: String?
+    ) {
+        self.logoUrl = logoUrl
+        self.logoAssetName = logoAssetName
+        self.tagline = tagline
+        self.displayName = displayName
+        self.learnUrl = learnUrl
+        self.customUrls = customUrls
+        self.entitlements = entitlements
+        self.geography = geography
+        self.units = units
+    }
 
     /// True when the community uses imperial measurements (°F, mph, in, mi).
     var isImperial: Bool { units == "imperial" }
@@ -93,6 +118,12 @@ struct CommunityConfig: Codable, Equatable {
         return AppEnvironment.shared.defaultLearnURL
     }
 
+    // MARK: - Resolved custom URLs (empty array when unset)
+
+    var resolvedCustomUrls: [CustomURL] {
+        customUrls ?? []
+    }
+
     // MARK: - Resolved geography (no xcconfig fallback — empty means not configured)
 
     var resolvedDefaultRiver: String? {
@@ -139,6 +170,7 @@ struct CommunityConfig: Codable, Equatable {
         tagline: nil,
         displayName: nil,
         learnUrl: nil,
+        customUrls: nil,
         entitlements: [:],
         geography: .empty,
         units: nil
