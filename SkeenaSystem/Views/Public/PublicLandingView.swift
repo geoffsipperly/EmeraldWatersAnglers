@@ -519,6 +519,8 @@ struct PublicLandingView: View {
       return
     }
 
+    AppLogging.log("[PublicLanding] GET \(url.absoluteString)", level: .debug, category: .catch)
+
     var req = URLRequest(url: url)
     req.httpMethod = "GET"
     req.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -538,6 +540,12 @@ struct PublicLandingView: View {
         return
       }
       let decoded = try JSONDecoder().decode(DownloadResponse.self, from: data)
+      let ids = decoded.catch_reports.map(\.catch_id)
+      let uniqueIds = Set(ids)
+      AppLogging.log("[PublicLanding] Server returned \(decoded.catch_reports.count) report(s), \(uniqueIds.count) unique catch_id(s): \(ids)", level: .info, category: .catch)
+      if ids.count != uniqueIds.count {
+        AppLogging.log("[PublicLanding] ⚠️ Server response contains duplicate catch_ids — ForEach will collapse to \(uniqueIds.count) row(s)", level: .warn, category: .catch)
+      }
       withAnimation { reports = decoded.catch_reports }
     } catch {
       AppLogging.log("[PublicLanding] Network error fetching catches: \(error.localizedDescription)", level: .error, category: .catch)

@@ -195,7 +195,7 @@ private struct FarmedReportRow: View {
           .foregroundColor(.secondary)
       }
 
-      Text("Guide: \(report.guideName)")
+      Text("Member: \(report.guideName)")
         .font(.footnote)
         .foregroundColor(.secondary)
         .lineLimit(1)

@@ -532,16 +532,30 @@ nonisolated final class UploadCatchReport {
 
       var uploadedIDs: [UUID] = []
 
+      // Always log the raw response body (truncated) so we can diagnose
+      // mismatches between local "Uploaded" status and what the server
+      // actually persisted. Stored server-side IDs (`result.id`) differ
+      // from local report UUIDs (`result.reportId`).
+      let bodyPreview: String = {
+        guard let data, let s = String(data: data, encoding: .utf8) else { return "<no body>" }
+        return s.count > 4096 ? String(s.prefix(4096)) + "…<truncated>" : s
+      }()
+      AppLogging.log("[UploadCatchReport] HTTP \(statusCode) body: \(bodyPreview)", level: .info, category: .network)
+
       if let data {
         do {
           let resp = try Self.sharedDecoder.decode(ResponseDTO.self, from: data)
-          #if DEBUG
           let v = resp.version ?? "unknown"
-          AppLogging.log({ "[UploadCatchReport] Parsed response: version=\(v), processed=\(resp.processed), successful=\(resp.successful), failed=\(resp.failed)" }, level: .info, category: .network)
+          AppLogging.log("[UploadCatchReport] Parsed response: version=\(v), processed=\(resp.processed), successful=\(resp.successful), failed=\(resp.failed), results=\(resp.results?.count ?? 0) sent=\(pending.count)", level: .info, category: .network)
+          resp.results?.enumerated().forEach { idx, result in
+            AppLogging.log("[UploadCatchReport]   results[\(idx)] reportId=\(result.reportId) status=\(result.status) serverId=\(result.id ?? "nil")", level: .info, category: .network)
+          }
+          if let errors = resp.errors, !errors.isEmpty {
+            AppLogging.log("[UploadCatchReport] errors[]: \(errors)", level: .warn, category: .network)
+          }
           if let reconciled = resp.results?.filter({ $0.tripReconciled == true }), !reconciled.isEmpty {
             AppLogging.log({ "[UploadCatchReport] Trip reconciled for \(reconciled.count) report(s)" }, level: .debug, category: .network)
           }
-          #endif
 
           let idsByString = Dictionary(uniqueKeysWithValues: pending.map { ($0.id.uuidString, $0.id) })
           resp.results?.forEach { result in
@@ -553,15 +567,19 @@ nonisolated final class UploadCatchReport {
           // Fallback: if we couldn't match individual results but the overall response was successful
           let isSuccess = resp.success ?? (resp.successful > 0 && resp.failed == 0)
           if uploadedIDs.isEmpty, isSuccess {
+            AppLogging.log("[UploadCatchReport] ⚠️ No results matched local IDs but isSuccess=true — falling back to marking all \(pending.count) as Uploaded", level: .warn, category: .network)
             uploadedIDs = pending.map(\.id)
           }
+          let unmatched = pending.filter { !uploadedIDs.contains($0.id) }
+          if !unmatched.isEmpty {
+            AppLogging.log("[UploadCatchReport] \(unmatched.count) of \(pending.count) report(s) NOT marked uploaded: \(unmatched.map(\.id.uuidString))", level: .warn, category: .network)
+          }
         } catch {
-          #if DEBUG
-          AppLogging.log({ "[UploadCatchReport] Failed to decode response JSON: \(error.localizedDescription)" }, level: .warn, category: .network)
-          #endif
+          AppLogging.log("[UploadCatchReport] ⚠️ Failed to decode response JSON: \(error.localizedDescription) — falling back to marking all \(pending.count) as Uploaded", level: .warn, category: .network)
           uploadedIDs = pending.map(\.id)
         }
       } else {
+        AppLogging.log("[UploadCatchReport] ⚠️ HTTP \(statusCode) with empty body — falling back to marking all \(pending.count) as Uploaded", level: .warn, category: .network)
         uploadedIDs = pending.map(\.id)
       }
 

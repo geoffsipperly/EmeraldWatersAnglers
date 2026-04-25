@@ -123,7 +123,7 @@ private struct MarkRow: View {
         .font(.caption)
         .foregroundColor(.gray)
       if !report.guideName.isEmpty {
-        Text("Guide: \(report.guideName)")
+        Text("Member: \(report.guideName)")
           .font(.caption)
           .foregroundColor(.gray)
       }

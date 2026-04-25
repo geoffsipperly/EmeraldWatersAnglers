@@ -439,6 +439,10 @@ nonisolated final class CatchReportStore: ObservableObject {
     loaded.sort { $0.createdAt > $1.createdAt }
 
     AppLogging.log("[CatchReportStore] loaded \(loaded.count) reports from scope member=\(self.boundMemberId ?? "nil") community=\(self.boundCommunityId ?? "nil")", level: .debug, category: .catch)
+    for r in loaded {
+      let uploadedAt = r.uploadedAt.map { ISO8601DateFormatter().string(from: $0) } ?? "nil"
+      AppLogging.log("[CatchReportStore]   • id=\(r.id.uuidString) status=\(r.status.rawValue) createdAt=\(ISO8601DateFormatter().string(from: r.createdAt)) uploadedAt=\(uploadedAt) river=\(r.river ?? "nil")", level: .debug, category: .catch)
+    }
     setReportsOnMain(loaded)
   }
 
