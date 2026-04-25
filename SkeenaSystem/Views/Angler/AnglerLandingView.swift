@@ -289,7 +289,7 @@ struct AnglerLandingView: View {
     .fullScreenCover(isPresented: $showOnboarding) {
       if let cid = communityService.activeCommunityId {
         AnglerOnboardingWizard(communityId: cid) {
-          UserDefaults.standard.set(true, forKey: onboardingKey(cid: cid))
+          UserDefaults.standard.set(true, forKey: Self.onboardingKey(cid: cid, memberId: auth.currentMemberId))
           showOnboarding = false
         }
       }
@@ -739,12 +739,14 @@ struct AnglerLandingView: View {
   // MARK: - Onboarding
 
   /// Community types that trigger the angler onboarding wizard.
-  private static let onboardingCommunityTypes: Set<String> = ["Lodge", "MultiLodge", "FlyShop"]
+  static let onboardingCommunityTypes: Set<String> = ["Lodge", "MultiLodge", "FlyShop"]
 
   /// Build a per-user, per-community onboarding key so each new member
-  /// gets their own wizard even on a shared simulator / device.
-  private func onboardingKey(cid: String) -> String {
-    if let mid = auth.currentMemberId {
+  /// gets their own wizard even on a shared simulator / device. Pure
+  /// function (depends only on its arguments) so tests can lock the
+  /// shape — mismatched keys silently re-show the wizard or skip it.
+  static func onboardingKey(cid: String, memberId: String?) -> String {
+    if let mid = memberId {
       return "anglerOnboarded_\(mid)_\(cid)"
     }
     return "anglerOnboarded_\(cid)"
@@ -754,7 +756,7 @@ struct AnglerLandingView: View {
     let cid = communityService.activeCommunityId
     let typeName = communityService.activeCommunityTypeName
     let hasFetched = communityService.hasFetchedMemberships
-    let key = cid.map { onboardingKey(cid: $0) }
+    let key = cid.map { Self.onboardingKey(cid: $0, memberId: auth.currentMemberId) }
     let alreadyOnboarded = key.map { UserDefaults.standard.bool(forKey: $0) } ?? false
     AppLogging.log("[AnglerLanding] checkOnboarding — cid=\(cid ?? "nil") typeName=\(typeName ?? "nil") hasFetched=\(hasFetched) alreadyOnboarded=\(alreadyOnboarded) key=\(key ?? "nil") memberId=\(auth.currentMemberId ?? "nil") showOnboarding=\(showOnboarding)", level: .info, category: .auth)
 

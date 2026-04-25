@@ -8,6 +8,46 @@
 import SwiftUI
 
 struct PublicWelcomeView: View {
+  /// Single capability tile shown in the body's "What you can do" section.
+  struct Capability: Equatable {
+    let icon: String     // SF Symbol name
+    let title: String
+    let subtitle: String
+  }
+
+  /// Locked list of capability tiles. Source of truth for the body's
+  /// `capabilitiesSection`. Tests assert against this so reordering or
+  /// silently dropping a capability surfaces in CI.
+  static let capabilities: [Capability] = [
+    .init(icon: "camera.fill",
+          title: "Record catches",
+          subtitle: "Photo-based capture for every fish you land"),
+    .init(icon: "ruler",
+          title: "Estimate length, girth & weight",
+          subtitle: "AI measurements derived from your catch photo"),
+    .init(icon: "leaf.fill",
+          title: "Record environmental observations",
+          subtitle: "Log water, weather, and habitat notes in the field"),
+    .init(icon: "map.fill",
+          title: "Maps & catch journal",
+          subtitle: "See where catches happen and browse your full history"),
+    .init(icon: "play.rectangle.fill",
+          title: "Curated videos",
+          subtitle: "Tactics, fly tying, and conservation content"),
+  ]
+
+  /// Pure title formatter — exposed so tests can lock the personalization
+  /// logic without standing up an AuthService mock. Trims whitespace and
+  /// gracefully degrades to the unpersonalized form for empty/whitespace
+  /// names.
+  static func greetingTitle(firstName: String?) -> String {
+    let trimmed = firstName?.trimmingCharacters(in: .whitespacesAndNewlines)
+    if let name = trimmed, !name.isEmpty {
+      return "\(name), Welcome to Mad Thinker"
+    }
+    return "Welcome to Mad Thinker"
+  }
+
   @Environment(\.dismiss) private var dismiss
 
   /// Called when the user dismisses the view. PublicLandingView uses this
@@ -18,20 +58,8 @@ struct PublicWelcomeView: View {
   private let privacyPolicyURL = URL(string: "https://madthinkertech.com/privacy-policy")!
   private let acceptableUsePolicyURL = URL(string: "https://madthinkertech.com/acceptable-use-policy")!
 
-  /// Trimmed first name from AuthService, or `nil` when unavailable/empty.
-  /// Used to personalize the welcome title — gracefully falls back to the
-  /// unpersonalized form when the name hasn't been fetched yet.
-  private var firstName: String? {
-    let raw = AuthService.shared.currentFirstName
-    let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines)
-    return (trimmed?.isEmpty == false) ? trimmed : nil
-  }
-
   private var greetingTitle: String {
-    if let name = firstName {
-      return "\(name), Welcome to Mad Thinker"
-    }
-    return "Welcome to Mad Thinker"
+    Self.greetingTitle(firstName: AuthService.shared.currentFirstName)
   }
 
   var body: some View {
@@ -119,31 +147,9 @@ struct PublicWelcomeView: View {
         .foregroundColor(.white)
         .padding(.bottom, 2)
 
-      capabilityRow(
-        icon: "camera.fill",
-        title: "Record catches",
-        subtitle: "Photo-based capture for every fish you land"
-      )
-      capabilityRow(
-        icon: "ruler",
-        title: "Estimate length, girth & weight",
-        subtitle: "AI measurements derived from your catch photo"
-      )
-      capabilityRow(
-        icon: "leaf.fill",
-        title: "Record environmental observations",
-        subtitle: "Log water, weather, and habitat notes in the field"
-      )
-      capabilityRow(
-        icon: "map.fill",
-        title: "Maps & catch journal",
-        subtitle: "See where catches happen and browse your full history"
-      )
-      capabilityRow(
-        icon: "play.rectangle.fill",
-        title: "Curated videos",
-        subtitle: "Tactics, fly tying, and conservation content"
-      )
+      ForEach(Self.capabilities, id: \.title) { cap in
+        capabilityRow(icon: cap.icon, title: cap.title, subtitle: cap.subtitle)
+      }
     }
     .padding(.horizontal, 20)
     .padding(.top, 4)

@@ -448,13 +448,35 @@ final class ResearcherCatchFlowManagerTests: XCTestCase {
   }
 
   func testApplyEdit_buttonDrivenStep_returnsNotRecognized() {
+    // Advance past finalSummary into studyParticipation, which is the first
+    // button-driven step (see ResearcherCatchFlowManager.applyEdit's default
+    // case). finalSummary itself accepts typed input — see the dedicated test
+    // below.
     advanceToConfirmGirth()
-    _ = flow.confirm() // → finalSummary
-    XCTAssertEqual(flow.currentStep, .finalSummary)
+    _ = flow.confirm() // confirmGirth → finalSummary
+    _ = flow.confirm() // finalSummary → studyParticipation
+    XCTAssertEqual(flow.currentStep, .studyParticipation)
 
     let result = flow.applyEdit("some random text")
 
     XCTAssertFalse(result.recognized)
     XCTAssertTrue(result.message.contains("not expecting typed input"))
+  }
+
+  func testApplyEdit_finalSummary_treatsUnrecognizedTextAsRiverNameCorrection() {
+    advanceToConfirmGirth()
+    _ = flow.confirm() // confirmGirth → finalSummary
+    XCTAssertEqual(flow.currentStep, .finalSummary)
+
+    // "Battenkill" has no water-body keyword, no species match, and the
+    // free-text species fallback is gated OFF at finalSummary — so the
+    // structured parser rejects it. The finalSummary branch then promotes
+    // unrecognized non-empty text to riverName as a correction (see the
+    // comment at ResearcherCatchFlowManager.applyEdit's .finalSummary case).
+    let result = flow.applyEdit("Battenkill")
+
+    XCTAssertTrue(result.recognized, "finalSummary always returns recognized=true; rejection is via riverName override")
+    XCTAssertEqual(flow.riverName, "Battenkill")
+    XCTAssertTrue(flow.riverNameWasCorrected)
   }
 }

@@ -1399,7 +1399,7 @@ final class CatchChatViewModel: ObservableObject {
     return "Unknown location"
   }
 
-  private func cleanedField(_ s: String) -> String {
+  func cleanedField(_ s: String) -> String {
     var t = s
     let junk = [
       "(model)",
@@ -1416,7 +1416,7 @@ final class CatchChatViewModel: ObservableObject {
     return t.trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
-  private func stripLeadingLabel(_ raw: String?, label: String) -> String {
+  func stripLeadingLabel(_ raw: String?, label: String) -> String {
     guard let raw else { return "" }
     let cleaned = cleanedField(raw)
     let lower = cleaned.lowercased()
@@ -1434,7 +1434,7 @@ final class CatchChatViewModel: ObservableObject {
     return String(remainder).trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
-  private func prettySex(_ raw: String) -> String {
+  func prettySex(_ raw: String) -> String {
     let lower = raw.lowercased()
     if lower == "male" || lower == "female" {
       return raw.capitalized
@@ -1446,7 +1446,7 @@ final class CatchChatViewModel: ObservableObject {
   /// Keys must match the lowercased, underscore-stripped output of `speciesLabels`
   /// in `CatchPhotoAnalyzer.swift`. When adding a species, update both in lockstep
   /// (see the `/new-species` slash command in `.claude/commands/`).
-  private static let speciesDisplayNames: [String: String] = [
+  static let speciesDisplayNames: [String: String] = [
     "atlantic salmon": "Atlantic Salmon",
     "chinook salmon": "Chinook Salmon",
     "lingcod": "Lingcod",
@@ -1455,7 +1455,7 @@ final class CatchChatViewModel: ObservableObject {
     "other": "Bi-catch",
   ]
 
-  private func splitSpecies(_ raw: String?) -> (species: String, stage: String?) {
+  func splitSpecies(_ raw: String?) -> (species: String, stage: String?) {
     let valueOnly = stripLeadingLabel(raw, label: "species")
     if valueOnly.isEmpty { return ("-", nil) }
 
@@ -1485,7 +1485,7 @@ final class CatchChatViewModel: ObservableObject {
     return (species, nil)
   }
 
-  private func averagedLength(from raw: String) -> String {
+  func averagedLength(from raw: String) -> String {
     var cleaned = raw
       .replacingOccurrences(of: "inches", with: "")
       .replacingOccurrences(of: "inch", with: "")
@@ -1881,7 +1881,7 @@ final class CatchChatViewModel: ObservableObject {
     )
   }
 
-  private func extractLengthInches(from raw: String) -> Int? {
+  func extractLengthInches(from raw: String) -> Int? {
     if raw.isEmpty { return nil }
 
     let normalized = averagedLength(from: raw)

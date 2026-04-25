@@ -81,16 +81,30 @@ final class CatchPhotoAnalyzer {
   private static var _handLandmarker: HandLandmarker?
   #endif
 
-  // Species labels for ViT
-    private let speciesLabels: [String] = [
-        "atlantic_salmon",
-        "chinook_salmon",
-        "lingcod",
-        "other",
-        "sea_run_trout",
-        "steelhead_holding",
-        "steelhead_traveler"
-    ]
+  // Species labels for ViT — alphabetical order MUST match the Python ImageFolder
+  // training set order (see `docs/new-species-onboarding.md`). Reordering silently
+  // breaks the LengthRegressor, which consumes `species_index` as a feature.
+  static let speciesLabels: [String] = [
+      "atlantic_salmon",
+      "chinook_salmon",
+      "lingcod",
+      "other",
+      "sea_run_trout",
+      "steelhead_holding",
+      "steelhead_traveler"
+  ]
+
+  // Species that aren't calibrated with the regressor — fall back to heuristic.
+  // Single source of truth: previously declared inline at two call sites, which
+  // diverged easily. Keep this in lockstep with `speciesLabels` when adding a
+  // species (see `/new-species` slash command).
+  static let regressorBypassSpecies: Set<String> = [
+      "sea_run_trout",
+      "other",
+      "atlantic_salmon",
+      "chinook_salmon",
+      "lingcod"
+  ]
 
 
   // MARK: - Init
@@ -163,8 +177,8 @@ final class CatchPhotoAnalyzer {
     let lowConfidenceThreshold = AppEnvironment.shared.speciesDetectionThreshold
     if let vit = vitResult,
        vit.index >= 0,
-       vit.index < speciesLabels.count {
-      let rawLabel = speciesLabels[vit.index]
+       vit.index < Self.speciesLabels.count {
+      let rawLabel = Self.speciesLabels[vit.index]
       let prettyLabel = rawLabel.replacingOccurrences(of: "_", with: " ")
 
       if vit.confidence >= lowConfidenceThreshold {
@@ -287,9 +301,7 @@ final class CatchPhotoAnalyzer {
         return lines.joined(separator: "\n")
       }, level: .debug, category: .ml)
 
-      // Species that haven't been calibrated with the regressor — use heuristic only
-      let regressorBypassSpecies: Set<String> = ["sea_run_trout", "other", "atlantic_salmon", "chinook_salmon", "lingcod"]
-      let useRegressorForSpecies = !regressorBypassSpecies.contains(detectedSpeciesLabel ?? "")
+      let useRegressorForSpecies = !Self.regressorBypassSpecies.contains(detectedSpeciesLabel ?? "")
 
       // Always log regressor prediction for future training data
       if AppEnvironment.shared.useLengthRegressor, let predicted = predictLength(from: fv) {
@@ -350,7 +362,7 @@ final class CatchPhotoAnalyzer {
     winnerIndex: Int,
     minProb: Float
   ) -> [SpeciesCandidate] {
-    guard winnerIndex >= 0, winnerIndex < speciesLabels.count else { return [] }
+    guard winnerIndex >= 0, winnerIndex < Self.speciesLabels.count else { return [] }
 
     // Find the best runner-up (any index except the winner).
     var runnerUpIdx: Int? = nil
@@ -367,13 +379,13 @@ final class CatchPhotoAnalyzer {
     // surfacing to the user.
     guard let runnerIdx = runnerUpIdx,
           runnerUpProb >= minProb,
-          runnerIdx < speciesLabels.count else {
+          runnerIdx < Self.speciesLabels.count else {
       return []
     }
 
     return [
-      SpeciesCandidate(label: speciesLabels[winnerIndex], confidence: probs[winnerIndex], isPrimary: true),
-      SpeciesCandidate(label: speciesLabels[runnerIdx], confidence: runnerUpProb, isPrimary: false)
+      SpeciesCandidate(label: Self.speciesLabels[winnerIndex], confidence: probs[winnerIndex], isPrimary: true),
+      SpeciesCandidate(label: Self.speciesLabels[runnerIdx], confidence: runnerUpProb, isPrimary: false)
     ]
   }
 
@@ -475,7 +487,7 @@ final class CatchPhotoAnalyzer {
     AppLogging.log({
       var lines = ["── ViT species breakdown ──"]
       for (rank, item) in ranked.enumerated() {
-        let label = item.idx < self.speciesLabels.count ? self.speciesLabels[item.idx] : "idx\(item.idx)"
+        let label = item.idx < Self.speciesLabels.count ? Self.speciesLabels[item.idx] : "idx\(item.idx)"
         let logitValue = item.idx < logits.count ? logits[item.idx].floatValue : 0
         let marker = (item.idx == bestIdx) ? "★" : " "
         lines.append(String(
@@ -1407,7 +1419,7 @@ final class CatchPhotoAnalyzer {
 
   /// Maps model labels to their species index in the `speciesLabels` array.
   private func speciesLabelToIndex(_ label: String) -> Int? {
-    speciesLabels.firstIndex(of: label)
+    Self.speciesLabels.firstIndex(of: label)
   }
 
   /// Re-estimate length using the original feature vector but with a corrected species.
@@ -1439,7 +1451,7 @@ final class CatchPhotoAnalyzer {
     // If we have a lifecycle stage, try species_stage combination
     if let stage = lowerStage, !stage.isEmpty {
       let combined = "\(lowerSpecies.replacingOccurrences(of: " ", with: "_"))_\(stage)"
-      if speciesLabels.contains(combined) {
+      if Self.speciesLabels.contains(combined) {
         modelLabel = combined
       }
     }
@@ -1459,9 +1471,7 @@ final class CatchPhotoAnalyzer {
       "resolved label=\(resolvedLabel), index=\(speciesIdx)"
     }, level: .info, category: .ml)
 
-    // Check if this species bypasses the regressor
-    let regressorBypassSpecies: Set<String> = ["sea_run_trout", "other", "atlantic_salmon", "chinook_salmon", "lingcod"]
-    let useRegressor = !regressorBypassSpecies.contains(resolvedLabel)
+    let useRegressor = !Self.regressorBypassSpecies.contains(resolvedLabel)
 
     // Build updated feature vector with corrected species index
     var updatedFV = originalFV

@@ -2,11 +2,8 @@ import XCTest
 @testable import SkeenaSystem
 
 /// Tests for CatchChatViewModel's text-parsing helpers, correction logic,
-/// formatted summary generation, and catch snapshot creation.
-///
-/// Many helpers are private, so where necessary we replicate the logic
-/// in test helpers (same pattern as CatchReportArchiveTests and
-/// LengthEstimationTests) or exercise it through the public interface.
+/// formatted summary generation, and catch snapshot creation. Helpers are
+/// exercised against the real implementation via `@testable import`.
 final class CatchChatViewModelTests: XCTestCase {
 
   // MARK: - Properties
@@ -23,356 +20,228 @@ final class CatchChatViewModelTests: XCTestCase {
     super.tearDown()
   }
 
-  // MARK: - Helpers (replicate private logic for direct unit testing)
-
-  /// Replicates `CatchChatViewModel.cleanedField(_:)`
-  private func cleanedField(_ s: String) -> String {
-    var t = s
-    let junk = [
-      "(model)",
-      "(needs custom model)",
-      "(estimate)",
-      "(photo estimate)"
-    ]
-    for token in junk {
-      t = t.replacingOccurrences(of: token, with: "")
-    }
-    while t.contains("  ") {
-      t = t.replacingOccurrences(of: "  ", with: " ")
-    }
-    return t.trimmingCharacters(in: .whitespacesAndNewlines)
-  }
-
-  /// Replicates `CatchChatViewModel.stripLeadingLabel(_:label:)`
-  private func stripLeadingLabel(_ raw: String?, label: String) -> String {
-    guard let raw else { return "" }
-    let cleaned = cleanedField(raw)
-    let lower = cleaned.lowercased()
-
-    guard lower.hasPrefix(label.lowercased()) else {
-      return cleaned
-    }
-
-    var remainder = cleaned.dropFirst(label.count)
-    while let first = remainder.first,
-          first == ":" || first == " " {
-      remainder = remainder.dropFirst()
-    }
-
-    return String(remainder).trimmingCharacters(in: .whitespacesAndNewlines)
-  }
-
-  /// Replicates `CatchChatViewModel.prettySex(_:)`
-  private func prettySex(_ raw: String) -> String {
-    let lower = raw.lowercased()
-    if lower == "male" || lower == "female" {
-      return raw.capitalized
-    }
-    return raw
-  }
-
-  /// Replicates `CatchChatViewModel.splitSpecies(_:)`
-  private func splitSpecies(_ raw: String?) -> (species: String, stage: String?) {
-    let valueOnly = stripLeadingLabel(raw, label: "species")
-    if valueOnly.isEmpty { return ("-", nil) }
-
-    let parts = valueOnly.split(separator: " ").map { String($0) }
-
-    guard parts.count > 1 else {
-      return (valueOnly.capitalized, nil)
-    }
-
-    let species = parts[0].capitalized
-    let stage = parts.dropFirst().joined(separator: " ").capitalized
-    return (species, stage.isEmpty ? nil : stage)
-  }
-
-  /// Replicates `CatchChatViewModel.averagedLength(from:)`
-  private func averagedLength(from raw: String) -> String {
-    var cleaned = raw
-      .replacingOccurrences(of: "inches", with: "")
-      .replacingOccurrences(of: "inch", with: "")
-      .trimmingCharacters(in: .whitespacesAndNewlines)
-
-    if cleaned.isEmpty || cleaned == "-" {
-      return cleaned
-    }
-
-    cleaned = cleaned.replacingOccurrences(of: " ", with: "")
-
-    let separators: [Character] = ["–", "-", "—"]
-
-    for sep in separators {
-      if cleaned.contains(sep) {
-        let parts = cleaned.split(separator: sep)
-        if parts.count == 2,
-           let a = Double(parts[0]),
-           let b = Double(parts[1]) {
-          let high = max(a, b)
-          if high.rounded() == high {
-            return "\(Int(high)) inches"
-          } else {
-            return String(format: "%.1f inches", high)
-          }
-        }
-      }
-    }
-
-    if cleaned.range(of: #"^\d+(\.\d+)?$"#, options: .regularExpression) != nil {
-      if let value = Double(cleaned) {
-        if value.rounded() == value {
-          return "\(Int(value)) inches"
-        } else {
-          return String(format: "%.1f inches", value)
-        }
-      }
-    }
-
-    return raw.trimmingCharacters(in: .whitespacesAndNewlines)
-  }
-
-  /// Replicates `CatchChatViewModel.inferSex(from:)`
-  private func inferSex(from text: String) -> String? {
-    let tokens = text
-      .lowercased()
-      .split { !$0.isLetter }
-      .map(String.init)
-
-    if tokens.contains("male") { return "male" }
-    if tokens.contains("female") { return "female" }
-    if tokens.contains("hen") { return "hen" }
-    if tokens.contains("buck") { return "buck" }
-
-    return nil
-  }
-
-  /// Replicates `CatchChatViewModel.extractLengthInches(from:)`
-  private func extractLengthInches(from raw: String) -> Int? {
-    if raw.isEmpty { return nil }
-
-    let normalized = averagedLength(from: raw)
-    let digits = normalized.filter { "0123456789.".contains($0) }
-    guard !digits.isEmpty else { return nil }
-
-    if let value = Double(digits) {
-      return Int(round(value))
-    }
-    return nil
-  }
-
   // MARK: - cleanedField Tests
 
   func testCleanedField_removesModelAnnotation() {
-    XCTAssertEqual(cleanedField("Steelhead (model)"), "Steelhead")
+    XCTAssertEqual(vm.cleanedField("Steelhead (model)"), "Steelhead")
   }
 
   func testCleanedField_removesEstimateAnnotation() {
-    XCTAssertEqual(cleanedField("32-36 inches (estimate)"), "32-36 inches")
+    XCTAssertEqual(vm.cleanedField("32-36 inches (estimate)"), "32-36 inches")
   }
 
   func testCleanedField_removesPhotoEstimateAnnotation() {
-    XCTAssertEqual(cleanedField("32-36 inches (photo estimate)"), "32-36 inches")
+    XCTAssertEqual(vm.cleanedField("32-36 inches (photo estimate)"), "32-36 inches")
   }
 
   func testCleanedField_removesNeedsCustomModel() {
-    XCTAssertEqual(cleanedField("Unknown (needs custom model)"), "Unknown")
+    XCTAssertEqual(vm.cleanedField("Unknown (needs custom model)"), "Unknown")
   }
 
   func testCleanedField_collapsesDoubleSpaces() {
-    XCTAssertEqual(cleanedField("Steelhead  Traveler"), "Steelhead Traveler")
+    XCTAssertEqual(vm.cleanedField("Steelhead  Traveler"), "Steelhead Traveler")
   }
 
   func testCleanedField_trimsWhitespace() {
-    XCTAssertEqual(cleanedField("  Steelhead  "), "Steelhead")
+    XCTAssertEqual(vm.cleanedField("  Steelhead  "), "Steelhead")
   }
 
   func testCleanedField_emptyString_returnsEmpty() {
-    XCTAssertEqual(cleanedField(""), "")
+    XCTAssertEqual(vm.cleanedField(""), "")
   }
 
   // MARK: - stripLeadingLabel Tests
 
   func testStripLeadingLabel_removesSpeciesLabel() {
-    let result = stripLeadingLabel("Species: Steelhead", label: "species")
-    XCTAssertEqual(result, "Steelhead")
+    XCTAssertEqual(vm.stripLeadingLabel("Species: Steelhead", label: "species"), "Steelhead")
   }
 
   func testStripLeadingLabel_caseInsensitive() {
-    let result = stripLeadingLabel("SPECIES: Steelhead", label: "species")
-    XCTAssertEqual(result, "Steelhead")
+    XCTAssertEqual(vm.stripLeadingLabel("SPECIES: Steelhead", label: "species"), "Steelhead")
   }
 
   func testStripLeadingLabel_removesSexLabel() {
-    let result = stripLeadingLabel("Sex: Male", label: "sex")
-    XCTAssertEqual(result, "Male")
+    XCTAssertEqual(vm.stripLeadingLabel("Sex: Male", label: "sex"), "Male")
   }
 
   func testStripLeadingLabel_noMatchingLabel_returnsCleanedValue() {
-    let result = stripLeadingLabel("Steelhead Traveler", label: "species")
-    XCTAssertEqual(result, "Steelhead Traveler")
+    XCTAssertEqual(vm.stripLeadingLabel("Steelhead Traveler", label: "species"), "Steelhead Traveler")
   }
 
   func testStripLeadingLabel_nilInput_returnsEmpty() {
-    let result = stripLeadingLabel(nil, label: "species")
-    XCTAssertEqual(result, "")
+    XCTAssertEqual(vm.stripLeadingLabel(nil, label: "species"), "")
   }
 
   func testStripLeadingLabel_alsoRemovesModelAnnotation() {
-    let result = stripLeadingLabel("Species (model): steelhead traveler", label: "species")
-    XCTAssertEqual(result, "steelhead traveler")
+    XCTAssertEqual(vm.stripLeadingLabel("Species (model): steelhead traveler", label: "species"), "steelhead traveler")
   }
 
   // MARK: - prettySex Tests
 
   func testPrettySex_capitalizeMale() {
-    XCTAssertEqual(prettySex("male"), "Male")
+    XCTAssertEqual(vm.prettySex("male"), "Male")
   }
 
   func testPrettySex_capitalizeFemale() {
-    XCTAssertEqual(prettySex("female"), "Female")
+    XCTAssertEqual(vm.prettySex("female"), "Female")
   }
 
   func testPrettySex_alreadyCapitalized() {
-    XCTAssertEqual(prettySex("Male"), "Male")
+    XCTAssertEqual(vm.prettySex("Male"), "Male")
   }
 
   func testPrettySex_nonStandardPassesThrough() {
-    XCTAssertEqual(prettySex("hen"), "hen")
-    XCTAssertEqual(prettySex("buck"), "buck")
-    XCTAssertEqual(prettySex("Unknown"), "Unknown")
+    XCTAssertEqual(vm.prettySex("hen"), "hen")
+    XCTAssertEqual(vm.prettySex("buck"), "buck")
+    XCTAssertEqual(vm.prettySex("Unknown"), "Unknown")
   }
 
   // MARK: - splitSpecies Tests
 
-  func testSplitSpecies_speciesAndStage() {
-    let (species, stage) = splitSpecies("steelhead traveler")
+  func testSplitSpecies_steelheadTraveler_splitsLifecycleStage() {
+    let (species, stage) = vm.splitSpecies("steelhead traveler")
     XCTAssertEqual(species, "Steelhead")
     XCTAssertEqual(stage, "Traveler")
   }
 
-  func testSplitSpecies_singleWord() {
-    let (species, stage) = splitSpecies("grayling")
+  func testSplitSpecies_steelheadHolding_splitsLifecycleStage() {
+    let (species, stage) = vm.splitSpecies("steelhead holding")
+    XCTAssertEqual(species, "Steelhead")
+    XCTAssertEqual(stage, "Holding")
+  }
+
+  func testSplitSpecies_chinookSalmon_resolvesDisplayName() {
+    let (species, stage) = vm.splitSpecies("chinook salmon")
+    XCTAssertEqual(species, "Chinook Salmon")
+    XCTAssertNil(stage)
+  }
+
+  func testSplitSpecies_atlanticSalmon_resolvesDisplayName() {
+    let (species, stage) = vm.splitSpecies("atlantic salmon")
+    XCTAssertEqual(species, "Atlantic Salmon")
+    XCTAssertNil(stage)
+  }
+
+  func testSplitSpecies_lingcod_resolvesDisplayName() {
+    let (species, stage) = vm.splitSpecies("lingcod")
+    XCTAssertEqual(species, "Lingcod")
+    XCTAssertNil(stage)
+  }
+
+  func testSplitSpecies_seaRunTrout_resolvesDisplayNameWithHyphen() {
+    let (species, stage) = vm.splitSpecies("sea run trout")
+    XCTAssertEqual(species, "Sea-Run Trout")
+    XCTAssertNil(stage)
+  }
+
+  func testSplitSpecies_other_resolvesToBicatch() {
+    let (species, stage) = vm.splitSpecies("other")
+    XCTAssertEqual(species, "Bi-catch")
+    XCTAssertNil(stage)
+  }
+
+  func testSplitSpecies_singleWordUnknown_capitalizes() {
+    let (species, stage) = vm.splitSpecies("grayling")
     XCTAssertEqual(species, "Grayling")
     XCTAssertNil(stage)
   }
 
   func testSplitSpecies_nil_returnsDash() {
-    let (species, stage) = splitSpecies(nil)
+    let (species, stage) = vm.splitSpecies(nil)
     XCTAssertEqual(species, "-")
     XCTAssertNil(stage)
   }
 
   func testSplitSpecies_empty_returnsDash() {
-    let (species, stage) = splitSpecies("")
+    let (species, stage) = vm.splitSpecies("")
     XCTAssertEqual(species, "-")
     XCTAssertNil(stage)
   }
 
   func testSplitSpecies_withLabel_stripsLabel() {
-    let (species, stage) = splitSpecies("Species (model): steelhead holding")
+    let (species, stage) = vm.splitSpecies("Species (model): steelhead holding")
     XCTAssertEqual(species, "Steelhead")
     XCTAssertEqual(stage, "Holding")
   }
 
-  func testSplitSpecies_multiWordStage() {
-    let (species, stage) = splitSpecies("rainbow lake")
-    XCTAssertEqual(species, "Rainbow")
-    XCTAssertEqual(stage, "Lake")
+  /// Only `holding` and `traveler` are lifecycle stages — anything else stays
+  /// part of the species string. Guards the `splitSpecies` parser narrowing
+  /// (see CatchChatViewModel.swift line ~1471).
+  func testSplitSpecies_nonLifecycleTrailingWord_isNotStripped() {
+    let (species, stage) = vm.splitSpecies("rainbow lake")
+    XCTAssertEqual(species, "Rainbow Lake")
+    XCTAssertNil(stage, "'lake' is not a lifecycle keyword and must not be split off")
+  }
+
+  func testSplitSpecies_belowThresholdSentinel_passesThrough() {
+    let (species, stage) = vm.splitSpecies("Species: Unable to confidently detect")
+    XCTAssertTrue(species.lowercased().contains("unable to"),
+                  "'Unable to confidently detect' sentinel must not be parsed as species words")
+    XCTAssertNil(stage)
   }
 
   // MARK: - averagedLength Tests
 
   func testAveragedLength_rangeWithHyphen_returnsHighEnd() {
-    XCTAssertEqual(averagedLength(from: "32-36 inches"), "36 inches")
+    XCTAssertEqual(vm.averagedLength(from: "32-36 inches"), "36 inches")
   }
 
   func testAveragedLength_rangeWithEnDash_returnsHighEnd() {
-    XCTAssertEqual(averagedLength(from: "32–36 inches"), "36 inches")
+    XCTAssertEqual(vm.averagedLength(from: "32–36 inches"), "36 inches")
   }
 
   func testAveragedLength_rangeWithEmDash_returnsHighEnd() {
-    XCTAssertEqual(averagedLength(from: "32—36 inches"), "36 inches")
+    XCTAssertEqual(vm.averagedLength(from: "32—36 inches"), "36 inches")
   }
 
   func testAveragedLength_singleInteger_returnsWithInches() {
-    XCTAssertEqual(averagedLength(from: "36"), "36 inches")
+    XCTAssertEqual(vm.averagedLength(from: "36"), "36 inches")
   }
 
   func testAveragedLength_singleDecimal_returnsWithInches() {
-    XCTAssertEqual(averagedLength(from: "32.5"), "32.5 inches")
+    XCTAssertEqual(vm.averagedLength(from: "32.5"), "32.5 inches")
   }
 
   func testAveragedLength_empty_returnsEmpty() {
-    XCTAssertEqual(averagedLength(from: ""), "")
+    XCTAssertEqual(vm.averagedLength(from: ""), "")
   }
 
   func testAveragedLength_dash_returnsDash() {
-    XCTAssertEqual(averagedLength(from: "-"), "-")
+    XCTAssertEqual(vm.averagedLength(from: "-"), "-")
   }
 
   func testAveragedLength_reversedRange_returnsMax() {
-    XCTAssertEqual(averagedLength(from: "36-32 inches"), "36 inches")
+    XCTAssertEqual(vm.averagedLength(from: "36-32 inches"), "36 inches")
   }
 
   func testAveragedLength_decimalRange_returnsHighEnd() {
-    let result = averagedLength(from: "30.5-33.5 inches")
-    XCTAssertEqual(result, "33.5 inches")
-  }
-
-  // MARK: - inferSex Tests
-
-  func testInferSex_male() {
-    XCTAssertEqual(inferSex(from: "It's a male fish"), "male")
-  }
-
-  func testInferSex_female() {
-    XCTAssertEqual(inferSex(from: "This one is female"), "female")
-  }
-
-  func testInferSex_hen() {
-    XCTAssertEqual(inferSex(from: "Nice hen"), "hen")
-  }
-
-  func testInferSex_buck() {
-    XCTAssertEqual(inferSex(from: "Big buck"), "buck")
-  }
-
-  func testInferSex_noMatch_returnsNil() {
-    XCTAssertNil(inferSex(from: "Nice fish"))
-    XCTAssertNil(inferSex(from: "32 inches"))
-    XCTAssertNil(inferSex(from: ""))
-  }
-
-  func testInferSex_maleTakesPrecedenceOverFemale() {
-    // "male" is checked first in the function
-    let result = inferSex(from: "male or female?")
-    XCTAssertEqual(result, "male")
+    XCTAssertEqual(vm.averagedLength(from: "30.5-33.5 inches"), "33.5 inches")
   }
 
   // MARK: - extractLengthInches Tests
 
   func testExtractLengthInches_simpleInteger() {
-    XCTAssertEqual(extractLengthInches(from: "36 inches"), 36)
+    XCTAssertEqual(vm.extractLengthInches(from: "36 inches"), 36)
   }
 
   func testExtractLengthInches_decimalRounds() {
-    XCTAssertEqual(extractLengthInches(from: "32.5 inches"), 33)
+    XCTAssertEqual(vm.extractLengthInches(from: "32.5 inches"), 33)
   }
 
   func testExtractLengthInches_rangeReturnsHighEnd() {
-    XCTAssertEqual(extractLengthInches(from: "32-36 inches"), 36)
+    XCTAssertEqual(vm.extractLengthInches(from: "32-36 inches"), 36)
   }
 
   func testExtractLengthInches_empty_returnsNil() {
-    XCTAssertNil(extractLengthInches(from: ""))
+    XCTAssertNil(vm.extractLengthInches(from: ""))
   }
 
   func testExtractLengthInches_dash_returnsNil() {
-    XCTAssertNil(extractLengthInches(from: "-"))
+    XCTAssertNil(vm.extractLengthInches(from: "-"))
   }
 
   func testExtractLengthInches_noDigits_returnsNil() {
-    XCTAssertNil(extractLengthInches(from: "not available"))
+    XCTAssertNil(vm.extractLengthInches(from: "not available"))
   }
 
   // MARK: - Context Update Tests (public interface)

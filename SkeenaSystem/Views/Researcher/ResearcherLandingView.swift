@@ -9,6 +9,20 @@ import SwiftUI
 import UIKit
 
 struct ResearcherLandingView: View {
+  /// User-visible mode label. Researchers are *always* in conservation mode —
+  /// this is a fixed label, not a toggle. Exposed so tests can lock the copy.
+  static let conservationModeLabel = "Conservation Mode"
+
+  /// Combine first + last name for the activity-row "Member:" line. Pure
+  /// function so tests can lock the trimming/empty-handling without standing
+  /// up an AuthService mock. Returns the empty string only when *both* parts
+  /// are empty/whitespace.
+  static func researcherName(first: String?, last: String?) -> String {
+    let f = (first ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    let l = (last ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    return "\(f) \(l)".trimmingCharacters(in: .whitespaces)
+  }
+
   @StateObject private var auth = AuthService.shared
   @ObservedObject private var communityService = CommunityService.shared
 
@@ -39,7 +53,7 @@ struct ResearcherLandingView: View {
 
               Spacer()
 
-              Text("Conservation Mode")
+              Text(Self.conservationModeLabel)
                 .font(.caption.weight(.semibold))
                 .foregroundColor(.green)
                 .accessibilityIdentifier("conservationModeLabel")
@@ -206,9 +220,10 @@ struct ResearcherLandingView: View {
     // report author's name regardless of role (see `CatchReportRow` in
     // ReportsListView). Populating it here lets researcher rows show
     // "Researcher: <name>" instead of "Researcher: —".
-    let researcherFirst = (AuthService.shared.currentFirstName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-    let researcherLast = (AuthService.shared.currentLastName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-    let researcherName = "\(researcherFirst) \(researcherLast)".trimmingCharacters(in: .whitespaces)
+    let researcherName = Self.researcherName(
+      first: AuthService.shared.currentFirstName,
+      last: AuthService.shared.currentLastName
+    )
 
     AppLogging.log("[ResearcherSave] memberId='\(memberId)' communityId='\(communityId ?? "nil")' communityName='\(communityName ?? "nil")'", level: .debug, category: .catch)
     AppLogging.log("[ResearcherSave] store \(CatchReportStore.shared.bindingDebugDescription)", level: .debug, category: .catch)

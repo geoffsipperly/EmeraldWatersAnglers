@@ -5,6 +5,10 @@ import SwiftUI
 // MARK: - View
 
 struct FarmedReportsListView: View {
+  /// Prefix for the row line that names who logged the report.
+  /// Renamed from "Guide" so the same row can be reused across roles.
+  static let activityRowMemberLabel = "Member"
+
   @Environment(\.dismiss) private var dismiss
   @StateObject private var store = FarmedReportStore.shared
 
@@ -195,7 +199,7 @@ private struct FarmedReportRow: View {
           .foregroundColor(.secondary)
       }
 
-      Text("Member: \(report.guideName)")
+      Text("\(FarmedReportsListView.activityRowMemberLabel): \(report.guideName)")
         .font(.footnote)
         .foregroundColor(.secondary)
         .lineLimit(1)

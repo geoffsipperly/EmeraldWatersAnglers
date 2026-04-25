@@ -404,6 +404,59 @@ final class ResearcherRoleRegressionTests: XCTestCase {
                    "AppUserRole.researcher must be usable as an environment value for ResearcherLandingView")
   }
 
+  // MARK: - Conservation Mode label
+
+  /// Researchers are *always* in conservation mode — the label is fixed,
+  /// not a toggle. Lock the copy so a UI revisit can't silently change it
+  /// to e.g. "Conservation Toggle" or back to a button.
+  func testConservationModeLabel_isFixedString() {
+    XCTAssertEqual(ResearcherLandingView.conservationModeLabel, "Conservation Mode")
+  }
+
+  // MARK: - researcherName formatter
+
+  /// The activity-row "Member:" line uses this formatter on the researcher
+  /// side. Empty/whitespace handling determines whether the row shows
+  /// "Member: Jane Doe" or just "Member:" with a trailing space.
+  func testResearcherName_combinesFirstAndLastWithSingleSpace() {
+    XCTAssertEqual(
+      ResearcherLandingView.researcherName(first: "Jane", last: "Doe"),
+      "Jane Doe"
+    )
+  }
+
+  func testResearcherName_firstOnly_returnsFirst() {
+    XCTAssertEqual(
+      ResearcherLandingView.researcherName(first: "Jane", last: nil),
+      "Jane"
+    )
+    XCTAssertEqual(
+      ResearcherLandingView.researcherName(first: "Jane", last: ""),
+      "Jane"
+    )
+  }
+
+  func testResearcherName_lastOnly_returnsLast() {
+    XCTAssertEqual(
+      ResearcherLandingView.researcherName(first: nil, last: "Doe"),
+      "Doe"
+    )
+  }
+
+  func testResearcherName_bothNilOrEmpty_returnsEmpty() {
+    XCTAssertEqual(ResearcherLandingView.researcherName(first: nil, last: nil), "")
+    XCTAssertEqual(ResearcherLandingView.researcherName(first: "", last: ""), "")
+    XCTAssertEqual(ResearcherLandingView.researcherName(first: "  ", last: " "), "",
+                   "All-whitespace inputs must collapse to empty so the row can be hidden")
+  }
+
+  func testResearcherName_trimsInputWhitespace() {
+    XCTAssertEqual(
+      ResearcherLandingView.researcherName(first: "  Jane  ", last: "  Doe  "),
+      "Jane Doe"
+    )
+  }
+
   // MARK: - Researcher toolbar snapshot
 
   func testSnapshot_researcherToolbarTabs_matchPublicTabs() {

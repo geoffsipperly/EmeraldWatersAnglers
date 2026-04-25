@@ -11,6 +11,11 @@
 import SwiftUI
 
 struct ActivitiesObservationsTab: View {
+  /// Prefix for the row line that names who logged the report. Renamed from
+  /// "Guide" so the same row can be reused across roles (kept in sync with
+  /// `FarmedReportsListView.activityRowMemberLabel`).
+  static let activityRowMemberLabel = "Member"
+
   @ObservedObject private var farmedStore = FarmedReportStore.shared
   @ObservedObject private var observationStore = ObservationStore.shared
 
@@ -123,7 +128,7 @@ private struct MarkRow: View {
         .font(.caption)
         .foregroundColor(.gray)
       if !report.guideName.isEmpty {
-        Text("Member: \(report.guideName)")
+        Text("\(ActivitiesObservationsTab.activityRowMemberLabel): \(report.guideName)")
           .font(.caption)
           .foregroundColor(.gray)
       }
