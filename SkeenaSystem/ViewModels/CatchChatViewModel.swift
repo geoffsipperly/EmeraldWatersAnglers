@@ -648,15 +648,22 @@ final class CatchChatViewModel: ObservableObject {
     }
   }
 
-  /// Post the bubble + capsules for the lifecycle step. Only reached when the
-  /// user picked steelhead. The ML-predicted stage (if any) is highlighted green;
-  /// the remaining stage is yellow.
+  /// Post the bubble + capsules for the lifecycle step. Reached when the user
+  /// picked a species that has a holding/traveler lifecycle dimension (see
+  /// `speciesWithLifecycle`). The ML-predicted stage (if any) is highlighted
+  /// green; the remaining stage is yellow.
   private func postLifecycleStep() {
     guard let flow = researcherFlow else { return }
     identificationSubStep = .confirmLifecycle
 
     let mlStage = flow.originalLifecycleStage?.lowercased() ?? ""
-    let msg = appendAssistant("Is this fish a holding or traveling steelhead?\n§\nTap to confirm.")
+    // Use the confirmed species name in the prompt (e.g. "steelhead",
+    // "atlantic salmon") so the question reads naturally for any species
+    // routed to this step. Falls back to "fish" if species is somehow unset.
+    let speciesPhrase = (flow.species?.lowercased()).flatMap {
+      $0.isEmpty ? nil : $0
+    } ?? "fish"
+    let msg = appendAssistant("Is this a holding or traveling \(speciesPhrase)?\n§\nTap to confirm.")
     capsulesAnchorMessageID = msg.id
 
     let holdingColor: ChatCapsuleColor = (mlStage == "holding") ? .green : .yellow
@@ -942,18 +949,20 @@ final class CatchChatViewModel: ObservableObject {
     guard let flow = researcherFlow else { return }
 
     flow.species = Self.displayName(forSpeciesKey: key)
-    // Drop any stale lifecycle from the ML prediction. The lifecycle step
-    // writes a fresh one if species is steelhead; otherwise it stays nil.
-    if key != "steelhead" {
+    // Drop any stale lifecycle from the ML prediction unless the chosen species
+    // has a holding/traveler dimension. The lifecycle step will write a fresh
+    // one for those; for everything else it must stay nil.
+    if !Self.speciesWithLifecycle.contains(key) {
       flow.lifecycleStage = nil
     }
 
     // Routing by species:
-    //   - Steelhead → lifecycle sub-step (holding vs traveler).
+    //   - Species with lifecycle (steelhead, atlantic salmon, …) → lifecycle
+    //     sub-step (holding vs traveler).
     //   - "Other" (Bi-catch) → prompt the user to name the actual species,
     //     since "Bi-catch" isn't a useful final classification.
     //   - Everything else → skip straight to sex.
-    if key == "steelhead" {
+    if Self.speciesWithLifecycle.contains(key) {
       postLifecycleStep()
     } else if key == "other" {
       postBiCatchSpeciesEntryStep()
@@ -976,7 +985,7 @@ final class CatchChatViewModel: ObservableObject {
     ]
   }
 
-  /// Resolves a raw model label (e.g. `"atlantic_salmon"` or `"steelhead_holding"`)
+  /// Resolves a raw model label (e.g. `"chinook_salmon"` or `"steelhead_holding"`)
   /// to the user-facing display name. Mirrors the lookup `splitSpecies` performs
   /// when it parses the analyzer's species string, so a capsule tap produces the
   /// same downstream text a manual type would.
@@ -998,7 +1007,7 @@ final class CatchChatViewModel: ObservableObject {
 
   /// Canonical dictionary key used for species comparisons — the raw model
   /// label with the underscore stripped and any lifecycle suffix dropped.
-  /// Example: `"steelhead_holding" → "steelhead"`, `"atlantic_salmon" → "atlantic salmon"`.
+  /// Example: `"steelhead_holding" → "steelhead"`, `"chinook_salmon" → "chinook salmon"`.
   static func speciesKey(forLabel label: String) -> String {
     let parts = label.replacingOccurrences(of: "_", with: " ").split(separator: " ")
     let lifecycle: Set<String> = ["holding", "traveler"]
@@ -1169,11 +1178,12 @@ final class CatchChatViewModel: ObservableObject {
       }
       chatCapsules = []
       capsulesAnchorMessageID = nil
-      // Advance based on the resolved species. Steelhead → lifecycle;
-      // everything else → sex. If the user (from Bi-catch entry) typed a
-      // salmonid here, the normal lifecycle/sex sequence applies.
+      // Advance based on the resolved species. Species with a holding/traveler
+      // dimension (see `speciesWithLifecycle`) → lifecycle step; everything
+      // else → sex. If the user (from Bi-catch entry) typed a salmonid here,
+      // the normal lifecycle/sex sequence applies.
       let resolvedKey = (flow.species ?? "").lowercased()
-      if resolvedKey == "steelhead" {
+      if Self.speciesWithLifecycle.contains(resolvedKey) {
         postLifecycleStep()
       } else {
         postSexStep()
@@ -1453,6 +1463,16 @@ final class CatchChatViewModel: ObservableObject {
     "sea run trout": "Sea-Run Trout",
     "steelhead": "Steelhead",
     "other": "Bi-catch",
+  ]
+
+  /// Species keys (lowercased, space-separated — same form as `speciesDisplayNames`
+  /// keys) that have a holding/traveler lifecycle dimension and trigger the
+  /// lifecycle-confirmation sub-step in the researcher chat flow. Any species
+  /// that has `<species>_holding` / `<species>_traveler` variants in the model's
+  /// `speciesLabels` belongs here.
+  static let speciesWithLifecycle: Set<String> = [
+    "steelhead",
+    "atlantic salmon",
   ]
 
   func splitSpecies(_ raw: String?) -> (species: String, stage: String?) {

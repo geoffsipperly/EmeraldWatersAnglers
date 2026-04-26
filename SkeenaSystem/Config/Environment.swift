@@ -502,7 +502,7 @@ public final class AppEnvironment {
     /// When the ViT top-1 softmax probability falls below this threshold, the chat
     /// flow surfaces up to 2 species options as tappable capsules (primary + runner-up)
     /// instead of silently committing to the winner. Helps catch ambiguous cases
-    /// like 0.7 sea_run_trout / 0.23 atlantic_salmon before the model's overconfidence
+    /// like 0.7 sea_run_trout / 0.23 chinook_salmon before the model's overconfidence
     /// locks in a wrong answer.
     public var speciesRunnerUpTrigger: Float {
         if let s = stringFromInfo("SPECIES_RUNNER_UP_TRIGGER"), let v = Float(s) { return v }

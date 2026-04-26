@@ -20,7 +20,7 @@ enum LengthEstimateSource: String, Codable {
 /// always the ML top-1 (rendered as primary/green); subsequent candidates are
 /// runner-ups above the visibility floor (rendered yellow).
 struct SpeciesCandidate: Equatable {
-  /// Raw model label, e.g. `"atlantic_salmon"` or `"steelhead_holding"`.
+  /// Raw model label, e.g. `"chinook_salmon"` or `"steelhead_holding"`.
   let label: String
   /// Softmax probability from ViT, 0.0–1.0.
   let confidence: Float
@@ -85,7 +85,8 @@ final class CatchPhotoAnalyzer {
   // training set order (see `docs/new-species-onboarding.md`). Reordering silently
   // breaks the LengthRegressor, which consumes `species_index` as a feature.
   static let speciesLabels: [String] = [
-      "atlantic_salmon",
+      "atlantic_salmon_holding",
+      "atlantic_salmon_traveler",
       "chinook_salmon",
       "lingcod",
       "other",
@@ -101,7 +102,8 @@ final class CatchPhotoAnalyzer {
   static let regressorBypassSpecies: Set<String> = [
       "sea_run_trout",
       "other",
-      "atlantic_salmon",
+      "atlantic_salmon_holding",
+      "atlantic_salmon_traveler",
       "chinook_salmon",
       "lingcod"
   ]
@@ -1409,6 +1411,7 @@ final class CatchPhotoAnalyzer {
   /// Used when re-estimating length after the researcher corrects species.
   private static let speciesDisplayToLabel: [String: String] = [
     "steelhead":       "steelhead_holding",
+    "atlantic salmon": "atlantic_salmon_holding",
     "sea-run trout":   "sea_run_trout",
     "sea run trout":   "sea_run_trout",
     "rainbow trout":   "rainbow_holding",
