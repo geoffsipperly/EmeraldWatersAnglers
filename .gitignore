@@ -23,4 +23,5 @@ SkeenaSystem/Config/Secrets.xcconfig
 !.claude/commands/
 !.claude/agents/
 !.claude/settings.json
+!.claude/list-commands.sh
 
