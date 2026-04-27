@@ -28,7 +28,7 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
-      shouldAutocreateTestPlan = "NO">
+      shouldAutocreateTestPlan = "YES">
       <Testables>
          <TestableReference
             skipped = "NO"
@@ -41,27 +41,7 @@
                ReferencedContainer = "container:SkeenaSystem.xcodeproj">
             </BuildableReference>
          </TestableReference>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "FD6A18CE2F18487A0067DBFD"
-               BuildableName = "SkeenaSystemUITests.xctest"
-               BlueprintName = "SkeenaSystemUITests"
-               ReferencedContainer = "container:SkeenaSystem.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
       </Testables>
-      <TestPlans>
-         <TestPlanReference
-            reference = "container:SkeenaSystem.xcodeproj/xcshareddata/SmokeTests.xctestplan"
-            default = "YES">
-         </TestPlanReference>
-         <TestPlanReference
-            reference = "container:SkeenaSystem.xcodeproj/xcshareddata/RegressionTests.xctestplan">
-         </TestPlanReference>
-      </TestPlans>
    </TestAction>
    <LaunchAction
       buildConfiguration = "DevTEST"

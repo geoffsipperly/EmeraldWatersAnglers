@@ -355,7 +355,10 @@ final class AnglerOnboardingRegressionTests: XCTestCase {
   func testPreferencesStep_saveBodyFormat() throws {
     let communityId = "lodge-c-1"
 
-    // Simulate building the save payload the same way the wizard does
+    // f1: has_details=true, Yes + text                 -> JSON {"checked":true,"details":"No gluten"}
+    // f2: has_details=false, No                        -> "false"
+    // f3: has_details=true, Yes but no text supplied   -> JSON {"checked":true,"details":null}
+    // f4: has_details=true, No                         -> JSON {"checked":false,"details":null}
     let fields = [
       PreferenceField(id: "f1", field_name: "dietary", field_label: "Dietary Needs",
                       field_type: "boolean", question_text: "Any dietary needs?",
@@ -366,21 +369,28 @@ final class AnglerOnboardingRegressionTests: XCTestCase {
                       field_type: "boolean", question_text: "Any accessibility needs?",
                       context_text: nil,
                       options: PreferenceOptions(has_details: false, details_prompt: nil),
-                      is_required: false, sort_order: 2, value: nil, text_value: nil)
+                      is_required: false, sort_order: 2, value: nil, text_value: nil),
+      PreferenceField(id: "f3", field_name: "allergies", field_label: "Allergies",
+                      field_type: "boolean", question_text: "Any allergies?",
+                      context_text: nil,
+                      options: PreferenceOptions(has_details: true, details_prompt: "Specify"),
+                      is_required: false, sort_order: 3, value: nil, text_value: nil),
+      PreferenceField(id: "f4", field_name: "drinks", field_label: "Drinks",
+                      field_type: "boolean", question_text: "Drink alcohol?",
+                      context_text: nil,
+                      options: PreferenceOptions(has_details: true, details_prompt: "Specify"),
+                      is_required: false, sort_order: 4, value: nil, text_value: nil)
     ]
 
-    let values: [String: Bool] = ["f1": true, "f2": false]
-    let textValues: [String: String] = ["f1": "No gluten", "f2": ""]
+    let values: [String: Bool] = ["f1": true, "f2": false, "f3": true, "f4": false]
+    let textValues: [String: String] = ["f1": "No gluten", "f2": "", "f3": "", "f4": ""]
 
     let valuesArray: [[String: String]] = fields.map { field in
-      let boolVal = values[field.id] == true
-      let text = textValues[field.id] ?? ""
-      let valueStr: String
-      if boolVal && field.options?.has_details == true && !text.isEmpty {
-        valueStr = "true|\(text)"
-      } else {
-        valueStr = boolVal ? "true" : "false"
-      }
+      let valueStr = MemberProfileFieldsAPI.encodePreferenceValue(
+        checked: values[field.id] == true,
+        details: textValues[field.id],
+        hasDetails: field.options?.has_details == true
+      )
       return ["field_definition_id": field.id, "value": valueStr]
     }
 
@@ -392,18 +402,28 @@ final class AnglerOnboardingRegressionTests: XCTestCase {
                    "SNAPSHOT: Save body must include community_id")
 
     let savedValues = parsed["values"] as! [[String: String]]
-    XCTAssertEqual(savedValues.count, 2,
+    XCTAssertEqual(savedValues.count, 4,
                    "SNAPSHOT: Save body must include all fields")
 
-    // f1 has details enabled and "Yes" selected with text
+    // f1: has_details=true, Yes with text -> JSON object with details string
     let f1 = savedValues.first(where: { $0["field_definition_id"] == "f1" })!
-    XCTAssertEqual(f1["value"], "true|No gluten",
-                   "SNAPSHOT: Yes with details must be pipe-delimited 'true|text'")
+    XCTAssertEqual(f1["value"], #"{"checked":true,"details":"No gluten"}"#,
+                   "SNAPSHOT: has_details=true + Yes + text must be JSON {\"checked\":true,\"details\":\"...\"}")
 
-    // f2 is "No" with no details
+    // f2: has_details=false -> plain bool string (no JSON wrapper)
     let f2 = savedValues.first(where: { $0["field_definition_id"] == "f2" })!
     XCTAssertEqual(f2["value"], "false",
-                   "SNAPSHOT: No selection must send 'false'")
+                   "SNAPSHOT: has_details=false must send plain 'true'/'false', no JSON wrapper")
+
+    // f3: has_details=true, Yes but empty text -> details:null
+    let f3 = savedValues.first(where: { $0["field_definition_id"] == "f3" })!
+    XCTAssertEqual(f3["value"], #"{"checked":true,"details":null}"#,
+                   "SNAPSHOT: has_details=true + Yes + empty text must serialize details as null")
+
+    // f4: has_details=true, No -> still JSON object, details null
+    let f4 = savedValues.first(where: { $0["field_definition_id"] == "f4" })!
+    XCTAssertEqual(f4["value"], #"{"checked":false,"details":null}"#,
+                   "SNAPSHOT: has_details=true + No must still send JSON object (not bare 'false')")
   }
 
   // MARK: - Proficiency step: save body contract
@@ -474,7 +494,7 @@ final class AnglerOnboardingRegressionTests: XCTestCase {
       "options": {"has_details": true, "details_prompt": "Please specify"},
       "is_required": false,
       "sort_order": 1,
-      "value": "true|No shellfish",
+      "value": "{\\"checked\\":true,\\"details\\":\\"No shellfish\\"}",
       "text_value": "No shellfish"
     }
     """
@@ -486,20 +506,46 @@ final class AnglerOnboardingRegressionTests: XCTestCase {
     XCTAssertEqual(field.question_text, "Do you have any dietary restrictions?")
     XCTAssertEqual(field.options?.has_details, true)
     XCTAssertEqual(field.options?.details_prompt, "Please specify")
-    XCTAssertEqual(field.value, "true|No shellfish",
-                   "SNAPSHOT: Pipe-delimited value must survive decoding")
+    XCTAssertEqual(field.value, #"{"checked":true,"details":"No shellfish"}"#,
+                   "SNAPSHOT: JSON-stringified value must survive decoding intact")
     XCTAssertEqual(field.text_value, "No shellfish")
   }
 
-  func testPreferenceField_parsePipeValue() {
-    let rawValue = "true|Vegetarian"
-    let boolPart = rawValue.split(separator: "|", maxSplits: 1).first.map(String.init) ?? rawValue
-    let textPart = rawValue.split(separator: "|", maxSplits: 1).dropFirst().first.map(String.init) ?? ""
+  func testPreferenceField_decodePreferenceValue_handlesAllFormats() {
+    // 1. Current contract: JSON object with checked + details
+    let json = MemberProfileFieldsAPI.decodePreferenceValue(
+      #"{"checked":true,"details":"Latex"}"#
+    )
+    XCTAssertEqual(json.checked, true)
+    XCTAssertEqual(json.details, "Latex")
 
-    XCTAssertEqual(boolPart, "true",
-                   "SNAPSHOT: Bool part must be extracted before pipe")
-    XCTAssertEqual(textPart, "Vegetarian",
-                   "SNAPSHOT: Text part must be extracted after pipe")
+    // 2. Current contract: JSON object with details = null
+    let jsonNullDetails = MemberProfileFieldsAPI.decodePreferenceValue(
+      #"{"checked":false,"details":null}"#
+    )
+    XCTAssertEqual(jsonNullDetails.checked, false)
+    XCTAssertEqual(jsonNullDetails.details, "")
+
+    // 3. Legacy pipe format must still parse for in-flight rows written before the JSON fix
+    let legacy = MemberProfileFieldsAPI.decodePreferenceValue("true|Vegetarian")
+    XCTAssertEqual(legacy.checked, true,
+                   "SNAPSHOT: Legacy pipe format must continue to parse")
+    XCTAssertEqual(legacy.details, "Vegetarian",
+                   "SNAPSHOT: Legacy pipe format details must be extracted after the pipe")
+
+    // 4. Bare bool (used for has_details=false fields)
+    let bareTrue = MemberProfileFieldsAPI.decodePreferenceValue("true")
+    XCTAssertEqual(bareTrue.checked, true)
+    XCTAssertEqual(bareTrue.details, "")
+
+    let bareFalse = MemberProfileFieldsAPI.decodePreferenceValue("false")
+    XCTAssertEqual(bareFalse.checked, false)
+    XCTAssertEqual(bareFalse.details, "")
+
+    // 5. nil/empty must default to (false, "")
+    let nilValue = MemberProfileFieldsAPI.decodePreferenceValue(nil)
+    XCTAssertEqual(nilValue.checked, false)
+    XCTAssertEqual(nilValue.details, "")
   }
 
   // MARK: - Model decoding: ProficiencyField in wizard context

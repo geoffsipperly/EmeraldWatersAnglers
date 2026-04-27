@@ -140,11 +140,30 @@ final class PublicUserFlowTests: XCTestCase {
             )
             attach(name: "Step 4 – Form filled")
 
-            // Dismiss keyboard then submit
-            app.swipeDown(velocity: .slow)
+            // Diagnose field values before asserting the button state.
+            let firstVal  = registrationPage.firstNameField.value as? String
+            let lastVal   = registrationPage.lastNameField.value as? String
+            let emailVal  = registrationPage.emailField.value as? String
+            let passVal   = registrationPage.passwordField.value as? String
+            let confirmVal = registrationPage.confirmPasswordField.value as? String
+            XCTAssertEqual(firstVal,  testFirstName, "firstName field value mismatch")
+            XCTAssertEqual(lastVal,   testLastName,  "lastName field value mismatch")
+            XCTAssertEqual(emailVal,  email,          "email field value mismatch")
+            XCTAssertNotEqual(passVal,    "Password",         "password field is empty (shows placeholder)")
+            XCTAssertNotEqual(confirmVal, "Confirm password", "confirm field is empty (shows placeholder)")
+
+            // fillForm() leaves the keyboard open; dismiss it before tapping Register.
             _ = registrationPage.registerButton.waitForExistence(timeout: 5)
+            XCTAssertTrue(registrationPage.registerButton.isEnabled,
+                "Register button must be enabled — check that all fields are filled and passwords match")
+            attach(name: "Step 4 – Pre-register state")
             registrationPage.tapRegister()
             attach(name: "Step 4 – Register tapped")
+
+            // New users see a welcome fullScreenCover; dismiss it so the landing
+            // view's fishingForecastTile becomes accessible.
+            publicLandingPage.dismissWelcomeIfPresent()
+            attach(name: "Step 4.5 – Welcome screen dismissed")
 
             // Step 5: Verify landing on public landing view
             XCTAssertTrue(publicLandingPage.isDisplayed,

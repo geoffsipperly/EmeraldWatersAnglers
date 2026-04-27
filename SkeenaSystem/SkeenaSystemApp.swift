@@ -19,8 +19,29 @@ struct SkeenaSystemApp: App {
           UserDefaults.standard.removeObject(forKey: "OfflineLastEmail")
           UserDefaults.standard.removeObject(forKey: "OfflineRememberMeEnabled")
         }
+        // In UI-testing mode, listen for a Darwin notification that the test runner
+        // can post to trigger sign-out without going through the SwiftUI toolbar button
+        // (NavigationStack ToolbarItems report {-1,-1} hit points to XCUITest).
+        if CommandLine.arguments.contains("-uiTesting") {
+          Self.registerUITestSignOutHook()
+        }
         AppLogging.log("Environment project URL: \(AppEnvironment.shared.projectURL)", level: .info, category: .auth)
         AppLogging.log("Log level: \(AppEnvironment.shared.logLevel)", level: .info, category: .auth)
+      }
+
+      /// Registers a Darwin notification observer that signs out when the UI test runner
+      /// posts `com.madthinker.uitest.signout`. Darwin notifications cross process
+      /// boundaries so the XCUITest host can trigger app-side actions mid-test.
+      private static func registerUITestSignOutHook() {
+        let center = CFNotificationCenterGetDarwinNotifyCenter()
+        CFNotificationCenterAddObserver(
+          center,
+          nil,
+          { _, _, _, _, _ in Task { await AuthService.shared.signOutRemote() } },
+          "com.madthinker.uitest.signout" as CFString,
+          nil,
+          .deliverImmediately
+        )
       }
 
       private static func clearAuthKeychainEntries() {

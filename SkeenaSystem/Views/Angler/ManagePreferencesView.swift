@@ -282,18 +282,13 @@ struct ManagePreferencesView: View {
       var loadedVals: [String: Bool] = [:]
       var loadedText: [String: String] = [:]
       for field in fields {
-        // value may be "true", "false", or "true|detail text"
-        let rawValue = field.value ?? "false"
-        let boolPart = rawValue.split(separator: "|", maxSplits: 1).first.map(String.init) ?? rawValue
-        loadedVals[field.id] = boolPart == "true"
-        // text_value comes as a separate field, but also parse from pipe format as fallback
+        let parsed = MemberProfileFieldsAPI.decodePreferenceValue(field.value)
+        loadedVals[field.id] = parsed.checked
+        // text_value is a separate response field; prefer it when populated.
         if let tv = field.text_value, !tv.isEmpty {
           loadedText[field.id] = tv
-        } else if rawValue.contains("|") {
-          let textPart = rawValue.split(separator: "|", maxSplits: 1).dropFirst().first.map(String.init) ?? ""
-          loadedText[field.id] = textPart
         } else {
-          loadedText[field.id] = ""
+          loadedText[field.id] = parsed.details
         }
       }
       values = loadedVals
@@ -342,16 +337,11 @@ struct ManagePreferencesView: View {
     req.setValue(auth.publicAnonKey, forHTTPHeaderField: "apikey")
 
     let valuesArray: [[String: String]] = fields.map { field in
-      let boolVal = values[field.id] == true
-      let text = textValues[field.id] ?? ""
-      let valueStr: String
-
-      if boolVal && field.options?.has_details == true && !text.isEmpty {
-        valueStr = "true|\(text)"
-      } else {
-        valueStr = boolVal ? "true" : "false"
-      }
-
+      let valueStr = MemberProfileFieldsAPI.encodePreferenceValue(
+        checked: values[field.id] == true,
+        details: textValues[field.id],
+        hasDetails: field.options?.has_details == true
+      )
       return ["field_definition_id": field.id, "value": valueStr]
     }
 

@@ -1,4 +1,5 @@
 import XCTest
+import CoreFoundation
 
 /// Page Object for the LoginView screen.
 ///
@@ -14,9 +15,14 @@ struct LoginPage {
     var signInButton: XCUIElement { app.buttons["signInButton"] }
     var errorLabel: XCUIElement { app.staticTexts["loginErrorLabel"] }
 
-    /// Visible only once the user is authenticated and the app navigates away from login.
-    /// We detect logout by looking for the logout capsule on any landing view.
-    var logoutButton: XCUIElement { app.buttons["logoutCapsule"] }
+    /// Visible once the user is authenticated.
+    ///
+    /// SwiftUI ToolbarItem buttons in NavigationStack report {-1,-1} hit points to
+    /// XCUITest regardless of tapping strategy, so we use this element only to confirm
+    /// the landing screen is present before triggering sign-out via Darwin notification.
+    var logoutButton: XCUIElement {
+        app.buttons["logoutCapsule"]
+    }
 
     // MARK: - Assertions
 
@@ -43,18 +49,36 @@ struct LoginPage {
 
     /// Fills credentials and taps sign in; waits for the login screen to disappear.
     /// - Returns: true if the app navigated away from login within `timeout` seconds.
+    ///
+    /// Uses `waitForNonExistence` — the inverse of `waitForExistence` — because after a
+    /// successful sign-in the email field is removed from the hierarchy. `waitForExistence`
+    /// would return true immediately (the field exists right now) and give a false failure.
     @discardableResult
     func signIn(email: String, password: String, timeout: TimeInterval = 20) -> Bool {
         enterEmail(email)
         enterPassword(password)
         tapSignIn()
-        return !emailField.waitForExistence(timeout: timeout)
+        return emailField.waitForNonExistence(timeout: timeout)
     }
 
-    /// Taps the logout button from any landing screen and waits for the login screen to return.
+    /// Triggers sign-out and waits for the login screen to return.
+    ///
+    /// SwiftUI ToolbarItem buttons in NavigationStack report {-1,-1} hit points to XCUITest
+    /// and their taps are intercepted by the full-screen content hosting view regardless of
+    /// whether element-based or coordinate-based tap is used. We work around this by:
+    ///  1. Confirming the landing screen is visible (logoutButton.waitForExistence)
+    ///  2. Posting a Darwin notification that the app (registered in SkeenaSystemApp.init
+    ///     when `-uiTesting` is present) observes to call `AuthService.signOutRemote()`
     @discardableResult
-    func signOut(timeout: TimeInterval = 10) -> Bool {
-        logoutButton.tap()
+    func signOut(waitForButton: TimeInterval = 20, timeout: TimeInterval = 30) -> Bool {
+        _ = logoutButton.waitForExistence(timeout: waitForButton)
+        // Post cross-process Darwin notification; app calls signOutRemote() on receipt
+        let center = CFNotificationCenterGetDarwinNotifyCenter()
+        CFNotificationCenterPostNotification(
+            center,
+            CFNotificationName("com.madthinker.uitest.signout" as CFString),
+            nil, nil, true
+        )
         return emailField.waitForExistence(timeout: timeout)
     }
 }

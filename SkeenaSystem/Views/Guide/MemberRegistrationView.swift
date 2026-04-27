@@ -338,6 +338,7 @@ struct MemberRegistrationView: View {
         TextField("First name", text: $firstName)
           .textInputAutocapitalization(.words)
           .autocorrectionDisabled()
+          .submitLabel(.next)
           .accessibilityIdentifier("firstNameTextField")
       )
 
@@ -345,6 +346,7 @@ struct MemberRegistrationView: View {
         TextField("Last name", text: $lastName)
           .textInputAutocapitalization(.words)
           .autocorrectionDisabled()
+          .submitLabel(.next)
           .accessibilityIdentifier("lastNameTextField")
       )
     }
@@ -402,6 +404,7 @@ struct MemberRegistrationView: View {
         .textInputAutocapitalization(.never)
         .keyboardType(.default)
         .disableAutocorrection(true)
+        .submitLabel(.next)
         .accessibilityIdentifier("passwordTextField_reg")
     )
 
@@ -426,6 +429,7 @@ struct MemberRegistrationView: View {
         .keyboardType(.default)
         .disableAutocorrection(true)
         .privacySensitive()
+        .submitLabel(.done)
         .accessibilityIdentifier("confirmPasswordTextField_reg")
     )
 

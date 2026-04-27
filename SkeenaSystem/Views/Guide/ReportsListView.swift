@@ -635,7 +635,7 @@ private struct CatchReportRow: View {
         CatchReportStatusChip(status: report.status, isArchived: isArchived)
       }
 
-      Text("\(AuthService.shared.currentUserType == .researcher ? "Researcher" : "Guide"): \(guideText)")
+      Text("\(authorRoleLabel): \(guideText)")
         .font(.footnote)
         .foregroundColor(.secondary)
         .lineLimit(1)
@@ -666,6 +666,14 @@ private struct CatchReportRow: View {
   private var guideText: String {
     let name = report.guideName ?? ""
     return name.isEmpty ? "—" : name
+  }
+
+  private var authorRoleLabel: String {
+    switch AuthService.shared.currentUserType {
+    case .researcher: return "Researcher"
+    case .`public`: return "Member"
+    default: return "Guide"
+    }
   }
 }
 

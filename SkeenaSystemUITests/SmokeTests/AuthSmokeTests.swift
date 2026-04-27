@@ -66,13 +66,15 @@ final class AuthSmokeTests: XCTestCase {
 
         XCTAssertTrue(loginPage.isDisplayed, "Login screen should be visible before sign-in")
 
-        let navigatedAway = loginPage.signIn(email: testEmail, password: testPassword, timeout: 30)
+        // Allow 45s: network auth + profile load + community memberships fetch can stack up
+        let navigatedAway = loginPage.signIn(email: testEmail, password: testPassword, timeout: 45)
         XCTAssertTrue(navigatedAway, "App should navigate away from login screen after successful sign-in")
 
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Post Sign-In State"
         screenshot.lifetime = .keepAlways
         add(screenshot)
+
     }
 
     /// Sign in then sign out returns the user to the login screen.
@@ -82,11 +84,11 @@ final class AuthSmokeTests: XCTestCase {
         XCTAssertTrue(loginPage.isDisplayed, "Login screen should be visible before sign-in")
 
         // Sign in
-        let navigatedAway = loginPage.signIn(email: testEmail, password: testPassword, timeout: 30)
+        let navigatedAway = loginPage.signIn(email: testEmail, password: testPassword, timeout: 45)
         XCTAssertTrue(navigatedAway, "App should navigate away from login screen after successful sign-in")
 
-        // Sign out
-        let returnedToLogin = loginPage.signOut(timeout: 10)
+        // Sign out — allow time for the Supabase /auth/v1/logout network call
+        let returnedToLogin = loginPage.signOut(timeout: 30)
         XCTAssertTrue(returnedToLogin, "App should return to login screen after sign-out")
 
         let screenshot = XCTAttachment(screenshot: app.screenshot())

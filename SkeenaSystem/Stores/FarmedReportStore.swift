@@ -227,15 +227,31 @@ nonisolated final class FarmedReportStore: ObservableObject {
     }
 
     var loaded: [FarmedReport] = []
+    var skippedCrossMember = 0
 
     for file in files where file.pathExtension.lowercased() == "json" {
       do {
         let data = try Data(contentsOf: file)
         let report = try decoder.decode(FarmedReport.self, from: data)
+
+        // Defense in depth: refuse to surface reports whose stamped memberId
+        // doesn't match the bound scope. See CatchReportStore.loadAll for
+        // the matching rationale.
+        let stamped = (report.memberId ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if let bound = boundMemberId, !stamped.isEmpty, stamped != bound {
+          skippedCrossMember += 1
+          AppLogging.log("[FarmedReportStore] SKIPPING cross-member report \(file.lastPathComponent) — stamped='\(stamped)' bound='\(bound)'", level: .warn, category: .catch)
+          continue
+        }
+
         loaded.append(report)
       } catch {
         AppLogging.log("[FarmedReportStore] Failed to decode \(file.lastPathComponent): \(error.localizedDescription)", level: .error, category: .catch)
       }
+    }
+
+    if skippedCrossMember > 0 {
+      AppLogging.log("[FarmedReportStore] loadAll: skipped \(skippedCrossMember) cross-member orphan(s) in scope member=\(self.boundMemberId ?? "nil")", level: .warn, category: .catch)
     }
 
     loaded.sort { $0.createdAt > $1.createdAt }

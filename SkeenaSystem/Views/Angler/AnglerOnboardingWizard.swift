@@ -477,15 +477,12 @@ private struct PreferencesStep: View {
       fields = decoded.preferences.sorted { $0.sort_order < $1.sort_order }
 
       for field in fields {
-        let rawValue = field.value ?? "false"
-        let boolPart = rawValue.split(separator: "|", maxSplits: 1).first.map(String.init) ?? rawValue
-        values[field.id] = boolPart == "true"
+        let parsed = MemberProfileFieldsAPI.decodePreferenceValue(field.value)
+        values[field.id] = parsed.checked
         if let tv = field.text_value, !tv.isEmpty {
           textValues[field.id] = tv
-        } else if rawValue.contains("|") {
-          textValues[field.id] = rawValue.split(separator: "|", maxSplits: 1).dropFirst().first.map(String.init) ?? ""
         } else {
-          textValues[field.id] = ""
+          textValues[field.id] = parsed.details
         }
       }
     } catch {
@@ -506,14 +503,11 @@ private struct PreferencesStep: View {
     req.setValue(auth.publicAnonKey, forHTTPHeaderField: "apikey")
 
     let valuesArray: [[String: String]] = fields.map { field in
-      let boolVal = values[field.id] == true
-      let text = textValues[field.id] ?? ""
-      let valueStr: String
-      if boolVal && field.options?.has_details == true && !text.isEmpty {
-        valueStr = "true|\(text)"
-      } else {
-        valueStr = boolVal ? "true" : "false"
-      }
+      let valueStr = MemberProfileFieldsAPI.encodePreferenceValue(
+        checked: values[field.id] == true,
+        details: textValues[field.id],
+        hasDetails: field.options?.has_details == true
+      )
       return ["field_definition_id": field.id, "value": valueStr]
     }
 

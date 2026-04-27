@@ -16,7 +16,7 @@ LOG_LEVEL = debug
 // Comma-separated log category allowlist. Empty = all categories.
 // Valid: auth, network, trip, ui, catch, ml, persistence, audio, angler,
 //        location, upload, weather, observation, community, map, research
-LOG_CATEGORIES = ml,catch,angler,auth,network
+LOG_CATEGORIES = ml
 BETA_RELEASE = true
 
 // ──────────────────────────────────────────────

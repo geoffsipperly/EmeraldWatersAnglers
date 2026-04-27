@@ -85,6 +85,11 @@ struct ManageProfileView: View {
   @State private var mlOptOutDraft: Bool = MLTrainingOptOutStore.shared.isOptedOut
   @State private var originalMlOptOut: Bool = MLTrainingOptOutStore.shared.isOptedOut
 
+  // Conservation mode (public users only). Same draft/original pattern as
+  // mlOptOutDraft. Committed to `PublicConservationModeStore.shared` on save.
+  @State private var conservationModeDraft: Bool = PublicConservationModeStore.shared.isEnabled
+  @State private var originalConservationMode: Bool = PublicConservationModeStore.shared.isEnabled
+
   @State private var profile = MyProfile()
   @State private var originalProfile = MyProfile()
   @State private var isLoading = false
@@ -110,6 +115,7 @@ struct ManageProfileView: View {
     originalProfile != profile
       || dobDate != originalDobDate
       || mlOptOutDraft != originalMlOptOut
+      || conservationModeDraft != originalConservationMode
   }
 
   var body: some View {
@@ -241,6 +247,14 @@ struct ManageProfileView: View {
   @ViewBuilder
   private var privacySection: some View {
     Section {
+      Toggle(isOn: $conservationModeDraft) {
+        Text("Conservation mode")
+          .foregroundColor(.blue)
+          .font(.callout)
+      }
+      .tint(.blue)
+      .accessibilityIdentifier("conservationModeToggle")
+
       Toggle(isOn: Binding(
         get: { !mlOptOutDraft },
         set: { mlOptOutDraft = !$0 }
@@ -254,9 +268,12 @@ struct ManageProfileView: View {
     } header: {
       Text("Privacy")
     } footer: {
-      Text("Your anonymized catch photos and measurements help our models get better at identifying fish and improve your usability. Turn off to opt out of this use.")
-        .font(.caption)
-        .foregroundColor(.gray)
+      VStack(alignment: .leading, spacing: 6) {
+        Text("Conservation mode: when on, your catches contribute additional data (head photo, measurements, sample IDs) used in conservation research. Turn off for a faster, lighter recording experience.")
+        Text("Help improve species detection: your anonymized catch photos and measurements help our models get better at identifying fish and improve your usability. Turn off to opt out of this use.")
+      }
+      .font(.caption)
+      .foregroundColor(.gray)
     }
     .listRowBackground(Color.white.opacity(0.04))
   }
@@ -585,6 +602,12 @@ struct ManageProfileView: View {
       if auth.currentUserType == .public, mlOptOutDraft != originalMlOptOut {
         MLTrainingOptOutStore.shared.isOptedOut = mlOptOutDraft
         originalMlOptOut = mlOptOutDraft
+      }
+
+      // Persist Conservation mode (public users) once the server save succeeded.
+      if auth.currentUserType == .public, conservationModeDraft != originalConservationMode {
+        PublicConservationModeStore.shared.isEnabled = conservationModeDraft
+        originalConservationMode = conservationModeDraft
       }
 
       infoText = "Saved."

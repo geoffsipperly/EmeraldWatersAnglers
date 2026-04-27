@@ -173,10 +173,14 @@ struct ReportChatView: View {
     chatVM.updateAnglerContext(angler: currentClientText())
     chatVM.updateTripContext(trip: currentTripText())
 
-    // Honor the persistent Conservation toggle on GuideLandingView.
-    // When on, the catch chat will route through the research-grade flow
-    // (see CatchChatViewModel.handlePhotoSelected).
-    chatVM.conservationMode = ConservationModeStore.shared.isEnabled
+    // Honor the persistent Conservation toggle. Public users have their own
+    // per-device store (default ON) wired through ManageProfileView's Privacy
+    // section; guides use the existing ConservationModeStore wired through
+    // GuideLandingView (default OFF). When on, the catch chat routes through
+    // the research-grade flow (see CatchChatViewModel.handlePhotoSelected).
+    chatVM.conservationMode = AuthService.shared.currentUserType == .public
+      ? PublicConservationModeStore.shared.isEnabled
+      : ConservationModeStore.shared.isEnabled
 
     // Public users are always in solo mode — configure immediately
     if alwaysSolo {
@@ -857,7 +861,14 @@ struct ReportChatView: View {
     // Resolve trip — solo mode creates/reuses a same-day trip automatically
     let trip: Trip? = isSoloMode ? findOrCreateSoloTrip() : selectedTrip
 
-    let memberId = vm.memberId
+    // Always source memberId from the authoritative auth state at save time.
+    // `vm.memberId` is seeded once when the chat opens and can drift from
+    // `AuthService.currentMemberId` if the user changes their member number
+    // (or the auto-rebind fires) mid-session — that drift previously caused
+    // reports to be written into the new member's directory while still
+    // stamped with the old member's id, producing cross-member rows in the
+    // Activities list.
+    let memberId = (AuthService.shared.currentMemberId ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     let cwlNumber = vm.classifiedWatersLicenseNumber
     let tripIdString = trip?.tripId?.uuidString
 
