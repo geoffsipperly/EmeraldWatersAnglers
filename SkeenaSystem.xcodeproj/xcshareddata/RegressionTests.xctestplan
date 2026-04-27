@@ -1,0 +1,41 @@
+{
+  "configurations" : [
+    {
+      "id" : "B2C3D4E5-0002-0002-0002-000000000002",
+      "name" : "Regression Tests",
+      "options" : {
+        "environmentVariableEntries" : [
+          {
+            "key" : "UI_TEST_EMAIL",
+            "value" : "chris@public.com"
+          },
+          {
+            "key" : "UI_TEST_PASSWORD",
+            "value" : "Fatbikesk123"
+          },
+          {
+            "key" : "PUBLIC_FLOW_SKIP_REGISTRATION",
+            "value" : "0"
+          }
+        ]
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true,
+    "defaultTestExecutionTimeAllowance" : 120
+  },
+  "testTargets" : [
+    {
+      "selectedTests" : [
+        "PublicUserFlowTests"
+      ],
+      "target" : {
+        "containerPath" : "container:SkeenaSystem.xcodeproj",
+        "identifier" : "FD6A18CE2F18487A0067DBFD",
+        "name" : "SkeenaSystemUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

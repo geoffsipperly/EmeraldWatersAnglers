@@ -172,6 +172,7 @@ struct PublicLandingView: View {
                 .font(.title3.weight(.semibold))
                 .foregroundColor(.white)
             }
+            .accessibilityIdentifier("profileButton")
             CommunityToolbarButton()
           }
         }

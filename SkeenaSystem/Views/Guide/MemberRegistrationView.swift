@@ -338,12 +338,14 @@ struct MemberRegistrationView: View {
         TextField("First name", text: $firstName)
           .textInputAutocapitalization(.words)
           .autocorrectionDisabled()
+          .accessibilityIdentifier("firstNameTextField")
       )
 
       fieldBackground(
         TextField("Last name", text: $lastName)
           .textInputAutocapitalization(.words)
           .autocorrectionDisabled()
+          .accessibilityIdentifier("lastNameTextField")
       )
     }
   }
@@ -358,6 +360,7 @@ struct MemberRegistrationView: View {
         .textContentType(.telephoneNumber)
         .autocorrectionDisabled(true)
         .submitLabel(.next)
+        .accessibilityIdentifier("phoneTextField")
     )
   }
 
@@ -372,6 +375,7 @@ struct MemberRegistrationView: View {
         .textContentType(.none)
         .privacySensitive()
         .submitLabel(.next)
+        .accessibilityIdentifier("emailTextField_reg")
     )
 
     // Email validation indicator
@@ -398,6 +402,7 @@ struct MemberRegistrationView: View {
         .textInputAutocapitalization(.never)
         .keyboardType(.default)
         .disableAutocorrection(true)
+        .accessibilityIdentifier("passwordTextField_reg")
     )
 
     // Password requirements — always visible
@@ -421,6 +426,7 @@ struct MemberRegistrationView: View {
         .keyboardType(.default)
         .disableAutocorrection(true)
         .privacySensitive()
+        .accessibilityIdentifier("confirmPasswordTextField_reg")
     )
 
     // Confirm password match indicator
@@ -506,6 +512,7 @@ struct MemberRegistrationView: View {
         .padding(.horizontal)
       }
       .disabled(!canRegister)
+      .accessibilityIdentifier("registerButton")
       .padding(.bottom, 10)
     }
     .padding(.top, 4)
