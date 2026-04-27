@@ -28,6 +28,16 @@
   "testTargets" : [
     {
       "selectedTests" : [
+        "PublicUserAPITests"
+      ],
+      "target" : {
+        "containerPath" : "container:SkeenaSystem.xcodeproj",
+        "identifier" : "FD2182F62EF9C1E2001E905A",
+        "name" : "SkeenaSystemTests"
+      }
+    },
+    {
+      "selectedTests" : [
         "PublicUserFlowTests"
       ],
       "target" : {
