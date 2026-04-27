@@ -1,6 +1,7 @@
 // Bend Fly Shop
 
 import CoreData
+import Security
 import SwiftUI
 
 @main
@@ -11,8 +12,28 @@ struct SkeenaSystemApp: App {
     
     /// This initializer runs before the body is evaluated.
       init() {
+        // When launched by UI tests with -resetAuthForUITests, wipe stored tokens
+        // so every test run starts from a clean unauthenticated state.
+        if CommandLine.arguments.contains("-resetAuthForUITests") {
+          Self.clearAuthKeychainEntries()
+          UserDefaults.standard.removeObject(forKey: "OfflineLastEmail")
+          UserDefaults.standard.removeObject(forKey: "OfflineRememberMeEnabled")
+        }
         AppLogging.log("Environment project URL: \(AppEnvironment.shared.projectURL)", level: .info, category: .auth)
         AppLogging.log("Log level: \(AppEnvironment.shared.logLevel)", level: .info, category: .auth)
+      }
+
+      private static func clearAuthKeychainEntries() {
+        let accounts = [
+          "epicwaters.auth.access_token",
+          "epicwaters.auth.refresh_token",
+          "epicwaters.auth.access_token_exp",
+          "OfflineLastPassword",
+        ]
+        for account in accounts {
+          let query: [CFString: Any] = [kSecClass: kSecClassGenericPassword, kSecAttrAccount: account]
+          SecItemDelete(query as CFDictionary)
+        }
       }
 
   var body: some Scene {

@@ -88,6 +88,7 @@ struct LoginView: View {
               .focused($focusedField, equals: .email)
               .submitLabel(.next)
               .onSubmit { focusedField = .password }
+              .accessibilityIdentifier("emailTextField")
 
             SecureField("Password", text: $password)
               .textContentType(.password)
@@ -97,6 +98,7 @@ struct LoginView: View {
               .focused($focusedField, equals: .password)
               .submitLabel(.go)
               .onSubmit { Task { await loginTapped() } }
+              .accessibilityIdentifier("passwordTextField")
 
             if let err = errorText {
               Text(err)
@@ -128,6 +130,7 @@ struct LoginView: View {
               .animation(.easeInOut(duration: 0.2), value: isFormValid)
             }
             .disabled(!isFormValid || isBusy)
+            .accessibilityIdentifier("signInButton")
 
             // Face ID / Touch ID login
             if canUseBiometricsForLogin {
