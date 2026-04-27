@@ -653,6 +653,12 @@ struct PublicLandingView: View {
   }
 
   private func checkWelcome() {
+    // UI tests that aren't exercising welcome behavior (PostLoginTestBase)
+    // can opt out via this launch arg. Without it, the fullScreenCover
+    // covers the landing screen and SwiftUI's hit-testing reports {-1,-1}
+    // for both Get Started and Close on iOS 26.2 sim — see the same class
+    // of issue noted in SkeenaSystemApp.registerUITestSignOutHook.
+    if CommandLine.arguments.contains("-suppressWelcomeForUITests") { return }
     guard let key = welcomeKey() else { return }
     guard !UserDefaults.standard.bool(forKey: key) else { return }
     guard !showWelcome else { return }

@@ -1,21 +1,17 @@
 {
   "configurations" : [
     {
-      "id" : "B2C3D4E5-0002-0002-0002-000000000002",
-      "name" : "Regression Tests",
+      "id" : "A1B2C3D4-0001-0001-0001-000000000001",
+      "name" : "Smoke Tests",
       "options" : {
         "environmentVariableEntries" : [
           {
             "key" : "UI_TEST_EMAIL",
-            "value" : "chris@public.com"
+            "value" : "test@public.com"
           },
           {
             "key" : "UI_TEST_PASSWORD",
             "value" : "Fatbikesk123"
-          },
-          {
-            "key" : "PUBLIC_FLOW_SKIP_REGISTRATION",
-            "value" : "0"
           }
         ]
       }
@@ -23,12 +19,12 @@
   ],
   "defaultOptions" : {
     "testTimeoutsEnabled" : true,
-    "defaultTestExecutionTimeAllowance" : 120
+    "defaultTestExecutionTimeAllowance" : 60
   },
   "testTargets" : [
     {
       "selectedTests" : [
-        "PublicUserAPITests"
+        "BackendHealthSmokeTests"
       ],
       "target" : {
         "containerPath" : "container:SkeenaSystem.xcodeproj",
@@ -38,7 +34,8 @@
     },
     {
       "selectedTests" : [
-        "PublicUserFlowTests"
+        "AppLaunchSmokeTests",
+        "AuthSmokeTests"
       ],
       "target" : {
         "containerPath" : "container:SkeenaSystem.xcodeproj",

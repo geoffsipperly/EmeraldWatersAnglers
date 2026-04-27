@@ -13,11 +13,31 @@ class PostLoginTestBase: XCTestCase {
 
     override func setUpWithError() throws {
         continueAfterFailure = false
-        app.launchArguments = ["-uiTesting", "-resetAuthForUITests"] + additionalLaunchArgs
+        // Auto-dismiss iOS system alerts that appear mid-test. The save-password
+        // prompt is the common one after sign-in; we always say "Not Now" since
+        // we don't want test runs polluting the sim's keychain.
+        addUIInterruptionMonitor(withDescription: "System Dialogs") { alert in
+            for label in ["Not Now", "Don't Save", "Cancel", "OK", "Allow"] {
+                if alert.buttons[label].exists {
+                    alert.buttons[label].tap()
+                    return true
+                }
+            }
+            return false
+        }
+        app.launchArguments = [
+            "-uiTesting",
+            "-resetAuthForUITests",
+            "-suppressWelcomeForUITests",
+        ] + additionalLaunchArgs
         app.launchEnvironment["UI_TEST_EMAIL"] = ProcessInfo.processInfo.environment["UI_TEST_EMAIL"] ?? "chris@public.com"
         app.launchEnvironment["UI_TEST_PASSWORD"] = ProcessInfo.processInfo.environment["UI_TEST_PASSWORD"] ?? "Fatbikesk123"
         app.launch()
         try signInAndReachLanding()
+        // Interruption monitors only fire when an XCTest action runs against
+        // the app. Poke the app once so any pending alert is flushed before
+        // tests start asserting on landing-screen elements.
+        app.tap()
     }
 
     override func tearDownWithError() throws {

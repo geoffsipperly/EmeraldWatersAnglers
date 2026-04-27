@@ -7,7 +7,7 @@
         "environmentVariableEntries" : [
           {
             "key" : "UI_TEST_EMAIL",
-            "value" : "chris@public.com"
+            "value" : "test@public.com"
           },
           {
             "key" : "UI_TEST_PASSWORD",
