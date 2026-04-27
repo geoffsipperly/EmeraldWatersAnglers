@@ -5,22 +5,21 @@ import SwiftUI
 // MARK: - ExploreView
 //
 // Explore (a.k.a. "Learn") screen for public-role users. Sections, top → bottom:
-//   - Masterclasses — opens the community's resolved learn URL in an in-app WebView.
-//   - Recommended    — horizontal carousel of up to 5 community-configured links
-//                      (CommunityConfig.resolvedCustomUrls). YouTube links derive
-//                      a thumbnail from img.youtube.com; non-YouTube links show a
-//                      dark placeholder card. All links open in-app via WebView,
-//                      which has autoplay enabled for embedded video.
+//   - Masterclasses — horizontal carousel of bundled videos sourced from
+//                     Config/Masterclasses.json (see MasterclassCatalog).
+//   - Recommended   — horizontal carousel of up to 5 community-configured links
+//                     (CommunityConfig.resolvedCustomUrls). YouTube links derive
+//                     a thumbnail from img.youtube.com; non-YouTube links show a
+//                     dark placeholder card. All links open in-app via WebView,
+//                     which has autoplay enabled for embedded video.
 
 struct ExploreView: View {
   @ObservedObject private var communityService = CommunityService.shared
 
   @State private var videoLaunch: VideoLaunch?
 
-  // Masterclass video is app-wide, sourced from DEFAULT_LEARN_HOST in xcconfig —
-  // not the per-community learn_url (which is being deprecated in favor of custom_urls).
-  private var masterclassURL: URL? {
-    URL(string: AppEnvironment.shared.defaultLearnURL)
+  private var masterclasses: [Masterclass] {
+    MasterclassCatalog.all
   }
 
   private var customLinks: [CustomURL] {
@@ -33,7 +32,9 @@ struct ExploreView: View {
     }) {
       ScrollView {
         VStack(alignment: .leading, spacing: 24) {
-          masterclassesSection
+          if !masterclasses.isEmpty {
+            masterclassesSection
+          }
 
           if !customLinks.isEmpty {
             recommendedSection
@@ -71,36 +72,41 @@ struct ExploreView: View {
         .foregroundColor(.white)
         .padding(.horizontal, 16)
 
-      Button {
-        guard let url = masterclassURL else { return }
-        videoLaunch = VideoLaunch(url: url, title: "Masterclasses")
-      } label: {
-        ZStack(alignment: .bottomLeading) {
-          GeometryReader { geo in
-            Image("SteelheadPNW")
-              .resizable()
-              .scaledToFill()
-              .frame(width: geo.size.width, height: geo.size.height)
-              .clipped()
+      ScrollView(.horizontal, showsIndicators: false) {
+        HStack(spacing: 12) {
+          ForEach(masterclasses) { item in
+            masterclassCard(item)
           }
-          .frame(height: 180)
-          .overlay(
-            LinearGradient(
-              colors: [.clear, .black.opacity(0.7)],
-              startPoint: .top,
-              endPoint: .bottom
-            )
-          )
+        }
+        .padding(.horizontal, 16)
+      }
+    }
+  }
 
+  private func masterclassCard(_ item: Masterclass) -> some View {
+    Button {
+      guard let url = URL(string: item.url) else { return }
+      videoLaunch = VideoLaunch(url: url, title: item.title)
+    } label: {
+      ZStack {
+        masterclassThumbnail(for: item)
+          .frame(width: 220, height: 180)
+          .clipped()
+
+        LinearGradient(
+          colors: [.clear, .black.opacity(0.7)],
+          startPoint: .top,
+          endPoint: .bottom
+        )
+
+        VStack {
+          Spacer()
           HStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 2) {
-              Text("Steelhead in the PNW")
-                .font(.subheadline.weight(.bold))
-                .foregroundColor(.white)
-              Text("Expert techniques and tactics")
-                .font(.caption)
-                .foregroundColor(.white.opacity(0.8))
-            }
+            Text(item.title)
+              .font(.subheadline.weight(.bold))
+              .foregroundColor(.white)
+              .lineLimit(2)
+              .multilineTextAlignment(.leading)
             Spacer()
             Image(systemName: "play.circle.fill")
               .font(.title)
@@ -108,11 +114,27 @@ struct ExploreView: View {
           }
           .padding(12)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 14))
       }
-      .buttonStyle(.plain)
-      .accessibilityIdentifier("masterclassCard")
-      .padding(.horizontal, 16)
+      .frame(width: 220, height: 180)
+      .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+    .buttonStyle(.plain)
+    .accessibilityIdentifier("masterclassCard_\(item.id)")
+  }
+
+  @ViewBuilder
+  private func masterclassThumbnail(for item: Masterclass) -> some View {
+    if let asset = item.thumbnailAsset, UIImage(named: asset) != nil {
+      Image(asset)
+        .resizable()
+        .scaledToFill()
+    } else {
+      ZStack {
+        placeholderArt
+        Text("\(item.id)")
+          .font(.system(size: 64, weight: .heavy, design: .rounded))
+          .foregroundColor(.white.opacity(0.18))
+      }
     }
   }
 
