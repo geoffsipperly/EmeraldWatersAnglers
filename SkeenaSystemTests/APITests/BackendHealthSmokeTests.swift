@@ -1,12 +1,17 @@
 import XCTest
 @testable import SkeenaSystem
 
-/// Smoke tests: Supabase backend reachability and REST API health.
+/// Smoke tests: Supabase backend reachability and auth API health.
 ///
 /// These tests hit the live Supabase project configured for the current build
 /// (DevTEST scheme → koyegehcwcrvxpfthkxq.supabase.co).
-/// They are intentionally fast and narrow: a 200 from the health endpoint
-/// and a valid JSON envelope from the REST root are sufficient signals.
+///
+/// Endpoints used:
+///   GET /auth/v1/health   — GoTrue health; accepts anon key, returns version JSON
+///   GET /auth/v1/settings — auth config; accepts anon key only (no Authorization header needed)
+///
+/// Note: GET /rest/v1/ requires the service_role key (not anon) on this project,
+/// so the auth/v1 routes are used as the health proxy instead.
 ///
 /// Run with:
 ///   xcodebuild test -workspace SkeenaSystem.xcworkspace \
@@ -18,33 +23,36 @@ final class BackendHealthSmokeTests: XCTestCase {
     private let anonKey = AppEnvironment.shared.anonKey
     private let timeout: TimeInterval = 15
 
+    // MARK: - Helpers
+
+    private func authURL(_ path: String) -> URL {
+        projectURL.appendingPathComponent("auth/v1/\(path)")
+    }
+
     // MARK: - Tests
 
-    /// Supabase health endpoint returns HTTP 200.
+    /// GoTrue health endpoint returns HTTP 200.
     ///
-    /// Endpoint: GET https://<project>.supabase.co/rest/v1/
-    /// This route is available to anonymous callers with a valid anon key and
-    /// returns the PostgREST OpenAPI schema — a reliable proxy for "the project is up".
-    func testSupabaseRestApiReturns200() async throws {
-        let url = projectURL.appendingPathComponent("rest/v1/")
-        var request = URLRequest(url: url, timeoutInterval: timeout)
+    /// Endpoint: GET /auth/v1/health
+    /// Returns GoTrue version JSON — a reliable "backend is up" signal.
+    func testSupabaseHealthReturns200() async throws {
+        var request = URLRequest(url: authURL("health"), timeoutInterval: timeout)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(anonKey, forHTTPHeaderField: "apikey")
         request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
 
         let (_, response) = try await URLSession.shared.data(for: request)
-        let http = try XCTUnwrap(response as? HTTPURLResponse, "Response should be an HTTPURLResponse")
-        XCTAssertEqual(http.statusCode, 200, "Supabase REST root should return 200 (project is up and key is valid)")
+        let http = try XCTUnwrap(response as? HTTPURLResponse, "Response should be HTTPURLResponse")
+        XCTAssertEqual(http.statusCode, 200, "GoTrue health endpoint should return 200")
     }
 
-    /// The REST root endpoint returns a valid JSON body with an OpenAPI structure.
+    /// GoTrue health response contains expected version fields.
     ///
-    /// This verifies not just reachability but that the response schema is intact —
-    /// a minimal sanity check that PostgREST is serving a coherent response.
-    func testSupabaseRestApiReturnsValidJSON() async throws {
-        let url = projectURL.appendingPathComponent("rest/v1/")
-        var request = URLRequest(url: url, timeoutInterval: timeout)
+    /// Verifies not just reachability but that the response body is a coherent
+    /// GoTrue JSON envelope (name, version, description keys).
+    func testSupabaseHealthReturnsValidJSON() async throws {
+        var request = URLRequest(url: authURL("health"), timeoutInterval: timeout)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(anonKey, forHTTPHeaderField: "apikey")
@@ -52,41 +60,35 @@ final class BackendHealthSmokeTests: XCTestCase {
 
         let (data, response) = try await URLSession.shared.data(for: request)
         let http = try XCTUnwrap(response as? HTTPURLResponse)
-        XCTAssertEqual(http.statusCode, 200)
+        XCTAssertEqual(http.statusCode, 200, "GoTrue health endpoint should return 200")
 
-        // The response should be parseable JSON
         let json = try XCTUnwrap(
             try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-            "REST root response body should be a JSON object"
+            "Health response should be a JSON object"
         )
-
-        // PostgREST OpenAPI envelope always includes a "paths" key
-        XCTAssertNotNil(json["paths"], "REST root response should contain a 'paths' key (OpenAPI envelope)")
+        XCTAssertNotNil(json["name"], "Health response should contain a 'name' key")
+        XCTAssertNotNil(json["version"], "Health response should contain a 'version' key")
     }
 
-    /// An authenticated REST call using the anon key succeeds without a 4xx error.
+    /// Auth settings endpoint accepts the anon key and returns configuration JSON.
     ///
-    /// We query the PostgREST root with the Accept header for OpenAPI JSON — a
-    /// read-only introspection call that requires no row-level security policy
-    /// and exercises the full auth pipeline (key validation, JWT parsing).
-    func testAuthenticatedAPICallSucceeds() async throws {
-        let url = projectURL.appendingPathComponent("rest/v1/")
-        var request = URLRequest(url: url, timeoutInterval: timeout)
+    /// GET /auth/v1/settings returns the project's auth provider config.
+    /// A 200 here confirms the anon key is valid and the auth pipeline is healthy.
+    func testAuthenticatedSettingsCallSucceeds() async throws {
+        var request = URLRequest(url: authURL("settings"), timeoutInterval: timeout)
         request.httpMethod = "GET"
-        request.setValue("application/openapi+json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(anonKey, forHTTPHeaderField: "apikey")
-        request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
 
-        let (_, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
         let http = try XCTUnwrap(response as? HTTPURLResponse)
+        XCTAssertEqual(http.statusCode, 200, "Auth settings should return 200 (anon key is valid)")
 
-        XCTAssertFalse(
-            (400...499).contains(http.statusCode),
-            "Authenticated REST call should not return a 4xx error (got \(http.statusCode)); check the anon key is valid"
+        let json = try XCTUnwrap(
+            try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            "Settings response should be a JSON object"
         )
-        XCTAssertFalse(
-            (500...599).contains(http.statusCode),
-            "Authenticated REST call should not return a 5xx error (got \(http.statusCode)); Supabase may be down"
-        )
+        // Must contain the external providers map — presence confirms schema integrity
+        XCTAssertNotNil(json["external"], "Settings response should contain an 'external' key")
     }
 }

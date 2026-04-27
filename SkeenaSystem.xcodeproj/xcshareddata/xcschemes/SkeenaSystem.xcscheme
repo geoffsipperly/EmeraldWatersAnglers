@@ -41,6 +41,17 @@
                ReferencedContainer = "container:SkeenaSystem.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "FD6A18CE2F18487A0067DBFD"
+               BuildableName = "SkeenaSystemUITests.xctest"
+               BlueprintName = "SkeenaSystemUITests"
+               ReferencedContainer = "container:SkeenaSystem.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
