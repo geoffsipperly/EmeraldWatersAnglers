@@ -19,6 +19,10 @@ struct SkeenaSystemApp: App {
           UserDefaults.standard.removeObject(forKey: "OfflineLastEmail")
           UserDefaults.standard.removeObject(forKey: "OfflineRememberMeEnabled")
         }
+        if CommandLine.arguments.contains("-resetWelcomeStateForUITests") {
+          let keys = UserDefaults.standard.dictionaryRepresentation().keys.filter { $0.hasPrefix("publicWelcome_") }
+          keys.forEach { UserDefaults.standard.removeObject(forKey: $0) }
+        }
         // In UI-testing mode, listen for a Darwin notification that the test runner
         // can post to trigger sign-out without going through the SwiftUI toolbar button
         // (NavigationStack ToolbarItems report {-1,-1} hit points to XCUITest).

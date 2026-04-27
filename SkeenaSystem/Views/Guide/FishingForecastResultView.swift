@@ -149,6 +149,7 @@ struct FishingForecastResultView: View {
     .padding(8)
     .background(Color.white.opacity(0.06))
     .clipShape(RoundedRectangle(cornerRadius: 12))
+    .accessibilityIdentifier("weatherSection")
   }
 
   private func dayCard(label: String, day: RiverConditionsResponse.DayBlock, isToday: Bool) -> some View {
@@ -199,6 +200,7 @@ struct FishingForecastResultView: View {
     .padding(8)
     .background(Color.white.opacity(0.06))
     .clipShape(RoundedRectangle(cornerRadius: 10))
+    .accessibilityIdentifier("tidesWaveSection")
   }
 
   // MARK: - Tides Text Blocks
@@ -261,6 +263,7 @@ struct FishingForecastResultView: View {
     VStack(alignment: .leading, spacing: 6) {
       Text("Water Level (Last 4 Days)")
         .font(.subheadline).foregroundColor(.white)
+        .accessibilityIdentifier("waterLevelHeader")
 
       WaterLevelSparkline(levels: result.waterLevels)
         .frame(height: 72)
@@ -288,6 +291,7 @@ struct FishingForecastResultView: View {
     VStack(alignment: .leading, spacing: 6) {
       Text("Water Temperature (Last 4 Days)")
         .font(.subheadline).foregroundColor(.white)
+        .accessibilityIdentifier("waterTempHeader")
 
       if let temps = result.waterTemperatures, !temps.isEmpty {
         WaterTemperatureSparkline(temps: temps)
@@ -308,6 +312,7 @@ struct FishingForecastResultView: View {
         Text("Current water temperature unavailable")
           .font(.footnote)
           .foregroundColor(.gray)
+          .accessibilityIdentifier("waterTempUnavailable")
       }
     }
     .padding(8)

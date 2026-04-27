@@ -247,6 +247,7 @@ struct PublicLandingView: View {
             .foregroundColor(.white)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 20)
+            .accessibilityIdentifier("userNameLabel")
 
           // Community logo — centred
           CommunityLogoView(config: communityService.activeCommunityConfig, size: 160)

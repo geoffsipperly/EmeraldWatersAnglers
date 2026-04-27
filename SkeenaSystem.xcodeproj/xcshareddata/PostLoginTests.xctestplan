@@ -1,0 +1,54 @@
+{
+  "configurations" : [
+    {
+      "id" : "C3D4E5F6-0003-0003-0003-000000000003",
+      "name" : "Post-Login Tests",
+      "options" : {
+        "environmentVariableEntries" : [
+          {
+            "key" : "UI_TEST_EMAIL",
+            "value" : "chris@public.com"
+          },
+          {
+            "key" : "UI_TEST_PASSWORD",
+            "value" : "Fatbikesk123"
+          }
+        ]
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true,
+    "defaultTestExecutionTimeAllowance" : 120
+  },
+  "testTargets" : [
+    {
+      "selectedTests" : [
+        "MLTrainingOptOutUploadTests"
+      ],
+      "target" : {
+        "containerPath" : "container:SkeenaSystem.xcodeproj",
+        "identifier" : "FD2182F62EF9C1E2001E905A",
+        "name" : "SkeenaSystemTests"
+      }
+    },
+    {
+      "selectedTests" : [
+        "OnboardingTests",
+        "HomeTests",
+        "RecordActivityTests",
+        "FisheriesConditionsTests",
+        "ProfileTests",
+        "CommunityTests",
+        "ExploreTests",
+        "PrivacyTests"
+      ],
+      "target" : {
+        "containerPath" : "container:SkeenaSystem.xcodeproj",
+        "identifier" : "FD6A18CE2F18487A0067DBFD",
+        "name" : "SkeenaSystemUITests"
+      }
+    }
+  ],
+  "version" : 1
+}
