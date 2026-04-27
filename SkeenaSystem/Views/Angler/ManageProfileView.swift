@@ -179,6 +179,7 @@ struct ManageProfileView: View {
         }
         .buttonStyle(.plain)
         .disabled(isSaving || isLoading)
+        .accessibilityIdentifier("saveProfileButton")
       }
     }
     .confirmationDialog(
@@ -406,6 +407,7 @@ struct ManageProfileView: View {
           .multilineTextAlignment(.trailing)
           .foregroundColor(.white)
           .font(.callout)
+          .accessibilityIdentifier("firstNameTextField")
       }
       HStack {
         Text("Last Name").foregroundColor(.blue).font(.callout)
@@ -414,6 +416,7 @@ struct ManageProfileView: View {
           .multilineTextAlignment(.trailing)
           .foregroundColor(.white)
           .font(.callout)
+          .accessibilityIdentifier("lastNameTextField")
       }
       HStack {
         Text("Date of Birth").foregroundColor(.blue).font(.callout)
@@ -429,6 +432,7 @@ struct ManageProfileView: View {
           )
           .labelsHidden()
           .foregroundColor(.white)
+          .accessibilityIdentifier("dobPicker")
         } else {
           Button("Set") {
             // Seed with today when the user taps to set. They'll open the
@@ -448,6 +452,7 @@ struct ManageProfileView: View {
             .multilineTextAlignment(.trailing)
             .foregroundColor(.white)
             .font(.callout)
+            .accessibilityIdentifier("phoneTextField")
         }
         if let phone = profile.phoneNumber, !phone.isEmpty, !isValidPhone(phone) {
           Text("Please enter a valid phone number (10\u{2013}15 digits, digits only or formatted).")

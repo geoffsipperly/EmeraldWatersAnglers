@@ -111,6 +111,7 @@ struct ExploreView: View {
         .clipShape(RoundedRectangle(cornerRadius: 14))
       }
       .buttonStyle(.plain)
+      .accessibilityIdentifier("masterclassCard")
       .padding(.horizontal, 16)
     }
   }
@@ -171,6 +172,7 @@ struct ExploreView: View {
       .clipShape(RoundedRectangle(cornerRadius: 14))
     }
     .buttonStyle(.plain)
+    .accessibilityIdentifier("learnVideo_\(link.name)")
   }
 
   @ViewBuilder

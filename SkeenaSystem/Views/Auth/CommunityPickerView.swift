@@ -63,6 +63,7 @@ struct CommunityPickerView: View {
                             communityTile(membership: membership)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("communityTile_\(membership.communities.name)")
                     }
 
                     // Join another community tile
@@ -72,6 +73,7 @@ struct CommunityPickerView: View {
                         joinCommunityTile
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("joinCommunityButton")
                 }
                 .padding(.horizontal, 24)
 

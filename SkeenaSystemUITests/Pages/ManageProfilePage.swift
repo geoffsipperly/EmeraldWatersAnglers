@@ -6,6 +6,17 @@ struct ManageProfilePage {
 
     // MARK: - Elements
 
+    // MARK: - Profile fields
+
+    var firstNameField: XCUIElement { app.textFields["firstNameTextField"] }
+    var lastNameField: XCUIElement { app.textFields["lastNameTextField"] }
+    var phoneField: XCUIElement { app.textFields["phoneTextField"] }
+    var dobPicker: XCUIElement { app.datePickers["dobPicker"] }
+    var saveButton: XCUIElement { app.buttons["saveProfileButton"] }
+    var conservationModeToggle: XCUIElement { app.switches["conservationModeToggle"] }
+    var mlTrainingToggle: XCUIElement { app.switches["mlTrainingOptOutToggle"] }
+    var appOverviewButton: XCUIElement { app.buttons["appOverviewButton"] }
+    var leaveCommunityButton: XCUIElement { app.buttons["leaveCommunityButton"] }
     var deleteAccountButton: XCUIElement { app.buttons["deleteAccountButton"] }
 
     // MARK: - Confirmation alert elements
@@ -23,6 +34,25 @@ struct ManageProfilePage {
 
     // MARK: - Actions
 
+    func setFirstName(_ name: String) {
+        firstNameField.tap()
+        firstNameField.clearAndEnterText(name)
+    }
+
+    func setLastName(_ name: String) {
+        lastNameField.tap()
+        lastNameField.clearAndEnterText(name)
+    }
+
+    func setPhone(_ phone: String) {
+        phoneField.tap()
+        phoneField.clearAndEnterText(phone)
+    }
+
+    func tapSave() {
+        saveButton.tap()
+    }
+
     func tapDeleteAccount() {
         deleteAccountButton.tap()
     }
@@ -33,5 +63,20 @@ struct ManageProfilePage {
         deleteConfirmationField.tap()
         deleteConfirmationField.typeText("DELETE")
         deleteConfirmButton.tap()
+    }
+}
+
+// MARK: - XCUIElement helper
+
+private extension XCUIElement {
+    /// Clears any existing text then types the new value.
+    func clearAndEnterText(_ text: String) {
+        guard let current = value as? String, !current.isEmpty else {
+            typeText(text)
+            return
+        }
+        let deleteChars = String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count)
+        typeText(deleteChars)
+        typeText(text)
     }
 }
