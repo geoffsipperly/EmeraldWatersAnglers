@@ -87,6 +87,7 @@ final class CatchPhotoAnalyzer {
   static let speciesLabels: [String] = [
       "atlantic_salmon_holding",
       "atlantic_salmon_traveler",
+      "brown_trout",
       "chinook_salmon",
       "lingcod",
       "other",
@@ -104,6 +105,7 @@ final class CatchPhotoAnalyzer {
       "other",
       "atlantic_salmon_holding",
       "atlantic_salmon_traveler",
+      "brown_trout",
       "chinook_salmon",
       "lingcod"
   ]
