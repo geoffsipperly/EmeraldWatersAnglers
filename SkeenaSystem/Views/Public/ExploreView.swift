@@ -124,8 +124,13 @@ struct ExploreView: View {
 
   @ViewBuilder
   private func masterclassThumbnail(for item: Masterclass) -> some View {
-    if let asset = item.thumbnailAsset, UIImage(named: asset) != nil {
-      Image(asset)
+    // Resolve the asset name: explicit JSON override first, then the
+    // id-based convention (Masterclass1, Masterclass2, …), then placeholder.
+    let resolved = item.thumbnailAsset.flatMap { UIImage(named: $0) != nil ? $0 : nil }
+      ?? (UIImage(named: "Masterclass\(item.id)") != nil ? "Masterclass\(item.id)" : nil)
+
+    if let name = resolved {
+      Image(name)
         .resizable()
         .scaledToFill()
     } else {
