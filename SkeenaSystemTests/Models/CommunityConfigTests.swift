@@ -194,6 +194,8 @@ final class CommunityConfigTests: XCTestCase {
             displayName: "Test Lodge Display",
             learnUrl: nil,
             customUrls: nil,
+            donationUrl: nil,
+            donationDescription: nil,
             geography: CommunityGeography(
                 defaultRiver: "Hoh River", lodgeRivers: ["Hoh River", "Green River"],
                 defaultWaterBody: nil, lodgeWaterBodies: nil,
@@ -229,6 +231,8 @@ final class CommunityConfigTests: XCTestCase {
             displayName: nil,
             learnUrl: nil,
             customUrls: nil,
+            donationUrl: nil,
+            donationDescription: nil,
             geography: nil,
             units: nil,
             communityTypes: nil
@@ -360,6 +364,8 @@ final class CommunityConfigTests: XCTestCase {
             displayName: nil,
             learnUrl: "https://custom.example.com/tutorials",
             customUrls: nil,
+            donationUrl: nil,
+            donationDescription: nil,
             geography: nil,
             units: nil,
             communityTypes: nil
