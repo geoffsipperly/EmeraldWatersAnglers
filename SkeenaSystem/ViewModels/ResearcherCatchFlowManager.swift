@@ -613,7 +613,6 @@ final class ResearcherCatchFlowManager: ObservableObject {
   /// Final analysis showing derived weight with the inputs used for the calculation.
   func finalAnalysisText() -> String {
     var lines: [String] = ["Final Analysis"]
-    lines.append("")
 
     // Location: show the confirmed river/water-body name, or an em-dash when
     // the user skipped it. We intentionally do NOT fall back to displaying

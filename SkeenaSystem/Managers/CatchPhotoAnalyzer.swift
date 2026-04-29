@@ -40,6 +40,18 @@ struct CatchPhotoAnalysis {
   /// Alternative species candidates when the ML top-1 confidence is ambiguous.
   /// Empty when the model was confident enough to commit directly.
   let speciesAlternatives: [SpeciesCandidate]
+  /// Top-1 ViT species softmax probability summed across lifecycle variants of
+  /// the same root species (e.g. `steelhead_holding + steelhead_traveler`). Nil
+  /// when the model returned no prediction or fell below the detection
+  /// threshold. Surfaced in the chat capsule as a `%` next to the species name.
+  let speciesConfidence: Float?
+  /// Conditional probability of the predicted lifecycle stage given the root
+  /// species — `probs[predicted] / (probs[<root>_holding] + probs[<root>_traveler])`.
+  /// Nil for species without a lifecycle dimension or when no prediction was made.
+  let lifecycleStageConfidence: Float?
+  /// Top-1 softmax probability from the ViTFishSex classifier. Nil when the sex
+  /// model returned no prediction.
+  let sexConfidence: Float?
 
   init(
     riverName: String?,
@@ -50,7 +62,10 @@ struct CatchPhotoAnalysis {
     featureVector: CatchPhotoAnalyzer.LengthFeatureVector? = nil,
     lengthSource: LengthEstimateSource? = nil,
     modelVersion: String? = nil,
-    speciesAlternatives: [SpeciesCandidate] = []
+    speciesAlternatives: [SpeciesCandidate] = [],
+    speciesConfidence: Float? = nil,
+    lifecycleStageConfidence: Float? = nil,
+    sexConfidence: Float? = nil
   ) {
     self.riverName = riverName
     self.species = species
@@ -61,6 +76,9 @@ struct CatchPhotoAnalysis {
     self.lengthSource = lengthSource
     self.modelVersion = modelVersion
     self.speciesAlternatives = speciesAlternatives
+    self.speciesConfidence = speciesConfidence
+    self.lifecycleStageConfidence = lifecycleStageConfidence
+    self.sexConfidence = sexConfidence
   }
 }
 
@@ -178,6 +196,8 @@ final class CatchPhotoAnalyzer {
     let speciesText: String?
     var detectedSpeciesLabel: String? = nil
     var speciesAlternatives: [SpeciesCandidate] = []
+    var speciesRootConfidence: Float? = nil
+    var lifecycleStageConfidence: Float? = nil
     let lowConfidenceThreshold = AppEnvironment.shared.speciesDetectionThreshold
     if let vit = vitResult,
        vit.index >= 0,
@@ -189,6 +209,14 @@ final class CatchPhotoAnalyzer {
         speciesText = "Species (model): \(prettyLabel)"
         detectedSpeciesLabel = rawLabel
         AppLogging.log({ "ViT species: \(prettyLabel), confidence: \(vit.confidence)" }, level: .info, category: .ml)
+
+        // Cumulative confidence across lifecycle variants of the same root
+        // (e.g. steelhead_holding + steelhead_traveler), and conditional
+        // lifecycle probability within that root. Surfaces in the chat
+        // capsules so the user sees what the model actually believed.
+        let stats = Self.confidenceStats(distribution: vit.distribution, predictedIndex: vit.index)
+        speciesRootConfidence = stats.rootConfidence
+        lifecycleStageConfidence = stats.lifecycleConditional
 
         // Runner-up capsule logic: when top-1 is below the trigger, surface up to
         // 2 candidates (primary + best runner-up above the visibility floor) so
@@ -225,15 +253,13 @@ final class CatchPhotoAnalyzer {
     }
 
     // 4. Sex via ViTFishSex (on full image)
-    let sexText: String? = if #available(iOS 16.0, *) {
-      if let sexLabel = runSexClassifier(on: image) {
-        "Sex (model): \(sexLabel)"
-      } else {
-        "Unknown"
-      }
+    let sexResult: (label: String, confidence: Float)? = if #available(iOS 16.0, *) {
+      runSexClassifier(on: image)
     } else {
-      "Unknown"
+      nil
     }
+    let sexText: String? = if let s = sexResult { "Sex (model): \(s.label)" } else { "Unknown" }
+    let sexConfidence: Float? = sexResult?.confidence
 
     // 5. Hand pose detection via MediaPipe
     let handMeasurement = detectHand(on: image)
@@ -354,8 +380,64 @@ final class CatchPhotoAnalyzer {
       featureVector: featureVector,
       lengthSource: lengthSource,
       modelVersion: CatchPhotoAnalyzer._lengthRegressorVersion,
-      speciesAlternatives: speciesAlternatives
+      speciesAlternatives: speciesAlternatives,
+      speciesConfidence: speciesRootConfidence,
+      lifecycleStageConfidence: lifecycleStageConfidence,
+      sexConfidence: sexConfidence
     )
+  }
+
+  /// Splits a ViT label like `"steelhead_holding"` into `(root: "steelhead",
+  /// stage: "holding")`. Only the trailing words `holding` / `traveler` are
+  /// recognized as lifecycle stages — matches `splitSpecies()` in
+  /// `CatchChatViewModel`. For labels without a lifecycle suffix, returns
+  /// `(root: <label>, stage: nil)`.
+  static func splitLabel(_ raw: String) -> (root: String, stage: String?) {
+    let lifecycleSuffixes: Set<String> = ["holding", "traveler"]
+    if let underscoreIdx = raw.lastIndex(of: "_") {
+      let suffix = String(raw[raw.index(after: underscoreIdx)...]).lowercased()
+      if lifecycleSuffixes.contains(suffix) {
+        return (root: String(raw[..<underscoreIdx]), stage: suffix)
+      }
+    }
+    return (root: raw, stage: nil)
+  }
+
+  /// Cumulative species root probability + conditional lifecycle probability
+  /// derived from the ViT softmax distribution. Used by the chat capsules so
+  /// the user sees the model's actual confidence next to each prediction.
+  ///
+  /// - rootConfidence: sum of probabilities across all labels that share the
+  ///   predicted label's root (e.g. `steelhead_holding + steelhead_traveler`).
+  /// - lifecycleConditional: `probs[predicted] / rootConfidence` when the
+  ///   predicted label has a lifecycle suffix; nil otherwise.
+  private static func confidenceStats(
+    distribution probs: [Float],
+    predictedIndex: Int
+  ) -> (rootConfidence: Float, lifecycleConditional: Float?) {
+    guard predictedIndex >= 0,
+          predictedIndex < speciesLabels.count,
+          predictedIndex < probs.count else {
+      return (0, nil)
+    }
+    let predictedLabel = speciesLabels[predictedIndex]
+    let predictedRoot = splitLabel(predictedLabel).root
+
+    var rootSum: Float = 0
+    for (i, label) in speciesLabels.enumerated() where i < probs.count {
+      if splitLabel(label).root == predictedRoot {
+        rootSum += probs[i]
+      }
+    }
+
+    let predictedStage = splitLabel(predictedLabel).stage
+    let conditional: Float?
+    if predictedStage != nil, rootSum > 0 {
+      conditional = probs[predictedIndex] / rootSum
+    } else {
+      conditional = nil
+    }
+    return (rootConfidence: rootSum, lifecycleConditional: conditional)
   }
 
   /// Build up to 2 species candidates (primary + runner-up) from the full ViT
@@ -538,9 +620,11 @@ final class CatchPhotoAnalyzer {
 
   // MARK: - ViT sex classifier (iOS 16+)
 
-  /// Runs the ViTFishSex model on a UIImage and returns "male" / "female" or nil.
+  /// Runs the ViTFishSex model on a UIImage and returns the predicted label
+  /// ("male" / "female") together with its softmax probability. Nil when the
+  /// model fails to load or run.
   @available(iOS 16.0, *)
-  private func runSexClassifier(on image: UIImage) -> String? {
+  private func runSexClassifier(on image: UIImage) -> (label: String, confidence: Float)? {
     guard let inputArray = try? makeInputArray(from: image, mean: [0.5, 0.5, 0.5], std: [0.5, 0.5, 0.5]) else {
       AppLogging.log("runSexClassifier: failed to create input array", level: .error, category: .ml)
       return nil
@@ -562,11 +646,27 @@ final class CatchPhotoAnalyzer {
       return nil
     }
 
-    let label = output.classLabel // "female" or "male"
-    AppLogging.log({ "runSexClassifier: label=\(label)" }, level: .info, category: .ml)
+    let label = output.classLabel.lowercased() // "female" or "male"
 
-    // Normalize to lowercase for consistency with CatchChatViewModel's text parsing
-    return label.lowercased()
+    // The ViTFishSex CoreML package exposes a `classLabel_probs` dictionary
+    // alongside the raw label. Pull the probability for the winning class via
+    // the MLFeatureProvider API so we don't depend on the auto-generated
+    // Swift property name (which can vary across Xcode versions).
+    var confidence: Float = 0
+    if let dict = output.featureValue(for: "classLabel_probs")?.dictionaryValue {
+      // Keys may be the original-case labels — match case-insensitively.
+      let normalized = dict.reduce(into: [String: NSNumber]()) { acc, kv in
+        if let key = kv.key as? String, let prob = kv.value as? NSNumber {
+          acc[key.lowercased()] = prob
+        }
+      }
+      if let prob = normalized[label] {
+        confidence = prob.floatValue
+      }
+    }
+
+    AppLogging.log({ "runSexClassifier: label=\(label), confidence=\(confidence)" }, level: .info, category: .ml)
+    return (label: label, confidence: confidence)
   }
 
   // MARK: - Hand pose detection (MediaPipe)

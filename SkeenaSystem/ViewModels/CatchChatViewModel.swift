@@ -194,6 +194,20 @@ final class CatchChatViewModel: ObservableObject {
   /// re-used when re-entering the species sub-step after a rejected edit.
   private var lastAnalysisAlternatives: [SpeciesCandidate] = []
 
+  /// ML softmax confidence for the predicted species root (sums lifecycle
+  /// variants — e.g. `steelhead_holding + steelhead_traveler`). Used to render
+  /// the `%` on the green species capsule when the model was confident enough
+  /// that no runner-ups were surfaced.
+  private var lastAnalysisSpeciesConfidence: Float?
+
+  /// Conditional probability of the predicted lifecycle stage given the root
+  /// species. Rendered next to the green Holding/Traveler capsule.
+  private var lastAnalysisLifecycleConfidence: Float?
+
+  /// Softmax probability for the predicted sex. Rendered next to the green
+  /// Male/Female capsule.
+  private var lastAnalysisSexConfidence: Float?
+
   // High-level conversation state. Detailed step handling lives inside
   // ResearcherCatchFlowManager once a photo has been analyzed.
   private enum Step {
@@ -244,6 +258,10 @@ final class CatchChatViewModel: ObservableObject {
     currentAnalysis = nil
     initialAnalysis = nil
     currentPhotoDate = nil
+    lastAnalysisAlternatives = []
+    lastAnalysisSpeciesConfidence = nil
+    lastAnalysisLifecycleConfidence = nil
+    lastAnalysisSexConfidence = nil
     step = .idle
     startConversationIfNeeded()
   }
@@ -537,6 +555,11 @@ final class CatchChatViewModel: ObservableObject {
     // Remember the ML runner-ups so we can re-post the species step if the
     // user backs out of a correction mid-flow.
     lastAnalysisAlternatives = analysis.speciesAlternatives
+    // Stash the model's per-prediction confidences so the capsules can
+    // surface them as a `%` next to each ML pick.
+    lastAnalysisSpeciesConfidence = analysis.speciesConfidence
+    lastAnalysisLifecycleConfidence = analysis.lifecycleStageConfidence
+    lastAnalysisSexConfidence = analysis.sexConfidence
 
     // Kick off the multi-step capsule flow. Location is always offered —
     // either as a Confirm/Wrong pair when the analyzer matched something, or
@@ -625,10 +648,14 @@ final class CatchChatViewModel: ObservableObject {
     }
 
     // If there were no alternatives (high-confidence ML), synthesize a single
-    // confirm capsule for the current species. Keeps the UX uniform.
+    // confirm capsule for the current species. Use the actual ML root
+    // confidence (sum across lifecycle variants) so the user still sees a `%`
+    // next to the species name; fall back to the sentinel `1.0` (suppressed
+    // in the view) when no confidence was passed through.
     if seenSpeciesKeys.isEmpty, let species = researcherFlow?.species, !species.isEmpty {
       let key = species.lowercased()
-      seenSpeciesKeys[key] = (confidence: 1.0, isPrimary: true)
+      let conf = lastAnalysisSpeciesConfidence ?? 1.0
+      seenSpeciesKeys[key] = (confidence: conf, isPrimary: true)
     }
 
     // Order: primary (green) first, then runner-up (yellow).
@@ -668,8 +695,13 @@ final class CatchChatViewModel: ObservableObject {
 
     let holdingColor: ChatCapsuleColor = (mlStage == "holding") ? .green : .yellow
     let travelerColor: ChatCapsuleColor = (mlStage == "traveler") ? .green : .yellow
-    let holding = ChatCapsule(id: "lc-holding",  label: "Holding",  color: holdingColor,  confidence: nil, action: .selectLifecycle(stage: "Holding"))
-    let traveler = ChatCapsule(id: "lc-traveler", label: "Traveler", color: travelerColor, confidence: nil, action: .selectLifecycle(stage: "Traveler"))
+    // Show the model's conditional confidence on whichever capsule reflects
+    // the ML pick — only one of the two will be green per call.
+    let holdingConf: Float? = (mlStage == "holding") ? lastAnalysisLifecycleConfidence : nil
+    let travelerConf: Float? = (mlStage == "traveler") ? lastAnalysisLifecycleConfidence : nil
+
+    let holding = ChatCapsule(id: "lc-holding",  label: "Holding",  color: holdingColor,  confidence: holdingConf,  action: .selectLifecycle(stage: "Holding"))
+    let traveler = ChatCapsule(id: "lc-traveler", label: "Traveler", color: travelerColor, confidence: travelerConf, action: .selectLifecycle(stage: "Traveler"))
 
     // Render the higher-probability prediction first. With no ML pick (or an
     // unrecognized stage), fall back to Holding-first ordering.
@@ -691,18 +723,22 @@ final class CatchChatViewModel: ObservableObject {
     let female = ChatCapsule(id: "sex-female", label: "Female", color: .yellow, confidence: nil, action: .selectSex(sex: "Female"))
     let unknown = ChatCapsule(id: "sex-unknown", label: "Unknown", color: .grey,  confidence: nil, action: .selectSex(sex: nil))
 
+    // The sex classifier's softmax probability is rendered as `%` on whichever
+    // capsule matches the ML pick (only one is green per call).
+    let mlSexConf = lastAnalysisSexConfidence
+
     switch flow.originalSex?.lowercased() {
     case "male":
       // Predicted male → [Male (green), Female (yellow), Unknown (grey)]
       chatCapsules = [
-        ChatCapsule(id: male.id, label: male.label, color: .green, confidence: nil, action: male.action),
+        ChatCapsule(id: male.id, label: male.label, color: .green, confidence: mlSexConf, action: male.action),
         female,
         unknown,
       ]
     case "female":
       // Predicted female → [Female (green), Male (yellow), Unknown (grey)]
       chatCapsules = [
-        ChatCapsule(id: female.id, label: female.label, color: .green, confidence: nil, action: female.action),
+        ChatCapsule(id: female.id, label: female.label, color: .green, confidence: mlSexConf, action: female.action),
         male,
         unknown,
       ]
