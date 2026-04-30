@@ -622,5 +622,78 @@ final class GuideRegressionTests: XCTestCase {
     let view = GuideFullMapView()
     XCTAssertNotNil(view, "GuideFullMapView must instantiate without crashing")
   }
+
+  // MARK: - Filter math
+
+  /// "Today" must anchor at the START of today, not 24 hours back. Otherwise
+  /// a catch logged at 1am wouldn't appear when a guide opens the map at 2am.
+  func testGuideMapTimeWindow_today_anchorsAtStartOfDay() {
+    let now = Date(timeIntervalSince1970: 1_700_000_000) // arbitrary fixed instant
+    let from = GuideMapTimeWindow.today.fromDate(now: now)
+    let cal = Calendar.current
+    XCTAssertEqual(cal.startOfDay(for: now), from,
+                   "'Today' window must start at midnight of `now`, not 24h prior")
+  }
+
+  /// 7 / 30 / 365 / 1095 day deltas from `now` for the rolling windows.
+  /// Locks the math so a refactor can't accidentally swap day-vs-hour units.
+  func testGuideMapTimeWindow_rollingWindows_haveCorrectDeltas() {
+    let now = Date(timeIntervalSince1970: 1_700_000_000)
+    let cases: [(GuideMapTimeWindow, Double)] = [
+      (.sevenDays,  -7  * 86_400),
+      (.thirtyDays, -30 * 86_400),
+    ]
+    for (window, expectedDelta) in cases {
+      let from = window.fromDate(now: now)
+      XCTAssertEqual(from.timeIntervalSince(now), expectedDelta, accuracy: 3_600,
+                     "\(window.label) must be ~\(Int(expectedDelta / 86_400)) days back from `now`")
+    }
+    // Year-based windows: assert they're earlier than `now` and within a
+    // sensible tolerance — Calendar handles leap years so an exact-second
+    // assertion would be brittle.
+    XCTAssertLessThan(GuideMapTimeWindow.oneYear.fromDate(now: now), now)
+    XCTAssertLessThan(GuideMapTimeWindow.threeYears.fromDate(now: now),
+                      GuideMapTimeWindow.oneYear.fromDate(now: now),
+                      "3yr window must reach further back than 1yr window")
+  }
+
+  func testGuideMapTimeWindow_allCases_haveDistinctLabels() {
+    let labels = GuideMapTimeWindow.allCases.map(\.label)
+    XCTAssertEqual(Set(labels).count, labels.count,
+                   "Time-window labels must be unique so the menu doesn't show duplicates")
+  }
+
+  // MARK: - Pin category grouping
+
+  func testGuideMapPinCategory_catch_mapsToCatchType() {
+    XCTAssertEqual(GuideMapPinCategory.catch_.apiTypes, ["catch"])
+  }
+
+  func testGuideMapPinCategory_noCatch_coversFourNonCatchTypes() {
+    XCTAssertEqual(
+      GuideMapPinCategory.noCatch.apiTypes,
+      ["active", "farmed", "promising", "passed"]
+    )
+  }
+
+  /// CRITICAL: union of every category MUST equal every API `type` value the
+  /// pipeline produces. If a new pin type ships server-side and isn't added
+  /// to either category, those pins would silently disappear from the
+  /// filtered map.
+  func testGuideMapPinCategory_unionCoversAllReportTypes() {
+    let union = GuideMapPinCategory.allCases.reduce(into: Set<String>()) { acc, cat in
+      acc.formUnion(cat.apiTypes)
+    }
+    let expected: Set<String> = ["catch", "active", "farmed", "promising", "passed"]
+    XCTAssertEqual(union, expected,
+                   "Catch + No Catch must together cover every server-side pin type")
+  }
+
+  // MARK: - Scope labels
+
+  func testGuideMapScope_labels_areCommunityAndPersonal() {
+    XCTAssertEqual(GuideMapScope.community.label, "Community")
+    XCTAssertEqual(GuideMapScope.personal.label, "Personal")
+  }
 }
 

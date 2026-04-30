@@ -24,19 +24,34 @@ struct MapReportsResponse: Decodable {
 
 enum MapReportService {
 
-  static func fetch(communityId: String, memberId: String? = nil) async throws -> [MapReportDTO] {
+  /// Fetches map pins for a community.
+  /// - Parameters:
+  ///   - fromDate / toDate: window override. Defaults preserve the legacy
+  ///     last-3-years window so existing callers (landing tiles) keep their
+  ///     behavior; the full-page guide map passes a narrower window from the
+  ///     filter bar.
+  static func fetch(
+    communityId: String,
+    memberId: String? = nil,
+    fromDate: Date? = nil,
+    toDate: Date? = nil
+  ) async throws -> [MapReportDTO] {
     let base = AppEnvironment.shared.projectURL
     guard var comps = URLComponents(url: base, resolvingAgainstBaseURL: false) else {
       throw URLError(.badURL)
     }
     let existingPath = comps.path == "/" ? "" : comps.path
     comps.path = existingPath + "/functions/v1/map-reports"
-    let toDate = DateFormatting.iso8601.string(from: Date())
-    let fromDate = DateFormatting.iso8601.string(from: Calendar.current.date(byAdding: .year, value: -3, to: Date()) ?? Date())
+    let resolvedTo = toDate ?? Date()
+    let resolvedFrom = fromDate
+      ?? Calendar.current.date(byAdding: .year, value: -3, to: resolvedTo)
+      ?? resolvedTo
+    let toDateString = DateFormatting.iso8601.string(from: resolvedTo)
+    let fromDateString = DateFormatting.iso8601.string(from: resolvedFrom)
     var queryItems = [
       URLQueryItem(name: "community_id", value: communityId),
-      URLQueryItem(name: "from_date",    value: fromDate),
-      URLQueryItem(name: "to_date",      value: toDate),
+      URLQueryItem(name: "from_date",    value: fromDateString),
+      URLQueryItem(name: "to_date",      value: toDateString),
     ]
     if let memberId {
       queryItems.append(URLQueryItem(name: "member_id", value: memberId))
