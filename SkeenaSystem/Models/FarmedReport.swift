@@ -48,7 +48,8 @@ public struct FarmedReport: Identifiable, Codable, Equatable {
   public var lat: Double?
   public var lon: Double?
 
-  // Optional angler
+  // Owning member id. Must match the bound scope on FarmedReportStore;
+  // mismatched records are filtered out by loadAll's cross-member defense.
   public var memberId: String?
 
   /// Active community at the time the report was created. Required for the

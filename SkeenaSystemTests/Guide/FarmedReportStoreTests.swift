@@ -126,6 +126,11 @@ final class FarmedReportStoreTests: XCTestCase {
   }
 
   func testAdd_preservesMemberId() {
+    // memberId must equal boundMemberId — loadAll's cross-member filter drops
+    // mismatches. Rebind so this test reflects the production invariant.
+    store.rebind(memberId: "ANG-001", communityId: "test-community")
+    waitForStoreUpdate()
+
     let report = makeReport(memberId: "ANG-001")
     store.add(report)
     waitForStoreUpdate()
@@ -168,17 +173,22 @@ final class FarmedReportStoreTests: XCTestCase {
     XCTAssertEqual(found?.guideName, "After", "Guide name should be updated")
   }
 
-  func testUpdate_changesMemberId() {
-    var report = makeReport(memberId: nil)
+  func testUpdate_preservesMemberId() {
+    // memberId is part of the scope key — update() round-trips it via the
+    // file-based encoder; this guards against accidental clearing on update.
+    store.rebind(memberId: "ANG-001", communityId: "test-community")
+    waitForStoreUpdate()
+
+    var report = makeReport(guideName: "Before", memberId: "ANG-001")
     store.add(report)
     waitForStoreUpdate()
 
-    report.memberId = "ANG-UPDATED"
+    report.guideName = "After"
     store.update(report)
     waitForStoreUpdate()
 
     let found = store.reports.first(where: { $0.id == report.id })
-    XCTAssertEqual(found?.memberId, "ANG-UPDATED")
+    XCTAssertEqual(found?.memberId, "ANG-001")
   }
 
   // MARK: - delete Tests

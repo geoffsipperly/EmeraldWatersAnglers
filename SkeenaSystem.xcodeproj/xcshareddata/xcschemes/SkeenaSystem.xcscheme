@@ -34,6 +34,9 @@
             default = "YES">
          </TestPlanReference>
          <TestPlanReference
+            reference = "container:UnitTests.xctestplan">
+         </TestPlanReference>
+         <TestPlanReference
             reference = "container:PostLoginTests.xctestplan">
          </TestPlanReference>
          <TestPlanReference
