@@ -1,0 +1,38 @@
+{
+  "configurations" : [
+    {
+      "id" : "E5F6A7B8-0005-0005-0005-000000000005",
+      "name" : "UI Tests",
+      "options" : {
+        "environmentVariableEntries" : [
+          {
+            "key" : "UI_TEST_EMAIL",
+            "value" : "test@public.com"
+          },
+          {
+            "key" : "UI_TEST_PASSWORD",
+            "value" : "Fatbikesk123"
+          },
+          {
+            "key" : "PUBLIC_FLOW_SKIP_REGISTRATION",
+            "value" : "0"
+          }
+        ]
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true,
+    "defaultTestExecutionTimeAllowance" : 120
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:SkeenaSystem.xcodeproj",
+        "identifier" : "FD6A18CE2F18487A0067DBFD",
+        "name" : "SkeenaSystemUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

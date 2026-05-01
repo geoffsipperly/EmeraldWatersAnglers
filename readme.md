@@ -41,3 +41,9 @@ This project uses both CocoaPods and Swift Package Manager. SPM dependencies res
 
 - DevTEST config: `Config/DevTEST.xcconfig`
 - Supabase project and credentials are set in the xcconfig files
+
+## Claude Code Skills
+
+This repo ships project-scoped Claude Code skills (custom slash commands) under [`.claude/skills/`](.claude/skills/). The directory is hidden by default in Finder (toggle with `Cmd+Shift+.`) but is committed to git and usable by any team member running Claude Code.
+
+Available commands: `/build`, `/test`, `/sync-api`, `/map-river`, `/new-species`. Each has a `SKILL.md` describing what it does.
