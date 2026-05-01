@@ -458,7 +458,7 @@ enum RiverAtlas {
         // Northern BC — Skeena Region
         // ─────────────────────────────────────────────
 
-        "Skeena River": [
+        "Middle Skeena River": [
             // Mile 0 — Mouth: Skeena River entering Chatham Sound (south of Prince Rupert)
             CLLocationCoordinate2D(latitude: 54.2500, longitude: -130.2500),
             // Mile 5 — Port Edward / lower estuary
@@ -493,6 +493,9 @@ enum RiverAtlas {
             CLLocationCoordinate2D(latitude: 55.2000, longitude: -127.7500),
             // Mile 80 — Hazelton: Skeena-Bulkley confluence
             CLLocationCoordinate2D(latitude: 55.2568, longitude: -127.6720),
+        ],
+
+        "Upper Skeena River": [
             // Mile 85 — Above Babine River confluence (WSC 08EB005)
             CLLocationCoordinate2D(latitude: 55.3000, longitude: -127.6000),
             // Mile 90 — Kispiox area
