@@ -545,6 +545,32 @@ enum RiverAtlas {
             CLLocationCoordinate2D(latitude: 54.2500, longitude: -126.9500),
         ],
 
+        "Morice River": [
+            // Mile 0 — Mouth: Morice-Bulkley confluence at Houston
+            //          (Lamprey Creek joins from the east at the same point)
+            CLLocationCoordinate2D(latitude: 54.3998, longitude: -126.6701),
+            // Mile 5 — Lower Morice, Morice River FSR ~km 8 (interpolated)
+            CLLocationCoordinate2D(latitude: 54.3715, longitude: -126.7458),
+            // Mile 10 — Lower Morice, Morice River FSR ~km 16 (interpolated)
+            CLLocationCoordinate2D(latitude: 54.3432, longitude: -126.8214),
+            // Mile 15 — Mid-lower Morice, Morice River FSR ~km 22 (interpolated)
+            CLLocationCoordinate2D(latitude: 54.3149, longitude: -126.8970),
+            // Mile 20 — Mid Morice, FSR ~km 27 (interpolated)
+            CLLocationCoordinate2D(latitude: 54.2866, longitude: -126.9727),
+            // Mile 25 — Owen Flats Rec Site vicinity, FSR ~km 27.5 (interpolated)
+            CLLocationCoordinate2D(latitude: 54.2583, longitude: -127.0483),
+            // Mile 30 — Gosnell Creek confluence area (interpolated; key fishery boundary)
+            CLLocationCoordinate2D(latitude: 54.2300, longitude: -127.1240),
+            // Mile 35 — Mid-upper Morice (interpolated)
+            CLLocationCoordinate2D(latitude: 54.2017, longitude: -127.1996),
+            // Mile 40 — Thautil River / Atna River confluence area (interpolated)
+            CLLocationCoordinate2D(latitude: 54.1734, longitude: -127.2753),
+            // Mile 45 — Nanika River confluence area (interpolated)
+            CLLocationCoordinate2D(latitude: 54.1451, longitude: -127.3509),
+            // Mile 50 — Source: Morice Lake outlet (WSC 08ED002)
+            CLLocationCoordinate2D(latitude: 54.1168, longitude: -127.4266),
+        ],
+
         "Babine River": [
             // Mile 0 — Mouth: Babine River confluence with the Skeena River (near Kisgegas)
             CLLocationCoordinate2D(latitude: 55.6831, longitude: -127.7000),
@@ -580,6 +606,72 @@ enum RiverAtlas {
             CLLocationCoordinate2D(latitude: 55.3750, longitude: -126.7600),
             // Mile 60 — Source: Outlet of Nilkitkwa Lake / Babine Lake system
             CLLocationCoordinate2D(latitude: 55.3660, longitude: -126.6600),
+        ],
+
+        "Damdochax River": [
+            // Small (~12 mi) wilderness river ~140 km NE of Hazelton.
+            // Geographically a Nass tributary (drains to upper Nass), but
+            // grouped here under the Skeena region per lodge convention. No
+            // dedicated WSC gauge — uses Skeena above Babine (08EB005) as
+            // the regional proxy.
+            // Mile 0 — Mouth: Damdochax-Nass confluence (BC GeoNames)
+            CLLocationCoordinate2D(latitude: 56.5316, longitude: -128.3206),
+            // Mile 5 — Mid-river, Damdochax Protected Area (interpolated)
+            CLLocationCoordinate2D(latitude: 56.5217, longitude: -128.2291),
+            // Mile 10 — Approaching Damdochax Lake outlet (interpolated)
+            CLLocationCoordinate2D(latitude: 56.5118, longitude: -128.1377),
+            // Mile 12 — Source: Damdochax Lake outlet (BC GeoNames)
+            CLLocationCoordinate2D(latitude: 56.5078, longitude: -128.1011),
+        ],
+
+        // ─────────────────────────────────────────────
+        // Northern BC — Copper / Zymoetz River
+        // ─────────────────────────────────────────────
+
+        // "Upper Copper River" is the lodge-name for the Zymoetz River (BC),
+        // a 90-mile Skeena tributary originating in the Bulkley Ranges of the
+        // Hazelton Mountains. WSC gauge 08EF005 ("Zymoetz River Above O.K. Creek")
+        // is located in the remote upper reach. The Copper River Road parallels
+        // the lower ~28 miles from near Terrace.
+        "Upper Copper River": [
+            // Mile 0 — Mouth at Skeena River confluence, ~12 km east of downtown Terrace (Verified — Wikipedia 54°32′42″N 128°29′9″W)
+            CLLocationCoordinate2D(latitude: 54.5450, longitude: -128.4858),
+            // Mile 5 — Lower Copper River Road, Eight Mile Creek area (interpolated)
+            CLLocationCoordinate2D(latitude: 54.5580, longitude: -128.4358),
+            // Mile 10 — Copper River Road, mid-lower reach (interpolated)
+            CLLocationCoordinate2D(latitude: 54.5710, longitude: -128.3858),
+            // Mile 15 — Copper River Road, approaching canyon (interpolated)
+            CLLocationCoordinate2D(latitude: 54.5840, longitude: -128.3358),
+            // Mile 20 — Near Clore River confluence, largest south-bank tributary (interpolated)
+            CLLocationCoordinate2D(latitude: 54.5970, longitude: -128.2858),
+            // Mile 25 — Upper Copper River Road, approaching road end (interpolated)
+            CLLocationCoordinate2D(latitude: 54.6100, longitude: -128.2358),
+            // Mile 30 — Near road end (~45 km from Terrace), river enters roadless wilderness (interpolated)
+            CLLocationCoordinate2D(latitude: 54.6230, longitude: -128.1858),
+            // Mile 35 — Lower wilderness, river bends northward toward plateau (interpolated)
+            CLLocationCoordinate2D(latitude: 54.6430, longitude: -128.1258),
+            // Mile 40 — Mid-river wilderness (interpolated)
+            CLLocationCoordinate2D(latitude: 54.6630, longitude: -128.0658),
+            // Mile 45 — Approaching O.K. Creek, WSC gauge 08EF005 vicinity (interpolated)
+            CLLocationCoordinate2D(latitude: 54.6820, longitude: -128.0058),
+            // Mile 50 — Above O.K. Creek, WSC gauge 08EF005 general area (interpolated)
+            CLLocationCoordinate2D(latitude: 54.7000, longitude: -127.9458),
+            // Mile 55 — Upper river, below lake chain (interpolated)
+            CLLocationCoordinate2D(latitude: 54.7160, longitude: -127.8858),
+            // Mile 60 — Approaching McDonell Lake; river enters upper lake system (interpolated)
+            CLLocationCoordinate2D(latitude: 54.7240, longitude: -127.8128),
+            // Mile 65 — Near McDonell Lake, river flows east through lake chain (interpolated)
+            CLLocationCoordinate2D(latitude: 54.7300, longitude: -127.7398),
+            // Mile 70 — Between McDonell and Dennis Lakes (interpolated)
+            CLLocationCoordinate2D(latitude: 54.7340, longitude: -127.6668),
+            // Mile 75 — Dennis Lake area, upper Zymoetz lake chain (interpolated)
+            CLLocationCoordinate2D(latitude: 54.7360, longitude: -127.5938),
+            // Mile 80 — Between Dennis and Aldrich Lakes (interpolated)
+            CLLocationCoordinate2D(latitude: 54.7360, longitude: -127.5208),
+            // Mile 85 — Near Aldrich Lake, approaching headwaters (interpolated)
+            CLLocationCoordinate2D(latitude: 54.7350, longitude: -127.4478),
+            // Mile 90 — Source: Aldrich Lake outlet, Bulkley Ranges / Hazelton Mountains (Verified — Wikipedia 54°44′1″N 127°22′25″W)
+            CLLocationCoordinate2D(latitude: 54.7336, longitude: -127.3736),
         ],
 
         // ─────────────────────────────────────────────
@@ -819,6 +911,58 @@ enum RiverAtlas {
             CLLocationCoordinate2D(latitude: 57.2800, longitude: -132.9500),
             // Mile 15 — Headwaters at Glory Lake (Verified — GNIS source coords 57°21'28"N 132°54'39"W)
             CLLocationCoordinate2D(latitude: 57.3578, longitude: -132.9108),
+        ],
+
+        // ─────────────────────────────────────────────
+        // British Columbia — Skeena Region
+        // ─────────────────────────────────────────────
+
+        // Copper River (official WSC name: Zymoetz River): ~90-mile tributary
+        // of the Skeena River near Terrace, BC. Flows SW from headwaters in
+        // the Bulkley Ranges (Hazelton Mountains) to the Skeena at Zaimoetz
+        // IR No. 5. Active WSC gauge 08EF005 "above O.K. Creek." Not tidal
+        // (Skeena confluence is ~80 km inland). Major tributaries: Clore River,
+        // Kitnayakwa River, Limonite Creek. Class II angling water below
+        // Limonite Creek; Class I above.
+        "Copper River": [
+            // Mile 0 — Mouth at Skeena River confluence, Zaimoetz IR No. 5, east of Terrace (Verified — Wikipedia/GNIS)
+            CLLocationCoordinate2D(latitude: 54.5450, longitude: -128.4858),
+            // Mile 5 — Lower river, downstream of former WSC 08EF003 site (interpolated from OSM)
+            CLLocationCoordinate2D(latitude: 54.5250, longitude: -128.4200),
+            // Mile 10 — WSC 08EF005 gauge, above O.K. Creek (Verified — ECCC, drainage 2919 km²)
+            CLLocationCoordinate2D(latitude: 54.4940, longitude: -128.3250),
+            // Mile 15 — Below Limonite Creek, Class II angling water (interpolated from OSM)
+            CLLocationCoordinate2D(latitude: 54.4820, longitude: -128.2400),
+            // Mile 20 — Approaching Limonite Creek area (interpolated)
+            CLLocationCoordinate2D(latitude: 54.4720, longitude: -128.1700),
+            // Mile 25 — Limonite Creek confluence area, Class I/II boundary (interpolated)
+            CLLocationCoordinate2D(latitude: 54.4660, longitude: -128.1000),
+            // Mile 30 — Mid-river, course bending eastward (interpolated from OSM way junction)
+            CLLocationCoordinate2D(latitude: 54.4612, longitude: -128.0059),
+            // Mile 35 — River turning northward through valley (interpolated from OSM)
+            CLLocationCoordinate2D(latitude: 54.4700, longitude: -127.9600),
+            // Mile 40 — Mid-upper river (interpolated from OSM)
+            CLLocationCoordinate2D(latitude: 54.4900, longitude: -127.9400),
+            // Mile 45 — Upper river valley (interpolated from OSM)
+            CLLocationCoordinate2D(latitude: 54.5200, longitude: -127.9300),
+            // Mile 50 — Clore River confluence area (interpolated)
+            CLLocationCoordinate2D(latitude: 54.5500, longitude: -127.9400),
+            // Mile 55 — Above Clore River (interpolated from OSM)
+            CLLocationCoordinate2D(latitude: 54.5900, longitude: -127.9500),
+            // Mile 60 — Upper valley, Kitnayakwa River approach (interpolated)
+            CLLocationCoordinate2D(latitude: 54.6300, longitude: -127.9300),
+            // Mile 65 — Kitnayakwa River confluence area (interpolated)
+            CLLocationCoordinate2D(latitude: 54.6700, longitude: -127.8800),
+            // Mile 70 — Upper river, approaching Bornite Range (interpolated)
+            CLLocationCoordinate2D(latitude: 54.7000, longitude: -127.7800),
+            // Mile 75 — O.K. Range foothills (interpolated)
+            CLLocationCoordinate2D(latitude: 54.7200, longitude: -127.6800),
+            // Mile 80 — Upper headwaters reach (interpolated from OSM)
+            CLLocationCoordinate2D(latitude: 54.7400, longitude: -127.5500),
+            // Mile 85 — Near headwaters, Bulkley Ranges approach (interpolated)
+            CLLocationCoordinate2D(latitude: 54.7500, longitude: -127.4500),
+            // Mile 90 — Headwaters, Bulkley Ranges, Hazelton Mountains, elev 1078m (Verified — Wikipedia)
+            CLLocationCoordinate2D(latitude: 54.7336, longitude: -127.3736),
         ],
     ]
 

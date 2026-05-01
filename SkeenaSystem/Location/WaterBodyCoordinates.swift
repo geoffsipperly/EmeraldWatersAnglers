@@ -21,6 +21,8 @@ enum WaterBodyAtlas {
     static let checkOrder: [String] = [
         "Hood Canal",
         "Puget Sound",
+        "Lake Washington",
+        "Lake of the Woods",
         // Add new entries here in specificity order (most specific first)
     ]
 
@@ -136,6 +138,48 @@ enum WaterBodyAtlas {
             CLLocationCoordinate2D(latitude: 47.698, longitude: -122.270),  // Matthews Beach, interpolated
             CLLocationCoordinate2D(latitude: 47.735, longitude: -122.278),  // Lake Forest Park waterfront
             CLLocationCoordinate2D(latitude: 47.759, longitude: -122.260),  // Kenmore west shore, closing polygon
+        ],
+
+        // ─────────────────────────────────────────────
+        // Ontario / Manitoba / Minnesota — Lake of the Woods
+        // ─────────────────────────────────────────────
+
+        "Lake of the Woods": [
+            // Large international freshwater lake straddling ON / MB / MN.
+            // Clockwise from Kenora (N) → ON east shore S → MN south shore W →
+            // MB west shore N → wraps Northwest Angle (MN exclave) → back to Kenora.
+            // The Northwest Angle peninsula sits inside the polygon (not cut out),
+            // matching the simplification used for Mercer Island in Lake Washington.
+            // --- North end (Kenora area, Ontario) ---
+            CLLocationCoordinate2D(latitude: 49.767, longitude: -94.483),  // Kenora waterfront, ON (WSC 05PE016)
+            CLLocationCoordinate2D(latitude: 49.730, longitude: -94.420),  // Devil's Gap / Winnipeg River outlet, interpolated
+            // --- East shore, Ontario (going south) ---
+            CLLocationCoordinate2D(latitude: 49.580, longitude: -94.250),  // Yellow Girl Bay area, interpolated
+            CLLocationCoordinate2D(latitude: 49.413, longitude: -94.098),  // Sioux Narrows Bridge, ON
+            CLLocationCoordinate2D(latitude: 49.131, longitude: -93.927),  // Nestor Falls, ON
+            CLLocationCoordinate2D(latitude: 49.080, longitude: -94.270),  // Morson / Big Island area, ON, interpolated
+            CLLocationCoordinate2D(latitude: 48.720, longitude: -94.450),  // Rainy River, ON (south end of east shore, near border)
+            // --- South shore (Minnesota, going west) ---
+            CLLocationCoordinate2D(latitude: 48.712, longitude: -94.600),  // Baudette, MN (Rainy River inflow)
+            CLLocationCoordinate2D(latitude: 48.730, longitude: -94.800),  // Pine Island / Bostic Bay, interpolated
+            CLLocationCoordinate2D(latitude: 48.700, longitude: -95.000),  // Big Traverse Bay south shore, interpolated
+            CLLocationCoordinate2D(latitude: 48.770, longitude: -95.150),  // Garden Island area, interpolated
+            CLLocationCoordinate2D(latitude: 48.905, longitude: -95.315),  // Warroad waterfront, MN (USGS 05140520)
+            // --- West shore (Manitoba, going north) ---
+            CLLocationCoordinate2D(latitude: 48.950, longitude: -95.300),  // Springsteel Island vicinity, interpolated
+            CLLocationCoordinate2D(latitude: 49.000, longitude: -95.300),  // 49th-parallel border crossing, interpolated
+            CLLocationCoordinate2D(latitude: 49.001, longitude: -95.233),  // Buffalo Point First Nation, MB
+            CLLocationCoordinate2D(latitude: 49.100, longitude: -95.250),  // Buffalo Bay west shore, MB, interpolated
+            CLLocationCoordinate2D(latitude: 49.250, longitude: -95.250),  // MB west shore, interpolated
+            // --- Northwest Angle wrap (lake bulges around the MN exclave) ---
+            CLLocationCoordinate2D(latitude: 49.390, longitude: -95.150),  // NW corner of lake (northernmost extent)
+            CLLocationCoordinate2D(latitude: 49.350, longitude: -95.050),  // Angle Inlet, MN (NW Angle)
+            CLLocationCoordinate2D(latitude: 49.250, longitude: -94.950),  // East side of NW Angle bulge, interpolated
+            // --- North shore back toward Kenora ---
+            CLLocationCoordinate2D(latitude: 49.500, longitude: -94.800),  // Shoal Lake / Clearwater Bay area, ON, interpolated
+            CLLocationCoordinate2D(latitude: 49.700, longitude: -94.650),  // Kenora west approach, interpolated
+            CLLocationCoordinate2D(latitude: 49.770, longitude: -94.555),  // Keewatin, ON
+            CLLocationCoordinate2D(latitude: 49.770, longitude: -94.500),  // Closing point near Kenora
         ],
     ]
 }
