@@ -110,6 +110,7 @@ final class CatchPhotoAnalyzer {
       "lingcod",
       "musky",
       "other",
+      "rainbow_trout",
       "sea_run_trout",
       "steelhead_holding",
       "steelhead_traveler"
@@ -127,7 +128,8 @@ final class CatchPhotoAnalyzer {
       "brown_trout",
       "chinook_salmon",
       "lingcod",
-      "musky"
+      "musky",
+      "rainbow_trout"
   ]
 
 
