@@ -964,6 +964,101 @@ enum RiverAtlas {
             // Mile 90 — Headwaters, Bulkley Ranges, Hazelton Mountains, elev 1078m (Verified — Wikipedia)
             CLLocationCoordinate2D(latitude: 54.7336, longitude: -127.3736),
         ],
+
+        // ─────────────────────────────────────────────
+        // Washington — Columbia Basin / Yakima River
+        // ─────────────────────────────────────────────
+
+        "Yakima River": [
+            // Mile 0 — Mouth at Columbia River confluence, Bateman Island, Richland
+            CLLocationCoordinate2D(latitude: 46.2497, longitude: -119.2287),
+            // Mile 5 — West Richland, Van Giesen St area (interpolated)
+            CLLocationCoordinate2D(latitude: 46.2730, longitude: -119.3050),
+            // Mile 10 — Horn Rapids ORV park area (interpolated)
+            CLLocationCoordinate2D(latitude: 46.2870, longitude: -119.3700),
+            // Mile 15 — North loop toward Kiona (interpolated)
+            CLLocationCoordinate2D(latitude: 46.2950, longitude: -119.4280),
+            // Mile 20 — River bends back south through wetlands (interpolated)
+            CLLocationCoordinate2D(latitude: 46.2750, longitude: -119.4500),
+            // Mile 25 — Approaching Kiona from north (interpolated)
+            CLLocationCoordinate2D(latitude: 46.2580, longitude: -119.4700),
+            // Mile 30 — USGS 12510500 Yakima R at Kiona, WA (Verified — USGS)
+            CLLocationCoordinate2D(latitude: 46.2528, longitude: -119.4803),
+            // Mile 35 — Heading SW toward Benton City (interpolated)
+            CLLocationCoordinate2D(latitude: 46.2350, longitude: -119.5800),
+            // Mile 40 — Benton City vicinity (interpolated)
+            CLLocationCoordinate2D(latitude: 46.2400, longitude: -119.6700),
+            // Mile 45 — Approaching Prosser (interpolated)
+            CLLocationCoordinate2D(latitude: 46.2240, longitude: -119.7400),
+            // Mile 50 — Prosser, Hwy 221 bridge
+            CLLocationCoordinate2D(latitude: 46.2069, longitude: -119.7639),
+            // Mile 55 — West of Prosser, river bends NW (interpolated)
+            CLLocationCoordinate2D(latitude: 46.2200, longitude: -119.8400),
+            // Mile 60 — Toward Mabton (interpolated)
+            CLLocationCoordinate2D(latitude: 46.2300, longitude: -119.9100),
+            // Mile 65 — Mabton
+            CLLocationCoordinate2D(latitude: 46.2086, longitude: -119.9917),
+            // Mile 70 — North of Mabton, NW course (interpolated)
+            CLLocationCoordinate2D(latitude: 46.2400, longitude: -120.0500),
+            // Mile 75 — Between Sunnyside and Granger (interpolated)
+            CLLocationCoordinate2D(latitude: 46.2900, longitude: -120.1100),
+            // Mile 80 — Granger
+            CLLocationCoordinate2D(latitude: 46.3415, longitude: -120.1859),
+            // Mile 85 — Granger to Zillah (interpolated)
+            CLLocationCoordinate2D(latitude: 46.3700, longitude: -120.2700),
+            // Mile 90 — North of Zillah (interpolated)
+            CLLocationCoordinate2D(latitude: 46.4150, longitude: -120.3100),
+            // Mile 95 — Wapato vicinity (interpolated)
+            CLLocationCoordinate2D(latitude: 46.4500, longitude: -120.3700),
+            // Mile 100 — South Union Gap approaches (interpolated)
+            CLLocationCoordinate2D(latitude: 46.5000, longitude: -120.4400),
+            // Mile 105 — Union Gap
+            CLLocationCoordinate2D(latitude: 46.5530, longitude: -120.4760),
+            // Mile 110 — Yakima city
+            CLLocationCoordinate2D(latitude: 46.6020, longitude: -120.5100),
+            // Mile 115 — Selah, north of Yakima
+            CLLocationCoordinate2D(latitude: 46.6540, longitude: -120.5400),
+            // Mile 117 — Naches River confluence
+            CLLocationCoordinate2D(latitude: 46.6690, longitude: -120.5860),
+            // Mile 120 — Entering Yakima River Canyon at Selah Gap (interpolated)
+            CLLocationCoordinate2D(latitude: 46.6960, longitude: -120.5000),
+            // Mile 125 — Roza Dam, head of canyon
+            CLLocationCoordinate2D(latitude: 46.7370, longitude: -120.4610),
+            // Mile 130 — Mid-canyon (interpolated)
+            CLLocationCoordinate2D(latitude: 46.7850, longitude: -120.4700),
+            // Mile 135 — Umtanum Recreation Area (interpolated)
+            CLLocationCoordinate2D(latitude: 46.8500, longitude: -120.4900),
+            // Mile 140 — Canyon exit, Thrall area (interpolated)
+            CLLocationCoordinate2D(latitude: 46.9000, longitude: -120.5200),
+            // Mile 145 — South Ellensburg approaches (interpolated)
+            CLLocationCoordinate2D(latitude: 46.9500, longitude: -120.5400),
+            // Mile 150 — Ellensburg, I-90 bridge
+            CLLocationCoordinate2D(latitude: 46.9890, longitude: -120.5410),
+            // Mile 155 — West Ellensburg, NW (interpolated)
+            CLLocationCoordinate2D(latitude: 47.0250, longitude: -120.6100),
+            // Mile 160 — Toward Thorp (interpolated)
+            CLLocationCoordinate2D(latitude: 47.0500, longitude: -120.6900),
+            // Mile 165 — Thorp
+            CLLocationCoordinate2D(latitude: 47.0720, longitude: -120.8040),
+            // Mile 170 — Thorp to Cle Elum (interpolated)
+            CLLocationCoordinate2D(latitude: 47.1000, longitude: -120.8400),
+            // Mile 175 — South of Cle Elum (interpolated)
+            CLLocationCoordinate2D(latitude: 47.1450, longitude: -120.8800),
+            // Mile 180 — USGS 12484500 Yakima R at Cle Elum, WA (Verified — USGS)
+            CLLocationCoordinate2D(latitude: 47.1955, longitude: -120.9398),
+            // Mile 185 — West of Cle Elum (interpolated)
+            CLLocationCoordinate2D(latitude: 47.2150, longitude: -121.0100),
+            // Mile 190 — Approaching Easton (interpolated)
+            CLLocationCoordinate2D(latitude: 47.2350, longitude: -121.0900),
+            // Mile 195 — Easton
+            CLLocationCoordinate2D(latitude: 47.2410, longitude: -121.1870),
+            // Mile 200 — Easton to Keechelus (interpolated)
+            CLLocationCoordinate2D(latitude: 47.2700, longitude: -121.2400),
+            // Mile 205 — Keechelus dam approach (interpolated)
+            CLLocationCoordinate2D(latitude: 47.3050, longitude: -121.3000),
+            // Mile 214 — Headwaters, Keechelus Lake outlet / dam, Cascade Mountains
+            CLLocationCoordinate2D(latitude: 47.3270, longitude: -121.3300),
+        ],
     ]
 
     /// Default search radius (km) from any spine point to count as "on" a river.

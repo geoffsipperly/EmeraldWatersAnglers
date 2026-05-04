@@ -197,8 +197,9 @@ final class CatchChatViewModel: ObservableObject {
   }
   private var identificationSubStep: IdentificationSubStep = .none
 
-  /// Saved analyzer result — the `speciesAlternatives` (top-1 + runner-up) get
-  /// re-used when re-entering the species sub-step after a rejected edit.
+  /// Saved analyzer result — the `speciesAlternatives` (top-1 + up to 2
+  /// runners-up) get re-used when re-entering the species sub-step after a
+  /// rejected edit.
   private var lastAnalysisAlternatives: [SpeciesCandidate] = []
 
   /// ML softmax confidence for the predicted species root (sums lifecycle
@@ -625,7 +626,13 @@ final class CatchChatViewModel: ObservableObject {
 
     let summary: String
     if let species = flow.species, !species.isEmpty {
-      summary = "Species: **\(species)**"
+      let suffix: String
+      if let conf = lastAnalysisSpeciesConfidence, conf < 1.0 {
+        suffix = String(format: " %.0f%%", conf * 100)
+      } else {
+        suffix = ""
+      }
+      summary = "Species: **\(species)**\(suffix)"
     } else {
       summary = "Species: **Unknown**"
     }
@@ -672,11 +679,14 @@ final class CatchChatViewModel: ObservableObject {
 
     return ordered.map { key, meta in
       let displayLabel = Self.displayName(forSpeciesKey: key)
+      // The leading candidate's name + probability is rendered in the bubble
+      // above; the green capsule just confirms it. Alternatives still show
+      // their species name with the model's confidence.
       return ChatCapsule(
         id: "species-\(key)",
-        label: displayLabel,
+        label: meta.isPrimary ? "Confirm" : displayLabel,
         color: meta.isPrimary ? .green : .yellow,
-        confidence: meta.confidence < 1.0 ? meta.confidence : nil,
+        confidence: meta.isPrimary ? nil : (meta.confidence < 1.0 ? meta.confidence : nil),
         action: .selectSpecies(label: key)
       )
     }

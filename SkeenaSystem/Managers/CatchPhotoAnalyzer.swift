@@ -444,9 +444,10 @@ final class CatchPhotoAnalyzer {
     return (rootConfidence: rootSum, lifecycleConditional: conditional)
   }
 
-  /// Build up to 2 species candidates (primary + runner-up) from the full ViT
-  /// softmax distribution. Returns an empty array if the best runner-up falls
-  /// below `minProb`, signalling that capsule UX should be skipped.
+  /// Build up to 3 species candidates (primary + up to 2 runners-up) from the
+  /// full ViT softmax distribution. Each runner-up must clear `minProb`
+  /// independently. Returns an empty array if no runner-up clears the floor,
+  /// signalling that capsule UX should be skipped.
   private func computeSpeciesAlternatives(
     distribution probs: [Float],
     winnerIndex: Int,
@@ -454,29 +455,25 @@ final class CatchPhotoAnalyzer {
   ) -> [SpeciesCandidate] {
     guard winnerIndex >= 0, winnerIndex < Self.speciesLabels.count else { return [] }
 
-    // Find the best runner-up (any index except the winner).
-    var runnerUpIdx: Int? = nil
-    var runnerUpProb: Float = 0
-    for i in 0 ..< probs.count where i != winnerIndex {
-      if probs[i] > runnerUpProb {
-        runnerUpProb = probs[i]
-        runnerUpIdx = i
-      }
-    }
+    // Take the top 2 non-winner indices that clear the visibility floor,
+    // sorted by descending probability.
+    let runnersUp = (0 ..< probs.count)
+      .filter { $0 != winnerIndex && $0 < Self.speciesLabels.count && probs[$0] >= minProb }
+      .sorted { probs[$0] > probs[$1] }
+      .prefix(2)
 
     // If no runner-up clears the visibility floor, skip capsules entirely —
     // the model strongly prefers the winner, so there's no ambiguity worth
     // surfacing to the user.
-    guard let runnerIdx = runnerUpIdx,
-          runnerUpProb >= minProb,
-          runnerIdx < Self.speciesLabels.count else {
-      return []
-    }
+    guard !runnersUp.isEmpty else { return [] }
 
-    return [
-      SpeciesCandidate(label: Self.speciesLabels[winnerIndex], confidence: probs[winnerIndex], isPrimary: true),
-      SpeciesCandidate(label: Self.speciesLabels[runnerIdx], confidence: runnerUpProb, isPrimary: false)
+    var result: [SpeciesCandidate] = [
+      SpeciesCandidate(label: Self.speciesLabels[winnerIndex], confidence: probs[winnerIndex], isPrimary: true)
     ]
+    for idx in runnersUp {
+      result.append(SpeciesCandidate(label: Self.speciesLabels[idx], confidence: probs[idx], isPrimary: false))
+    }
+    return result
   }
 
   // MARK: - ViT inference (species)
