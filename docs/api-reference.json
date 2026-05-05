@@ -1,6 +1,6 @@
 {
   "version": "2026-05-01",
-  "generated": "2026-05-04T16:21:26.015Z",
+  "generated": "2026-05-05T20:30:11.233Z",
   "key_concepts": {
     "member_id": "UUID foreign key reference to a member record",
     "member_number": "Human-readable identifier in MAD Crockford Base32 format: MAD + 6 random chars (e.g., MAD4ZQ7H9)",
@@ -403,15 +403,15 @@
           "required": false,
           "description": "PIT tag alphanumeric ID"
         },
-        "catch.sampleEnvelopeId": {
+        "catch.scaleEnvelopeId": {
           "type": "string",
           "required": false,
-          "description": "Scanned barcode of the physical sample envelope"
+          "description": "Scanned barcode of the Scale sample envelope"
         },
-        "catch.sampleContents": {
-          "type": "string[]",
+        "catch.finEnvelopeId": {
+          "type": "string",
           "required": false,
-          "description": "Sample types declared inside the envelope. Allowed values: 'scale', 'fin_clip'. Required (non-empty, no duplicates) when sampleEnvelopeId is set; must be omitted/empty otherwise. Reserved future values: 'otolith', 'tissue', 'gut'."
+          "description": "Scanned barcode of the Fin sample envelope"
         },
         "catch.conservationOptIn": {
           "type": "boolean",

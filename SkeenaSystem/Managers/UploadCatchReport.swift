@@ -115,8 +115,8 @@ nonisolated final class UploadCatchReport {
     let initialWeightLbs: Double?
     let floyId: String?
     let pitId: String?
-    let sampleEnvelopeId: String?
-    let sampleContents: [String]?
+    let scaleEnvelopeId: String?
+    let finEnvelopeId: String?
     let conservationOptIn: Bool?
     let mlTrainingOptOut: Bool?
     let location: Location?
@@ -711,8 +711,11 @@ nonisolated final class UploadCatchReport {
       initialWeightLbs: r.initialWeightLbs,
       floyId: r.floyId,
       pitId: r.pitId,
-      sampleEnvelopeId: r.sampleEnvelopeId,
-      sampleContents: r.sampleContents,
+      // 1:1 pass-through to the backend's `catch.scaleEnvelopeId` +
+      // `catch.finEnvelopeId` fields. iOS-side names match the wire
+      // exactly so the only thing happening here is the JSON encode.
+      scaleEnvelopeId: r.scaleEnvelopeId,
+      finEnvelopeId: r.finEnvelopeId,
       conservationOptIn: r.conservationOptIn,
       mlTrainingOptOut: r.mlTrainingOptOut,
       location: location,

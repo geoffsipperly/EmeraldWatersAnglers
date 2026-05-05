@@ -23,7 +23,8 @@ struct ResearcherCatchConfirmationView: View {
   @State private var editLength = ""
   @State private var editGirth = ""
   @State private var editFloyTag = ""
-  @State private var editEnvelopeBarcode = ""
+  @State private var editScaleEnvelopeId = ""
+  @State private var editFinEnvelopeId = ""
 
   var body: some View {
     NavigationView {
@@ -65,12 +66,12 @@ struct ResearcherCatchConfirmationView: View {
                 readOnlyRow(label: "Floy Tag ID", value: floyTagString)
               }
 
-              readOnlyRow(label: "Envelope Contents", value: envelopeContentsString)
-
               if isEditing {
-                editableRow(label: "Envelope ID", text: $editEnvelopeBarcode)
+                editableRow(label: "Scale Envelope", text: $editScaleEnvelopeId)
+                editableRow(label: "Fin Clip Envelope", text: $editFinEnvelopeId)
               } else {
-                readOnlyRow(label: "Envelope ID", value: envelopeBarcodeString)
+                readOnlyRow(label: "Scale Envelope", value: scaleEnvelopeIdString)
+                readOnlyRow(label: "Fin Clip Envelope", value: finEnvelopeIdString)
               }
 
               readOnlyRow(label: "Voice Memo", value: voiceMemoString)
@@ -159,7 +160,8 @@ struct ResearcherCatchConfirmationView: View {
     editLength = flow.lengthInches.map { $0.rounded() == $0 ? "\(Int($0))" : String(format: "%.1f", $0) } ?? ""
     editGirth = flow.girthInches.map { String(format: "%.1f", $0) } ?? ""
     editFloyTag = flow.floyTagNumber ?? ""
-    editEnvelopeBarcode = flow.envelopeBarcode ?? ""
+    editScaleEnvelopeId = flow.scaleEnvelopeId ?? ""
+    editFinEnvelopeId = flow.finEnvelopeId ?? ""
     isEditing = true
   }
 
@@ -193,8 +195,11 @@ struct ResearcherCatchConfirmationView: View {
     let trimmedFloy = editFloyTag.trimmingCharacters(in: .whitespaces)
     flow.floyTagNumber = trimmedFloy.isEmpty ? nil : trimmedFloy
 
-    let trimmedEnvelope = editEnvelopeBarcode.trimmingCharacters(in: .whitespaces)
-    flow.envelopeBarcode = trimmedEnvelope.isEmpty ? nil : trimmedEnvelope
+    let trimmedScale = editScaleEnvelopeId.trimmingCharacters(in: .whitespaces)
+    flow.scaleEnvelopeId = trimmedScale.isEmpty ? nil : trimmedScale
+
+    let trimmedFinClip = editFinEnvelopeId.trimmingCharacters(in: .whitespaces)
+    flow.finEnvelopeId = trimmedFinClip.isEmpty ? nil : trimmedFinClip
 
     isEditing = false
   }
@@ -258,12 +263,12 @@ struct ResearcherCatchConfirmationView: View {
     chatVM.researcherFlow?.floyTagNumber ?? "None"
   }
 
-  private var envelopeContentsString: String {
-    chatVM.researcherFlow?.sampleContents?.rawValue ?? "None"
+  private var scaleEnvelopeIdString: String {
+    chatVM.researcherFlow?.scaleEnvelopeId ?? "None"
   }
 
-  private var envelopeBarcodeString: String {
-    chatVM.researcherFlow?.envelopeBarcode ?? "None"
+  private var finEnvelopeIdString: String {
+    chatVM.researcherFlow?.finEnvelopeId ?? "None"
   }
 
   private var voiceMemoString: String {

@@ -125,16 +125,14 @@ public struct CatchReport: Identifiable, Codable, Equatable {
   public var floyId: String?
   /// PIT tag ID — set when the researcher selected study type "Pit".
   public var pitId: String?
-  /// Scanned barcode of the physical sample envelope. One barcode per
-  /// envelope; what's *inside* is declared via `sampleContents`. Maps to the
-  /// v5 upload field `catch.sampleEnvelopeId`.
-  public var sampleEnvelopeId: String?
-  /// What's in the envelope. Wire format mirrors the backend
-  /// `catch.sampleContents` payload: `["scale"]`, `["fin_clip"]`, or
-  /// `["scale", "fin_clip"]`. Reserved future values: `"otolith"`,
-  /// `"tissue"`, `"gut"`. Must be non-empty when `sampleEnvelopeId` is set,
-  /// and nil/empty otherwise (validated server-side).
-  public var sampleContents: [String]?
+  /// Scale envelope barcode. Set whenever sampling was taken (scales are
+  /// always collected when sampling). Maps to `catch.scaleEnvelopeId` on
+  /// the v5 upload endpoint.
+  public var scaleEnvelopeId: String?
+  /// Fin clip envelope barcode. Set only when the researcher answered Yes
+  /// to the fin-clip prompt and scanned the second envelope. Maps to
+  /// `catch.finEnvelopeId` on the v5 upload endpoint.
+  public var finEnvelopeId: String?
 
   // Meta
   public var appVersion: String?
@@ -197,8 +195,8 @@ public struct CatchReport: Identifiable, Codable, Equatable {
     mlTrainingOptOut: Bool? = nil,
     floyId: String? = nil,
     pitId: String? = nil,
-    sampleEnvelopeId: String? = nil,
-    sampleContents: [String]? = nil,
+    scaleEnvelopeId: String? = nil,
+    finEnvelopeId: String? = nil,
     appVersion: String? = nil,
     deviceDescription: String? = nil,
     platform: String? = nil
@@ -258,8 +256,8 @@ public struct CatchReport: Identifiable, Codable, Equatable {
     self.mlTrainingOptOut = mlTrainingOptOut
     self.floyId = floyId
     self.pitId = pitId
-    self.sampleEnvelopeId = sampleEnvelopeId
-    self.sampleContents = sampleContents
+    self.scaleEnvelopeId = scaleEnvelopeId
+    self.finEnvelopeId = finEnvelopeId
     self.appVersion = appVersion
     self.deviceDescription = deviceDescription
     self.platform = platform

@@ -131,7 +131,7 @@ struct GuideLandingMapView: View {
       .mapStyle(.satelliteStreets)
       .onChange(of: focusCoordinate) { coord in
         guard let coord else { return }
-        proxy.map?.fly(to: CameraOptions(center: coord, zoom: 12), duration: 0.8)
+        proxy.camera?.fly(to: CameraOptions(center: coord, zoom: 12), duration: 0.8)
       }
     }
   }

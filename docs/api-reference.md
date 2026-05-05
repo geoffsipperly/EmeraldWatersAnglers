@@ -1,7 +1,7 @@
 # Mad Thinker Platform API Reference
 
 **Version:** 2026-05-01
-**Generated:** 2026-05-04T16:21:03.588Z
+**Generated:** 2026-05-05T20:30:09.688Z
 
 ## Key Concepts
 
@@ -286,8 +286,8 @@ Upload catch reports with conservation research fields. Writes to catch_reports 
 | catch.initialWeightLbs | number | ❌ | Initial weight estimate before correction |
 | catch.floyId | string | ❌ | Floy tag alphanumeric ID |
 | catch.pitId | string | ❌ | PIT tag alphanumeric ID |
-| catch.sampleEnvelopeId | string | ❌ | Scanned barcode of the physical sample envelope |
-| catch.sampleContents | string[] | ❌ | Sample types declared inside the envelope. Allowed values: 'scale', 'fin_clip'. Required (non-empty, no duplicates) when sampleEnvelopeId is set; must be omitted/empty otherwise. Reserved future values: 'otolith', 'tissue', 'gut'. |
+| catch.scaleEnvelopeId | string | ❌ | Scanned barcode of the Scale sample envelope |
+| catch.finEnvelopeId | string | ❌ | Scanned barcode of the Fin sample envelope |
 | catch.conservationOptIn | boolean | ❌ | Conservation data sharing opt-in (default false) |
 | catch.mlTrainingOptOut | boolean | ❌ | Set true to opt this report OUT of being used to train ML models. Default false (data CAN be used). |
 | catch.location.lat | number | ❌ | Latitude |

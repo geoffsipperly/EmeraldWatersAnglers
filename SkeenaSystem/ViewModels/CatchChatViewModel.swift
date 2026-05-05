@@ -49,8 +49,8 @@ enum ChatCapsuleAction: Equatable {
   case studyParticipate(yes: Bool)      // "Are you participating in a study?"
   case selectStudyType(rawValue: String) // "Pit" | "Floy" | "Radio Telemetry"
   case sampleCollect(yes: Bool)         // "Are you taking samples?"
-  case selectEnvelopeContents(rawValue: String) // "Scale" | "Fin clip" | "Both"
-  case openEnvelopeScanner              // "Scan" capsule on the .envelopeScan step
+  case finChoice(yes: Bool)         // "Did you also take a fin clip?"
+  case openSampleScanner                // "Scan" capsule on either .scaleScan or .finScan
   case voiceMemoChoice(yes: Bool)       // add voice memo or skip
   case confirmID                        // floy / scale / fin: accept typed ID
   case retryID                          // floy / scale / fin: clear + re-prompt
@@ -157,11 +157,13 @@ final class CatchChatViewModel: ObservableObject {
   /// after consuming — matches the one-shot pattern of `showRecordObservation`.
   @Published var requestVoiceNoteSheet: Bool = false
 
-  /// Set to true when the user taps the "Scan" capsule on the `.envelopeScan`
-  /// step so the chat view can present the envelope-barcode scanner sheet.
-  /// The view flips it back to false after consuming — same one-shot pattern
-  /// as `requestVoiceNoteSheet`.
-  @Published var requestEnvelopeScannerSheet: Bool = false
+  /// Set to true when the user taps the "Scan" capsule on either the
+  /// `.scaleScan` or `.finScan` step so the chat view can present the
+  /// envelope-barcode scanner sheet. The view flips it back to false after
+  /// consuming — same one-shot pattern as `requestVoiceNoteSheet`. The view
+  /// branches on `researcherFlow.currentStep` to route the scan result to
+  /// the correct flow-manager handler.
+  @Published var requestSampleScannerSheet: Bool = false
 
   // Photo analyzer (modular)
     private let analyzer = CatchPhotoAnalyzer()
@@ -950,25 +952,29 @@ final class CatchChatViewModel: ObservableObject {
       chatCapsules = []
       capsulesAnchorMessageID = nil
       if yes {
-        // Advance the flow manager so the input bar's per-step UI matches the
-        // contents-picker bubble that's about to be posted, then post the
-        // capsule row.
-        researcherFlow?.currentStep = .envelopeContents
-        postEnvelopeContentsStep()
+        // Yes → scales are always taken first when sampling. Advance to
+        // .scaleScan and post the scan/type prompt with the Scan capsule.
+        researcherBeginScaleScan()
       } else {
         researcherConfirm()
       }
 
-    case .selectEnvelopeContents(let rawValue):
+    case .finChoice(let yes):
       chatCapsules = []
       capsulesAnchorMessageID = nil
-      guard let contents = ResearcherCatchFlowManager.SampleContents(rawValue: rawValue) else { return }
-      researcherSelectEnvelopeContents(contents)
+      if yes {
+        // Yes → advance to .finScan and post the prompt with Scan capsule.
+        researcherBeginFinScan()
+      } else {
+        // No → confirm() advances .finPrompt → .voiceMemo.
+        researcherConfirm()
+      }
 
-    case .openEnvelopeScanner:
-      // Pure UI signal — the chat view observes this and presents the scanner
-      // sheet. Capsules stay attached so the user can re-tap if they cancel.
-      requestEnvelopeScannerSheet = true
+    case .openSampleScanner:
+      // Pure UI signal — the chat view observes this and presents the
+      // scanner sheet. The view branches on currentStep to route the result
+      // to the right flow-manager handler.
+      requestSampleScannerSheet = true
 
     case .voiceMemoChoice(let yes):
       chatCapsules = []
@@ -997,20 +1003,27 @@ final class CatchChatViewModel: ObservableObject {
         flow.floyTagNumber = nil
         let msg = appendAssistant("Please enter the Floy Tag ID.")
         flow.confirmAnchorID = msg.id
-      case .envelopeScan:
-        // Two distinct retry modes here:
-        //   (a) The user tapped "Type instead" on the initial scan/type
-        //       prompt — nothing has been captured yet, so clear capsules
-        //       and let them use the input bar without an extra bubble.
-        //   (b) The user already scanned/typed an ID and is now reconsidering
-        //       — drop the value and re-post the prompt with the scan/type
-        //       capsules re-attached so they can pick again.
-        let hadValue = flow.envelopeBarcode != nil
-        flow.envelopeBarcode = nil
+      case .scaleScan:
+        // Two distinct retry modes:
+        //   (a) "Type instead" tapped on the initial scan/type prompt before
+        //       anything was captured — clear capsules and let them use the
+        //       input bar without posting an extra bubble.
+        //   (b) An ID was already captured and they're reconsidering — drop
+        //       the value and re-post the prompt with Scan/Type capsules.
+        let hadValue = flow.scaleEnvelopeId != nil
+        flow.scaleEnvelopeId = nil
         if hadValue {
-          let msg = appendAssistant("Scan the envelope, or type the ID.")
+          let msg = appendAssistant("Scan the scale envelope, or type the ID.")
           flow.confirmAnchorID = msg.id
-          attachEnvelopeScanCapsules(to: msg.id)
+          attachSampleScanCapsules(to: msg.id)
+        }
+      case .finScan:
+        let hadValue = flow.finEnvelopeId != nil
+        flow.finEnvelopeId = nil
+        if hadValue {
+          let msg = appendAssistant("Scan the fin clip envelope, or type the ID.")
+          flow.confirmAnchorID = msg.id
+          attachSampleScanCapsules(to: msg.id)
         }
       default:
         break
@@ -1160,6 +1173,12 @@ final class CatchChatViewModel: ObservableObject {
           yesAction: .sampleCollect(yes: true),
           noAction: .sampleCollect(yes: false)
         )
+      case .finPrompt:
+        attachYesNoCapsules(
+          to: msg.id,
+          yesAction: .finChoice(yes: true),
+          noAction: .finChoice(yes: false)
+        )
       default:
         break
       }
@@ -1216,28 +1235,15 @@ final class CatchChatViewModel: ObservableObject {
     ]
   }
 
-  /// Attach the envelope-contents capsule row (Scale / Fin clip / Both) to the
-  /// "What's in the envelope?" bubble. The researcher declares contents BEFORE
-  /// scanning the envelope so the capsule selection drives the upload mapping
-  /// from a single envelope barcode to the per-sample-type backend fields.
-  private func postEnvelopeContentsStep() {
-    let msg = appendAssistant("What's in the envelope?")
-    capsulesAnchorMessageID = msg.id
-    chatCapsules = [
-      ChatCapsule(id: "envelope-scale", label: "Scale",    color: .green, confidence: nil, action: .selectEnvelopeContents(rawValue: "Scale")),
-      ChatCapsule(id: "envelope-fin",   label: "Fin clip", color: .green, confidence: nil, action: .selectEnvelopeContents(rawValue: "Fin clip")),
-      ChatCapsule(id: "envelope-both",  label: "Both",     color: .green, confidence: nil, action: .selectEnvelopeContents(rawValue: "Both")),
-    ]
-  }
-
-  /// Attach the envelope-scan capsule pair (Scan / Type) to the "Scan the
-  /// envelope" bubble. The user can either open the camera scanner sheet or
-  /// fall through to the chat input bar to type the ID.
-  private func attachEnvelopeScanCapsules(to anchor: UUID) {
+  /// Attach the sample-scan capsule pair (Scan / Type instead) to either the
+  /// scale-envelope or the fin-clip-envelope scan bubble. The action is
+  /// generic across both steps — the chat view branches on currentStep when
+  /// the scanner sheet returns a result.
+  private func attachSampleScanCapsules(to anchor: UUID) {
     capsulesAnchorMessageID = anchor
     chatCapsules = [
-      ChatCapsule(id: "envelope-scan", label: "Scan",         color: .green, confidence: nil, action: .openEnvelopeScanner),
-      ChatCapsule(id: "envelope-type", label: "Type instead", color: .grey,  confidence: nil, action: .retryID),
+      ChatCapsule(id: "sample-scan", label: "Scan",         color: .green, confidence: nil, action: .openSampleScanner),
+      ChatCapsule(id: "sample-type", label: "Type instead", color: .grey,  confidence: nil, action: .retryID),
     ]
   }
 
@@ -1373,11 +1379,12 @@ final class CatchChatViewModel: ObservableObject {
     } else {
       let msg = appendAssistant("Got it, updated:\n\(updatedPrompt)")
       flow.confirmAnchorID = msg.id
-      // ID-entry steps (Floy / Envelope) echo the typed value back with a
-      // Confirm/Retry capsule pair — Confirm advances, Retry clears the
-      // stored value and re-prompts.
+      // ID-entry steps (Floy / Scale envelope / Fin clip envelope) echo the
+      // typed value back with a Confirm/Retry capsule pair — Confirm
+      // advances, Retry clears the stored value and re-prompts.
       if flow.currentStep == .floyTagID
-          || flow.currentStep == .envelopeScan {
+          || flow.currentStep == .scaleScan
+          || flow.currentStep == .finScan {
         attachConfirmRetryIDCapsules(to: msg.id)
       }
     }
@@ -1393,29 +1400,51 @@ final class CatchChatViewModel: ObservableObject {
     flow.confirmAnchorID = msg.id
   }
 
-  /// Researcher declares what's in the envelope (Scale, Fin clip, Both). The
-  /// flow manager advances to `.envelopeScan`; we post the scan/type prompt
-  /// and attach the Scan + Type-instead capsules so the researcher can choose
-  /// the camera or the keyboard path.
-  func researcherSelectEnvelopeContents(_ contents: ResearcherCatchFlowManager.SampleContents) {
+  /// Researcher answered Yes at .sampleCollection. Advances the flow manager
+  /// to .scaleScan and posts the "Scan the scale envelope" prompt with the
+  /// Scan + Type-instead capsule pair.
+  func researcherBeginScaleScan() {
     guard let flow = researcherFlow else { return }
     flow.confirmAnchorID = nil
 
-    let (message, _) = flow.selectEnvelopeContents(contents)
+    let (message, _) = flow.beginScaleScan()
     let msg = appendAssistant(message)
     flow.confirmAnchorID = msg.id
-    attachEnvelopeScanCapsules(to: msg.id)
+    attachSampleScanCapsules(to: msg.id)
   }
 
-  /// Called by the chat view after the scanner sheet returns a barcode. Stores
-  /// the parsed envelope ID on the flow manager and posts the standard
-  /// confirmation bubble (Envelope: ID / Contents: …) with Confirm/Retry
-  /// capsules attached.
-  func researcherRecordScannedEnvelope(_ id: String) {
+  /// Researcher answered Yes at .finPrompt. Advances the flow manager to
+  /// .finScan and posts the "Scan the fin clip envelope" prompt.
+  func researcherBeginFinScan() {
     guard let flow = researcherFlow else { return }
     flow.confirmAnchorID = nil
 
-    let message = flow.recordScannedEnvelope(id: id)
+    let (message, _) = flow.beginFinScan()
+    let msg = appendAssistant(message)
+    flow.confirmAnchorID = msg.id
+    attachSampleScanCapsules(to: msg.id)
+  }
+
+  /// Called by the chat view after the scanner sheet returns a scale-envelope
+  /// barcode. Stores the parsed ID on the flow manager and posts the
+  /// confirmation bubble with Confirm/Retry capsules.
+  func researcherRecordScannedScaleEnvelope(_ id: String) {
+    guard let flow = researcherFlow else { return }
+    flow.confirmAnchorID = nil
+
+    let message = flow.recordScannedScaleEnvelope(id: id)
+    let msg = appendAssistant(message)
+    flow.confirmAnchorID = msg.id
+    attachConfirmRetryIDCapsules(to: msg.id)
+  }
+
+  /// Called by the chat view after the scanner sheet returns a fin-clip-
+  /// envelope barcode.
+  func researcherRecordScannedFinEnvelope(_ id: String) {
+    guard let flow = researcherFlow else { return }
+    flow.confirmAnchorID = nil
+
+    let message = flow.recordScannedFinEnvelope(id: id)
     let msg = appendAssistant(message)
     flow.confirmAnchorID = msg.id
     attachConfirmRetryIDCapsules(to: msg.id)
@@ -1929,8 +1958,12 @@ final class CatchChatViewModel: ObservableObject {
     // Map to the v5 upload fields of the same name.
     var floyId: String?
     var pitId: String?
-    var sampleEnvelopeId: String?
-    var sampleContents: [String]?
+    /// Scale envelope barcode — populated whenever the researcher answered
+    /// Yes at sample-collection (scales are always taken when sampling).
+    var scaleEnvelopeId: String?
+    /// Fin clip envelope barcode — populated only when the researcher
+    /// answered Yes at the fin-clip prompt and scanned the second envelope.
+    var finEnvelopeId: String?
   }
 
   func makeCatchSnapshot() -> CatchSnapshot? {
@@ -2021,37 +2054,27 @@ final class CatchChatViewModel: ObservableObject {
         : false,
       // Floy tag is captured today; PIT ships in Phase 3.5.
       //
-      // Sample envelope: one barcode + an array of declared contents. Both
-      // are nil unless the researcher tapped "Yes" at sampleCollection and
-      // completed the envelope-scan step. The backend enforces the
-      // "envelopeId set ⇒ contents non-empty" invariant — we keep the iOS
-      // shape consistent by deriving both from the flow manager together.
+      // Sample envelopes — up to two distinct barcodes per catch:
+      //   * scaleEnvelopeId: set whenever sampling is taken (scales are
+      //     always collected when sampling).
+      //   * finEnvelopeId: optional second envelope, set only when
+      //     the researcher answered Yes to "Did you also take a fin clip?".
+      // The upload-side translation to the backend's current envelope+
+      // contents shape lives in `UploadCatchReport.swift`; the fin-clip
+      // barcode persists locally until the backend ships a two-field
+      // contract.
       floyId: researcherFlow?.floyTagNumber,
       pitId: nil,
-      sampleEnvelopeId: sampleEnvelopeId(for: researcherFlow),
-      sampleContents: sampleContents(for: researcherFlow)
+      scaleEnvelopeId: nonEmpty(researcherFlow?.scaleEnvelopeId),
+      finEnvelopeId: nonEmpty(researcherFlow?.finEnvelopeId)
     )
   }
 
-  /// Returns the scanned envelope barcode when both the barcode and a
-  /// contents declaration are present, otherwise nil. The backend rejects
-  /// the envelope ID without contents (and vice versa), so we gate both
-  /// fields together at the snapshot boundary.
-  private func sampleEnvelopeId(for flow: ResearcherCatchFlowManager?) -> String? {
-    guard let flow,
-          let barcode = flow.envelopeBarcode, !barcode.isEmpty,
-          flow.sampleContents != nil else { return nil }
-    return barcode
-  }
-
-  /// Wire-format contents array (matches the planned future values
-  /// "scale" / "fin_clip" / "otolith" / etc.). Returns nil when no
-  /// envelope was captured so the request body omits the field entirely.
-  private func sampleContents(for flow: ResearcherCatchFlowManager?) -> [String]? {
-    guard let flow,
-          let barcode = flow.envelopeBarcode, !barcode.isEmpty,
-          let contents = flow.sampleContents else { return nil }
-    return contents.wireValues
+  /// Trim + nil-coalesce so empty strings never leak into the snapshot.
+  private func nonEmpty(_ value: String?) -> String? {
+    guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+          !trimmed.isEmpty else { return nil }
+    return trimmed
   }
 
   func extractLengthInches(from raw: String) -> Int? {

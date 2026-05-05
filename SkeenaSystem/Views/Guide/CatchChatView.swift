@@ -12,16 +12,16 @@ struct CatchChatView: View {
   // Voice memo sheet
   @State private var showVoiceNoteSheet = false
 
-  // Envelope barcode scanner sheet — presented when the user taps the "Scan"
-  // capsule on the .envelopeScan step. The sheet returns either a parsed
-  // envelope ID (handed off to the VM) or a manual-entry signal (just dismiss
-  // and let the user type into the input bar).
-  @State private var showEnvelopeScanner = false
+  // Sample envelope barcode scanner sheet — presented when the user taps
+  // the "Scan" capsule on either the .scaleScan or .finScan step. The
+  // sheet returns either a parsed envelope ID (handed off to the VM, routed
+  // to the right field based on currentStep) or a manual-entry signal (just
+  // dismiss and let the user type into the input bar).
+  @State private var showSampleScanner = false
 
-  // Study: show Yes/No first, then expand to type icons. Sample collection no
-  // longer uses an icon-expansion pattern — the contents capsule row is posted
-  // directly to the bubble by `postEnvelopeContentsStep`, and the side icons
-  // for `.sampleCollection` are now just Yes/No.
+  // Study: show Yes/No first, then expand to type icons. Sample collection
+  // is now driven by the chat-capsule row (Yes/No) plus per-step Scan/Type
+  // capsules — no icon-expansion state needed for it.
   @State private var showStudyTypeIcons = false
 
   /// Whether the chat uses the scientific visual style ("Science mode" label).
@@ -187,27 +187,38 @@ struct CatchChatView: View {
         viewModel.requestVoiceNoteSheet = false
       }
     }
-    .sheet(isPresented: $showEnvelopeScanner) {
+    .sheet(isPresented: $showSampleScanner) {
       EnvelopeBarcodeScanner(
         onScan: { id in
-          showEnvelopeScanner = false
-          viewModel.researcherRecordScannedEnvelope(id)
+          showSampleScanner = false
+          // Route the parsed barcode to the right flow-manager handler
+          // based on which step the user is currently on.
+          switch viewModel.researcherFlow?.currentStep {
+          case .scaleScan:
+            viewModel.researcherRecordScannedScaleEnvelope(id)
+          case .finScan:
+            viewModel.researcherRecordScannedFinEnvelope(id)
+          default:
+            // Defensive: shouldn't happen — the scanner is only presented
+            // from one of the two scan steps.
+            break
+          }
         },
         onManualEntry: {
           // Dismiss the scanner; the chat input bar is always live so the
           // user can immediately type the ID. Capsules on the bubble stay
           // intact in case they change their mind.
-          showEnvelopeScanner = false
+          showSampleScanner = false
         },
         onCancel: {
-          showEnvelopeScanner = false
+          showSampleScanner = false
         }
       )
     }
-    .onChange(of: viewModel.requestEnvelopeScannerSheet) { requested in
+    .onChange(of: viewModel.requestSampleScannerSheet) { requested in
       if requested {
-        showEnvelopeScanner = true
-        viewModel.requestEnvelopeScannerSheet = false
+        showSampleScanner = true
+        viewModel.requestSampleScannerSheet = false
       }
     }
   }
@@ -272,18 +283,6 @@ struct CatchChatView: View {
           viewModel.researcherConfirm()
         }
       }
-    } else if step == .envelopeContents {
-      HStack(spacing: 12) {
-        choiceButton("Scale", icon: "fish.fill", disabled: false) {
-          viewModel.researcherSelectEnvelopeContents(.scale)
-        }
-        choiceButton("Fin clip", icon: "scissors", disabled: false) {
-          viewModel.researcherSelectEnvelopeContents(.finClip)
-        }
-        choiceButton("Both", icon: "plus.circle.fill", disabled: false) {
-          viewModel.researcherSelectEnvelopeContents(.both)
-        }
-      }
     }
   }
 
@@ -346,11 +345,14 @@ struct CatchChatView: View {
           Image(systemName: "xmark.circle.fill").font(.brandTitle2)
         }
       }
-    } else if step == .sampleCollection {
-      // Yes (advance to .envelopeContents and post the contents capsule row)
-      // / No (skip to voice memo). The Yes path is handled in the VM.
+    } else if step == .sampleCollection || step == .finPrompt {
+      // Yes/No prompt steps. Yes routes through the VM (advances flow +
+      // posts next bubble); No is just researcherConfirm().
+      let yesAction: ChatCapsuleAction = (step == .sampleCollection)
+        ? .sampleCollect(yes: true)
+        : .finChoice(yes: true)
       Button {
-        viewModel.handleCapsuleTap(.sampleCollect(yes: true))
+        viewModel.handleCapsuleTap(yesAction)
       } label: {
         Image(systemName: "checkmark.circle.fill").font(.brandTitle2)
       }
@@ -359,11 +361,6 @@ struct CatchChatView: View {
       } label: {
         Image(systemName: "xmark.circle.fill").font(.brandTitle2)
       }
-    } else if step == .envelopeContents {
-      // Pure capsule-driven step (Scale / Fin clip / Both live on the bubble).
-      // The side column intentionally has no buttons here so the user's eye is
-      // drawn to the capsule row.
-      EmptyView()
     } else if step == .floyTagID {
       if let tag = viewModel.researcherFlow?.floyTagNumber, !tag.isEmpty {
         Button {
@@ -373,17 +370,20 @@ struct CatchChatView: View {
             .font(.brandTitle2)
         }
       }
-    } else if step == .envelopeScan {
+    } else if step == .scaleScan || step == .finScan {
       // Show the camera-scan icon as a side affordance whenever the user is
-      // on this step — even before they've engaged the capsule on the bubble
+      // on a scan step — even before they engage the capsule on the bubble
       // — so the scanner is one tap away. Once a barcode has been captured,
       // also surface the Confirm checkmark.
       Button {
-        viewModel.handleCapsuleTap(.openEnvelopeScanner)
+        viewModel.handleCapsuleTap(.openSampleScanner)
       } label: {
         Image(systemName: "barcode.viewfinder").font(.brandTitle2)
       }
-      if let code = viewModel.researcherFlow?.envelopeBarcode, !code.isEmpty {
+      let captured: String? = (step == .scaleScan)
+        ? viewModel.researcherFlow?.scaleEnvelopeId
+        : viewModel.researcherFlow?.finEnvelopeId
+      if let code = captured, !code.isEmpty {
         Button {
           viewModel.researcherConfirm()
         } label: {
