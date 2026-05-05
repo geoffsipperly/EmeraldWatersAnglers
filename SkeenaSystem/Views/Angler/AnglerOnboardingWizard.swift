@@ -27,20 +27,20 @@ struct AnglerOnboardingWizard: View {
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
 
       VStack(spacing: 0) {
         // Top bar: close button + progress
         HStack {
           Button(action: { showSkipConfirm = true }) {
             Image(systemName: "xmark")
-              .font(.title3.weight(.semibold))
-              .foregroundColor(.white.opacity(0.7))
+              .font(.brandTitle3.weight(.semibold))
+              .foregroundColor(.brandTextPrimary.opacity(0.7))
           }
           Spacer()
           Text("Step \(min(currentStep + 1, totalSteps)) of \(totalSteps)")
-            .font(.caption.weight(.medium))
-            .foregroundColor(.gray)
+            .font(.brandCaption.weight(.medium))
+            .foregroundColor(.brandTextSecondary)
         }
         .padding(.horizontal, 20)
         .padding(.top, 16)
@@ -50,10 +50,10 @@ struct AnglerOnboardingWizard: View {
         GeometryReader { geo in
           ZStack(alignment: .leading) {
             Capsule()
-              .fill(Color.white.opacity(0.12))
+              .fill(Color.brandStroke)
               .frame(height: 4)
             Capsule()
-              .fill(Color.blue)
+              .fill(Color.brandAccent)
               .frame(width: geo.size.width * CGFloat(currentStep + 1) / CGFloat(totalSteps), height: 4)
               .animation(.easeInOut(duration: 0.3), value: currentStep)
           }
@@ -80,11 +80,11 @@ struct AnglerOnboardingWizard: View {
           if currentStep > 0 {
             Button(action: { withAnimation { currentStep -= 1 } }) {
               Text("Back")
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(.white)
+                .font(.brandSubheadline.weight(.semibold))
+                .foregroundColor(.brandTextPrimary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(Color.white.opacity(0.12))
+                .background(Color.brandStroke)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
           }
@@ -92,11 +92,11 @@ struct AnglerOnboardingWizard: View {
           if currentStep > 0 {
             Button(action: { advanceOrFinish() }) {
               Text("Skip")
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(.white.opacity(0.6))
+                .font(.brandSubheadline.weight(.semibold))
+                .foregroundColor(.brandTextPrimary.opacity(0.6))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(Color.white.opacity(0.06))
+                .background(Color.brandStrokeSubtle)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
           }
@@ -114,11 +114,11 @@ struct AnglerOnboardingWizard: View {
             }
           }) {
             Text(currentStep == totalSteps - 1 ? "Done" : (currentStep == 0 ? "Get Started" : "Save & Next"))
-              .font(.subheadline.weight(.semibold))
-              .foregroundColor(.white)
+              .font(.brandSubheadline.weight(.semibold))
+              .foregroundColor(.brandTextPrimary)
               .frame(maxWidth: .infinity)
               .padding(.vertical, 14)
-              .background(Color.blue)
+              .background(Color.brandAccent)
               .clipShape(RoundedRectangle(cornerRadius: 12))
           }
         }
@@ -168,18 +168,18 @@ private struct WelcomeStep: View {
 
         if let name = communityConfig.displayName, !name.isEmpty {
           Text("Welcome to \(name)")
-            .font(.title2.weight(.bold))
-            .foregroundColor(.white)
+            .font(.brandTitle2.weight(.bold))
+            .foregroundColor(.brandTextPrimary)
             .multilineTextAlignment(.center)
         } else {
           Text("Welcome")
-            .font(.title2.weight(.bold))
-            .foregroundColor(.white)
+            .font(.brandTitle2.weight(.bold))
+            .foregroundColor(.brandTextPrimary)
         }
 
         Text("Let's get you set up so your guide can personalize your experience.")
-          .font(.body)
-          .foregroundColor(.gray)
+          .font(.brandBody)
+          .foregroundColor(.brandTextSecondary)
           .multilineTextAlignment(.center)
           .padding(.horizontal, 32)
 
@@ -200,16 +200,16 @@ private struct WelcomeStep: View {
   private func setupRow(icon: String, title: String, desc: String) -> some View {
     HStack(spacing: 14) {
       Image(systemName: icon)
-        .font(.title3)
-        .foregroundColor(.blue)
+        .font(.brandTitle3)
+        .foregroundColor(.brandAccent)
         .frame(width: 32)
       VStack(alignment: .leading, spacing: 2) {
         Text(title)
-          .font(.subheadline.weight(.semibold))
-          .foregroundColor(.white)
+          .font(.brandSubheadline.weight(.semibold))
+          .foregroundColor(.brandTextPrimary)
         Text(desc)
-          .font(.caption)
-          .foregroundColor(.gray)
+          .font(.brandCaption)
+          .foregroundColor(.brandTextSecondary)
       }
       Spacer()
     }
@@ -231,14 +231,14 @@ private struct ProfileStep: View {
     ScrollView {
       VStack(alignment: .leading, spacing: 16) {
         Text("Your Profile")
-          .font(.title3.weight(.bold))
-          .foregroundColor(.white)
+          .font(.brandTitle3.weight(.bold))
+          .foregroundColor(.brandTextPrimary)
         Text("Confirm your details so your guide knows who you are.")
-          .font(.subheadline)
-          .foregroundColor(.gray)
+          .font(.brandSubheadline)
+          .foregroundColor(.brandTextSecondary)
 
         if let err = errorText {
-          Text(err).foregroundColor(.red).font(.footnote)
+          Text(err).foregroundColor(.brandError).font(.brandFootnote)
         }
 
         if isLoading {
@@ -254,13 +254,13 @@ private struct ProfileStep: View {
           ))
 
           VStack(alignment: .leading, spacing: 8) {
-            Text("Date of Birth").foregroundColor(.blue).font(.callout.weight(.medium))
+            Text("Date of Birth").foregroundColor(.brandAccent).font(.callout.weight(.medium))
             DatePicker("", selection: $dobDate, displayedComponents: .date)
               .labelsHidden()
-              .foregroundColor(.white)
+              .foregroundColor(.brandTextPrimary)
           }
           .padding()
-          .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+          .background(Color.brandSurface, in: RoundedRectangle(cornerRadius: 14))
 
           profileCard(label: "Phone Number", value: Binding(
             get: { profile.phoneNumber ?? "" },
@@ -281,13 +281,13 @@ private struct ProfileStep: View {
 
   private func profileCard(label: String, value: Binding<String>) -> some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text(label).foregroundColor(.blue).font(.callout.weight(.medium))
+      Text(label).foregroundColor(.brandAccent).font(.callout.weight(.medium))
       TextField(label, text: value)
-        .foregroundColor(.white)
+        .foregroundColor(.brandTextPrimary)
         .font(.callout)
     }
     .padding()
-    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+    .background(Color.brandSurface, in: RoundedRectangle(cornerRadius: 14))
   }
 
   private func loadProfile() async {
@@ -357,21 +357,21 @@ private struct PreferencesStep: View {
     ScrollView {
       VStack(alignment: .leading, spacing: 16) {
         Text("Preferences")
-          .font(.title3.weight(.bold))
-          .foregroundColor(.white)
+          .font(.brandTitle3.weight(.bold))
+          .foregroundColor(.brandTextPrimary)
         Text("Let us know about any dietary needs, accessibility requirements, or other preferences.")
-          .font(.subheadline)
-          .foregroundColor(.gray)
+          .font(.brandSubheadline)
+          .foregroundColor(.brandTextSecondary)
 
         if let err = errorText {
-          Text(err).foregroundColor(.red).font(.footnote)
+          Text(err).foregroundColor(.brandError).font(.brandFootnote)
         }
 
         if isLoading {
           ProgressView().tint(.white).frame(maxWidth: .infinity).padding(.vertical, 32)
         } else if fields.isEmpty {
           Text("No preferences configured for this community.")
-            .foregroundColor(.gray).font(.body)
+            .foregroundColor(.brandTextSecondary).font(.brandBody)
         } else {
           ForEach(fields) { field in
             preferenceCard(field)
@@ -394,7 +394,7 @@ private struct PreferencesStep: View {
     VStack(alignment: .leading, spacing: 8) {
       HStack(alignment: .center) {
         Text(field.question_text ?? field.field_label)
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
           .font(.callout)
           .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -423,34 +423,34 @@ private struct PreferencesStep: View {
             axis: .vertical
           )
           .lineLimit(3, reservesSpace: true)
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
           .font(.callout)
           .padding(8)
-          .background(Color.white.opacity(0.08))
+          .background(Color.brandSurface)
           .clipShape(RoundedRectangle(cornerRadius: 8))
         } else {
           TextEditor(text: Binding(
             get: { textValues[field.id] ?? "" },
             set: { textValues[field.id] = $0 }
           ))
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
           .frame(minHeight: 72)
           .padding(4)
-          .background(Color.white.opacity(0.08))
+          .background(Color.brandSurface)
           .clipShape(RoundedRectangle(cornerRadius: 8))
         }
       }
     }
     .padding()
-    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+    .background(Color.brandSurface, in: RoundedRectangle(cornerRadius: 14))
   }
 
   private func checkButton(isOn: Bool, label: String, action: @escaping () -> Void) -> some View {
     Button(action: action) {
       HStack(spacing: 4) {
         Image(systemName: isOn ? "checkmark.square" : "square")
-          .foregroundColor(.white).font(.subheadline)
-        Text(label).foregroundColor(.white).font(.footnote)
+          .foregroundColor(.brandTextPrimary).font(.brandSubheadline)
+        Text(label).foregroundColor(.brandTextPrimary).font(.brandFootnote)
       }
     }
     .buttonStyle(.plain)
@@ -532,21 +532,21 @@ private struct ProficienciesStep: View {
     ScrollView {
       VStack(alignment: .leading, spacing: 16) {
         Text("About You")
-          .font(.title3.weight(.bold))
-          .foregroundColor(.white)
+          .font(.brandTitle3.weight(.bold))
+          .foregroundColor(.brandTextPrimary)
         Text("Drag the slider toward the option that fits best. If you're between two options, place it somewhere in the middle.")
-          .font(.subheadline)
-          .foregroundColor(.gray)
+          .font(.brandSubheadline)
+          .foregroundColor(.brandTextSecondary)
 
         if let err = errorText {
-          Text(err).foregroundColor(.red).font(.footnote)
+          Text(err).foregroundColor(.brandError).font(.brandFootnote)
         }
 
         if isLoading {
           ProgressView().tint(.white).frame(maxWidth: .infinity).padding(.vertical, 32)
         } else if fields.isEmpty {
           Text("No proficiency fields configured for this community.")
-            .foregroundColor(.gray).font(.body)
+            .foregroundColor(.brandTextSecondary).font(.brandBody)
         } else {
           ForEach(fields) { field in
             proficiencyCard(field)
@@ -571,19 +571,19 @@ private struct ProficienciesStep: View {
 
     VStack(alignment: .leading, spacing: 12) {
       Text(field.field_label)
-        .font(.headline.weight(.semibold))
-        .foregroundColor(.blue)
+        .font(.brandHeadline.weight(.semibold))
+        .foregroundColor(.brandAccent)
 
       if let ctx = field.context_text, !ctx.isEmpty {
         Text(String(ctx.prefix(150)))
-          .font(.subheadline)
-          .foregroundColor(.white)
+          .font(.brandSubheadline)
+          .foregroundColor(.brandTextPrimary)
       }
 
       if let q = field.question_text, !q.isEmpty {
         Text(String(q.prefix(100)))
-          .font(.subheadline).italic()
-          .foregroundColor(.white)
+          .font(.brandSubheadline).italic()
+          .foregroundColor(.brandTextPrimary)
       }
 
       Slider(
@@ -598,20 +598,20 @@ private struct ProficienciesStep: View {
 
       HStack(alignment: .top) {
         Text(field.options?.lowText.map { String($0.prefix(150)) } ?? "")
-          .foregroundColor(.gray).font(.footnote)
+          .foregroundColor(.brandTextSecondary).font(.brandFootnote)
           .lineLimit(3).multilineTextAlignment(.leading)
         Spacer()
         Text(field.options?.midText.map { String($0.prefix(150)) } ?? "")
-          .foregroundColor(.gray).font(.footnote)
+          .foregroundColor(.brandTextSecondary).font(.brandFootnote)
           .lineLimit(3).multilineTextAlignment(.center)
         Spacer()
         Text(field.options?.highText.map { String($0.prefix(150)) } ?? "")
-          .foregroundColor(.gray).font(.footnote)
+          .foregroundColor(.brandTextSecondary).font(.brandFootnote)
           .lineLimit(3).multilineTextAlignment(.trailing)
       }
     }
     .padding()
-    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+    .background(Color.brandSurface, in: RoundedRectangle(cornerRadius: 14))
   }
 
   private func loadProficiencies() async {
@@ -695,37 +695,37 @@ private struct GearStep: View {
     ScrollView {
       VStack(alignment: .leading, spacing: 16) {
         Text("Gear Checklist")
-          .font(.title3.weight(.bold))
-          .foregroundColor(.white)
+          .font(.brandTitle3.weight(.bold))
+          .foregroundColor(.brandTextPrimary)
         Text("Check off the gear you already have. This helps your guide know what you might need.")
-          .font(.subheadline)
-          .foregroundColor(.gray)
+          .font(.brandSubheadline)
+          .foregroundColor(.brandTextSecondary)
 
         if let err = errorText {
-          Text(err).foregroundColor(.red).font(.footnote)
+          Text(err).foregroundColor(.brandError).font(.brandFootnote)
         }
 
         if isLoading {
           ProgressView().tint(.white).frame(maxWidth: .infinity).padding(.vertical, 32)
         } else if fields.isEmpty {
           Text("No gear items configured for this community.")
-            .foregroundColor(.gray).font(.body)
+            .foregroundColor(.brandTextSecondary).font(.brandBody)
         } else {
           if !mandatoryFields.isEmpty {
             Text("Mandatory gear")
-              .font(.headline.weight(.semibold)).foregroundColor(.blue)
+              .font(.brandHeadline.weight(.semibold)).foregroundColor(.brandAccent)
             Text("These items are essential for a safe and comfortable trip")
-              .foregroundColor(.white).font(.subheadline)
+              .foregroundColor(.brandTextPrimary).font(.brandSubheadline)
             gearSection(mandatoryFields)
           }
           if !recommendedFields.isEmpty {
             Text("Recommended gear")
-              .font(.headline.weight(.semibold)).foregroundColor(.blue)
+              .font(.brandHeadline.weight(.semibold)).foregroundColor(.brandAccent)
             gearSection(recommendedFields)
           }
           if !otherFields.isEmpty {
             Text("Additional gear")
-              .font(.headline.weight(.semibold)).foregroundColor(.blue)
+              .font(.brandHeadline.weight(.semibold)).foregroundColor(.brandAccent)
             gearSection(otherFields)
           }
         }
@@ -750,20 +750,20 @@ private struct GearStep: View {
           }) {
             ZStack {
               RoundedRectangle(cornerRadius: 2)
-                .stroke(Color.blue, lineWidth: 2)
+                .stroke(Color.brandAccent, lineWidth: 2)
                 .frame(width: 16, height: 16)
               if values[field.id] == "true" {
                 Image(systemName: "checkmark")
-                  .foregroundColor(.blue)
+                  .foregroundColor(.brandAccent)
                   .font(.system(size: 10, weight: .bold))
               }
             }
           }
           VStack(alignment: .leading, spacing: 4) {
             Text(field.field_label)
-              .foregroundColor(.white).font(.body)
+              .foregroundColor(.brandTextPrimary).font(.brandBody)
             if let ctx = field.context_text, !ctx.isEmpty {
-              Text(ctx).foregroundColor(.gray).font(.subheadline)
+              Text(ctx).foregroundColor(.brandTextSecondary).font(.brandSubheadline)
             }
           }
           Spacer()

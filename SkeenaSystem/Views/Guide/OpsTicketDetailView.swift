@@ -36,15 +36,15 @@ struct OpsTicketDetailView: View {
         List {
             Section {
                 TextField("Task name", text: $taskName)
-                    .foregroundColor(.white)
+                    .foregroundColor(.brandTextPrimary)
 
                 TextField("Description", text: $descriptionText, axis: .vertical)
-                    .foregroundColor(.white)
+                    .foregroundColor(.brandTextPrimary)
                     .lineLimit(3...6)
             } header: {
-                Text("Details").foregroundColor(.white)
+                Text("Details").foregroundColor(.brandTextPrimary)
             }
-            .listRowBackground(Color.white.opacity(0.06))
+            .listRowBackground(Color.brandStrokeSubtle)
 
             Section {
                 Picker("Owner", selection: $selectedOwnerId) {
@@ -53,7 +53,7 @@ struct OpsTicketDetailView: View {
                         Text(owner.name).tag(owner.userId)
                     }
                 }
-                .foregroundColor(.white)
+                .foregroundColor(.brandTextPrimary)
 
                 Picker("Stage", selection: $stage) {
                     Text("To Do").tag("todo")
@@ -62,35 +62,35 @@ struct OpsTicketDetailView: View {
                 }
                 .pickerStyle(.segmented)
             } header: {
-                Text("Assignment").foregroundColor(.white)
+                Text("Assignment").foregroundColor(.brandTextPrimary)
             }
-            .listRowBackground(Color.white.opacity(0.06))
+            .listRowBackground(Color.brandStrokeSubtle)
 
             Section {
                 Toggle("Has due date", isOn: $hasDueDate)
-                    .foregroundColor(.white)
+                    .foregroundColor(.brandTextPrimary)
 
                 if hasDueDate {
                     DatePicker("Due date", selection: $dueDate, displayedComponents: .date)
-                        .foregroundColor(.white)
+                        .foregroundColor(.brandTextPrimary)
                 }
             } header: {
-                Text("Schedule").foregroundColor(.white)
+                Text("Schedule").foregroundColor(.brandTextPrimary)
             }
-            .listRowBackground(Color.white.opacity(0.06))
+            .listRowBackground(Color.brandStrokeSubtle)
 
             Section {
                 TextField("Notes", text: $notes, axis: .vertical)
-                    .foregroundColor(.white)
+                    .foregroundColor(.brandTextPrimary)
                     .lineLimit(3...8)
             } header: {
-                Text("Notes").foregroundColor(.white)
+                Text("Notes").foregroundColor(.brandTextPrimary)
             }
-            .listRowBackground(Color.white.opacity(0.06))
+            .listRowBackground(Color.brandStrokeSubtle)
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
-        .background(Color.black.ignoresSafeArea())
+        .background(Color.brandBackground.ignoresSafeArea())
         .navigationTitle("Edit Ticket")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

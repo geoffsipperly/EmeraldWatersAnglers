@@ -27,47 +27,47 @@ struct ActivitiesObservationsTab: View {
       Section {
         if farmedStore.reports.isEmpty {
           Text("No activity marks yet")
-            .font(.subheadline)
-            .foregroundColor(.gray)
-            .listRowBackground(Color.black)
+            .font(.brandSubheadline)
+            .foregroundColor(.brandTextSecondary)
+            .listRowBackground(Color.brandBackground)
         } else {
           ForEach(farmedStore.reports) { report in
             MarkRow(report: report)
-              .listRowBackground(Color.black)
+              .listRowBackground(Color.brandBackground)
           }
           .onDelete(perform: deleteMarks)
         }
       } header: {
         Text("Marks")
-          .font(.headline)
-          .foregroundColor(.white)
+          .font(.brandHeadline)
+          .foregroundColor(.brandTextPrimary)
       }
 
       // ── Notes section ──────────────────────────────────────────
       Section {
         if observationStore.observations.isEmpty {
           Text("No observations yet")
-            .font(.subheadline)
-            .foregroundColor(.gray)
-            .listRowBackground(Color.black)
+            .font(.brandSubheadline)
+            .foregroundColor(.brandTextSecondary)
+            .listRowBackground(Color.brandBackground)
         } else {
           ForEach(observationStore.observations) { obs in
             NavigationLink(destination: ObservationDetailView(observation: obs)) {
               NoteRow(observation: obs)
             }
-            .listRowBackground(Color.black)
+            .listRowBackground(Color.brandBackground)
           }
           .onDelete(perform: deleteNotes)
         }
       } header: {
         Text("Notes")
-          .font(.headline)
-          .foregroundColor(.white)
+          .font(.brandHeadline)
+          .foregroundColor(.brandTextPrimary)
       }
     }
     .listStyle(.plain)
     .scrollContentBackground(.hidden)
-    .background(Color.black)
+    .background(Color.brandBackground)
     .onAppear {
       farmedStore.purgeOldUploaded()
       farmedStore.refresh()
@@ -113,24 +113,24 @@ private struct MarkRow: View {
     VStack(alignment: .leading, spacing: 4) {
       HStack(alignment: .firstTextBaseline, spacing: 6) {
         Text(report.eventType.displayName)
-          .font(.subheadline.weight(.semibold))
-          .foregroundColor(.white)
+          .font(.brandSubheadline.weight(.semibold))
+          .foregroundColor(.brandTextPrimary)
         Spacer()
         Text(report.status.rawValue)
-          .font(.caption2)
+          .font(.brandCaption2)
           .padding(.horizontal, 8)
           .padding(.vertical, 3)
-          .background(report.status == .uploaded ? Color.green.opacity(0.12) : Color.blue.opacity(0.12))
+          .background(report.status == .uploaded ? Color.brandSuccess.opacity(0.12) : Color.brandAccent.opacity(0.12))
           .foregroundColor(report.status == .uploaded ? .green : .blue)
           .clipShape(Capsule())
       }
       Text(Self.timestampFormatter.string(from: report.createdAt))
-        .font(.caption)
-        .foregroundColor(.gray)
+        .font(.brandCaption)
+        .foregroundColor(.brandTextSecondary)
       if !report.guideName.isEmpty {
         Text("\(ActivitiesObservationsTab.activityRowMemberLabel): \(report.guideName)")
-          .font(.caption)
-          .foregroundColor(.gray)
+          .font(.brandCaption)
+          .foregroundColor(.brandTextSecondary)
       }
     }
     .padding(.vertical, 2)
@@ -153,24 +153,24 @@ private struct NoteRow: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
       Text(observation.transcript.isEmpty ? "No transcript" : observation.transcript)
-        .font(.body)
-        .foregroundColor(.white)
+        .font(.brandBody)
+        .foregroundColor(.brandTextPrimary)
         .lineLimit(2)
       HStack {
         Text(Self.timeFormatter.string(from: observation.createdAt))
-          .font(.caption)
-          .foregroundColor(.gray)
+          .font(.brandCaption)
+          .foregroundColor(.brandTextSecondary)
         if observation.lat != nil {
           Image(systemName: "location.fill")
-            .font(.caption2)
-            .foregroundColor(.gray)
+            .font(.brandCaption2)
+            .foregroundColor(.brandTextSecondary)
         }
         Spacer()
         Text(observation.status.rawValue)
-          .font(.caption2)
+          .font(.brandCaption2)
           .padding(.horizontal, 8)
           .padding(.vertical, 3)
-          .background(observation.status == .uploaded ? Color.green.opacity(0.12) : Color.blue.opacity(0.12))
+          .background(observation.status == .uploaded ? Color.brandSuccess.opacity(0.12) : Color.brandAccent.opacity(0.12))
           .foregroundColor(observation.status == .uploaded ? .green : .blue)
           .clipShape(Capsule())
       }

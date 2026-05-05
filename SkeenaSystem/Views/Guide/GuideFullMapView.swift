@@ -137,7 +137,7 @@ struct GuideFullMapView: View {
     .padding(.horizontal, 12)
     .padding(.top, 10)
     .padding(.bottom, 10)
-    .background(Color.white.opacity(0.04))
+    .background(Color.brandSurfaceMuted)
   }
 
   private var timeMenu: some View {
@@ -158,14 +158,14 @@ struct GuideFullMapView: View {
         Image(systemName: "calendar")
           .font(.system(size: 12, weight: .semibold))
         Text(timeWindow.label)
-          .font(.caption.weight(.semibold))
+          .font(.brandCaption.weight(.semibold))
         Image(systemName: "chevron.down")
           .font(.system(size: 10, weight: .semibold))
       }
-      .foregroundColor(.white)
+      .foregroundColor(.brandTextPrimary)
       .padding(.horizontal, 12)
       .padding(.vertical, 7)
-      .background(Color.white.opacity(0.10), in: Capsule())
+      .background(Color.brandTextPrimary.opacity(0.10), in: Capsule())
     }
     .accessibilityIdentifier("mapTimeWindowMenu")
   }
@@ -182,13 +182,13 @@ struct GuideFullMapView: View {
       }
     } label: {
       Text(category.label)
-        .font(.caption.weight(.semibold))
-        .foregroundColor(.white)
+        .font(.brandCaption.weight(.semibold))
+        .foregroundColor(.brandTextPrimary)
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
         .background(
           Capsule()
-            .fill(isOn ? Color.blue : Color.white.opacity(0.18))
+            .fill(isOn ? Color.brandAccent : Color.brandTextPrimary.opacity(0.18))
         )
     }
     .buttonStyle(.plain)
@@ -208,7 +208,7 @@ struct GuideFullMapView: View {
       Spacer()
     }
     .padding(.vertical, 8)
-    .background(Color.white.opacity(0.04))
+    .background(Color.brandSurfaceMuted)
   }
 
   // MARK: - Map pane
@@ -217,7 +217,7 @@ struct GuideFullMapView: View {
   private var mapPane: some View {
     if !hasLoaded {
       ZStack {
-        Color.black
+        Color.brandBackground
         ProgressView().tint(.white)
       }
     } else {
@@ -235,7 +235,7 @@ struct GuideFullMapView: View {
           ProgressView()
             .tint(.white)
             .padding(8)
-            .background(Color.black.opacity(0.55), in: Circle())
+            .background(Color.brandScrim.opacity(0.55), in: Circle())
             .padding(10)
         }
 
@@ -243,11 +243,11 @@ struct GuideFullMapView: View {
           VStack {
             Spacer()
             Text("No reports for this filter")
-              .font(.subheadline.weight(.semibold))
-              .foregroundColor(.white)
+              .font(.brandSubheadline.weight(.semibold))
+              .foregroundColor(.brandTextPrimary)
               .padding(.horizontal, 14)
               .padding(.vertical, 8)
-              .background(Color.black.opacity(0.6), in: Capsule())
+              .background(Color.brandScrim.opacity(0.6), in: Capsule())
               .accessibilityIdentifier("guideMapEmptyState")
             Spacer()
           }

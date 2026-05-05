@@ -74,21 +74,21 @@ struct AnglerAboutYou: View {
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
       ScrollView {
         VStack(alignment: .leading, spacing: 16) {
-          if let err = errorText { Text(err).foregroundColor(.red).font(.footnote) }
-          if let info = infoText { Text(info).foregroundColor(.gray).font(.footnote) }
+          if let err = errorText { Text(err).foregroundColor(.brandError).font(.brandFootnote) }
+          if let info = infoText { Text(info).foregroundColor(.brandTextSecondary).font(.brandFootnote) }
 
           if isLoading && fields.isEmpty {
-            ProgressView().tint(.blue)
+            ProgressView().tint(.brandAccent)
           } else if fields.isEmpty {
             Text("No proficiency fields configured for this community.")
-              .foregroundColor(.gray)
+              .foregroundColor(.brandTextSecondary)
           } else {
             Text("Instructions: Please answer a few quick questions to personalize your experience. Drag the slider toward the option that fits best. If you're between two options, place it somewhere in the middle")
-              .foregroundColor(.white)
-              .font(.subheadline)
+              .foregroundColor(.brandTextPrimary)
+              .font(.brandSubheadline)
 
             ForEach(fields) { field in
               CategoryCard(
@@ -139,11 +139,11 @@ struct AnglerAboutYou: View {
           HStack(spacing: 6) {
             if isSaving { ProgressView() }
             Text("Save")
-              .font(.subheadline.weight(.semibold))
-              .foregroundColor(.white)
+              .font(.brandSubheadline.weight(.semibold))
+              .foregroundColor(.brandTextPrimary)
               .padding(.horizontal, 12)
               .padding(.vertical, 6)
-              .background((hasUnsavedChanges && !isSaving) ? Color.blue : Color.gray)
+              .background((hasUnsavedChanges && !isSaving) ? Color.brandAccent : Color.brandTextSecondary)
               .clipShape(Capsule())
           }
         }
@@ -153,7 +153,7 @@ struct AnglerAboutYou: View {
     }
     .alert("Thank you", isPresented: $showSavedAlert) {
       Button("OK") { dismiss() }
-        .tint(.blue)
+        .tint(.brandAccent)
     } message: {
       Text("You can update your profile at any time")
     }
@@ -185,20 +185,20 @@ struct AnglerAboutYou: View {
     var body: some View {
       VStack(alignment: .leading, spacing: 12) {
         Text(title)
-          .font(.headline.weight(.semibold))
-          .foregroundColor(.blue)
+          .font(.brandHeadline.weight(.semibold))
+          .foregroundColor(.brandAccent)
 
         if let contextText, !contextText.isEmpty {
           Text(String(contextText.prefix(150)))
-            .font(.subheadline)
-            .foregroundColor(.white)
+            .font(.brandSubheadline)
+            .foregroundColor(.brandTextPrimary)
         }
 
         if let question, !question.isEmpty {
           Text(String(question.prefix(100)))
-            .font(.subheadline)
+            .font(.brandSubheadline)
             .italic()
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
         }
 
         Slider(value: $slider, in: minVal...maxVal, step: 1)
@@ -207,31 +207,31 @@ struct AnglerAboutYou: View {
         HStack(alignment: .top) {
           VStack(alignment: .leading) {
             Text(low.map { String($0.prefix(150)) } ?? "")
-              .foregroundColor(.gray)
-              .font(.footnote)
+              .foregroundColor(.brandTextSecondary)
+              .font(.brandFootnote)
               .lineLimit(3)
               .multilineTextAlignment(.leading)
           }
           Spacer()
           VStack(alignment: .center) {
             Text(medium.map { String($0.prefix(150)) } ?? "")
-              .foregroundColor(.gray)
-              .font(.footnote)
+              .foregroundColor(.brandTextSecondary)
+              .font(.brandFootnote)
               .lineLimit(3)
               .multilineTextAlignment(.center)
           }
           Spacer()
           VStack(alignment: .trailing) {
             Text(high.map { String($0.prefix(150)) } ?? "")
-              .foregroundColor(.gray)
-              .font(.footnote)
+              .foregroundColor(.brandTextSecondary)
+              .font(.brandFootnote)
               .lineLimit(3)
               .multilineTextAlignment(.trailing)
           }
         }
       }
       .padding()
-      .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+      .background(Color.brandSurface, in: RoundedRectangle(cornerRadius: 14))
     }
   }
 

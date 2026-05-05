@@ -48,14 +48,14 @@ struct ResearcherLandingView: View {
             // label, not a toggle, and mirrors the guide landing row.
             HStack(spacing: 12) {
               Text("\(auth.currentFirstName ?? "") \(auth.currentLastName ?? "")")
-                .font(.caption.weight(.semibold))
-                .foregroundColor(.white)
+                .font(.brandCaption.weight(.semibold))
+                .foregroundColor(.brandTextPrimary)
 
               Spacer()
 
               Text(Self.conservationModeLabel)
-                .font(.caption.weight(.semibold))
-                .foregroundColor(.green)
+                .font(.brandCaption.weight(.semibold))
+                .foregroundColor(.brandSuccess)
                 .accessibilityIdentifier("conservationModeLabel")
             }
             .padding(.horizontal, 20)
@@ -102,8 +102,8 @@ struct ResearcherLandingView: View {
           HStack(spacing: 12) {
             Button(action: { goToManageAccount = true }) {
               Image(systemName: "person.circle")
-                .font(.title3.weight(.semibold))
-                .foregroundColor(.white)
+                .font(.brandTitle3.weight(.semibold))
+                .foregroundColor(.brandTextPrimary)
             }
             CommunityToolbarButton()
           }
@@ -113,11 +113,11 @@ struct ResearcherLandingView: View {
             Link(destination: donation.url) {
               HStack(spacing: 6) {
                 Image(systemName: "leaf.fill")
-                  .font(.subheadline)
-                  .foregroundColor(.white)
+                  .font(.brandSubheadline)
+                  .foregroundColor(.brandTextPrimary)
                 Text("Donate")
-                  .font(.caption)
-                  .foregroundColor(.white)
+                  .font(.brandCaption)
+                  .foregroundColor(.brandTextPrimary)
               }
             }
             .accessibilityIdentifier("communityDonationLink")
@@ -127,11 +127,11 @@ struct ResearcherLandingView: View {
           Button(action: logoutTapped) {
             HStack(spacing: 6) {
               Image(systemName: "person.crop.circle.badge.xmark")
-                .font(.subheadline)
-                .foregroundColor(.white)
+                .font(.brandSubheadline)
+                .foregroundColor(.brandTextPrimary)
               Text("Log out")
-                .font(.caption)
-                .foregroundColor(.white)
+                .font(.brandCaption)
+                .foregroundColor(.brandTextPrimary)
             }
           }
           .accessibilityIdentifier("logoutCapsule")
@@ -169,7 +169,7 @@ struct ResearcherLandingView: View {
           }
         )
       }
-      .tint(.blue)
+      .tint(.brandAccent)
       .fullScreenCover(isPresented: $chatVM.showRecordObservation, onDismiss: {
         // The sheet can be dismissed via Cancel (no observation saved) or
         // via Save (onSaved fires first). In both cases reset the chat so

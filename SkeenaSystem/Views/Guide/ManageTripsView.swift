@@ -28,7 +28,7 @@ struct ManageTripsView: View {
           Spacer()
         } else if let err = loadError {
           Spacer()
-          Text(err).foregroundColor(.red).padding()
+          Text(err).foregroundColor(.brandError).padding()
           Spacer()
         } else if serverTrips.isEmpty {
           Spacer()
@@ -49,30 +49,30 @@ struct ManageTripsView: View {
                     HStack(alignment: .center) {
                       VStack(alignment: .leading, spacing: 6) {
                         Text(trip.name.isEmpty ? "-" : trip.name)
-                          .foregroundColor(.white)
-                          .font(.headline)
+                          .foregroundColor(.brandTextPrimary)
+                          .font(.brandHeadline)
                         Text(dateRangeString(start: trip.startDate, end: trip.endDate))
-                          .font(.caption)
+                          .font(.brandCaption)
                           .foregroundColor(.secondary)
                       }
                       Spacer()
                       Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundColor(.white.opacity(0.8))
+                        .font(.brandFootnote.weight(.semibold))
+                        .foregroundColor(.brandTextPrimary.opacity(0.8))
                     }
                     .padding(.vertical, 8)
                   }
                   .buttonStyle(.plain)
-                  .listRowBackground(Color.black)
+                  .listRowBackground(Color.brandBackground)
                 }
               } header: {
                 HStack {
                   TripStatusPill(status: st)
                   Spacer()
                 }
-                .listRowBackground(Color.black)
+                .listRowBackground(Color.brandBackground)
               }
-              .listRowBackground(Color.black)
+              .listRowBackground(Color.brandBackground)
             }
           }
           .listStyle(.insetGrouped)
@@ -187,7 +187,7 @@ private struct TripStatusPill: View {
 
   var body: some View {
     Text(status.rawValue)
-      .font(.caption2)
+      .font(.brandCaption2)
       .padding(.horizontal, 12)
       .padding(.vertical, 6)
       .background(backgroundColor)
@@ -198,8 +198,8 @@ private struct TripStatusPill: View {
   private var backgroundColor: Color {
     switch status {
     case .notStarted: return Color.yellow.opacity(0.18)
-    case .inProgress: return Color.green.opacity(0.18)
-    case .completed: return Color.gray.opacity(0.15)
+    case .inProgress: return Color.brandSuccess.opacity(0.18)
+    case .completed: return Color.brandTextSecondary.opacity(0.15)
     }
   }
 

@@ -14,14 +14,14 @@ struct CatchDetailView: View {
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
 
       ScrollView {
         VStack(alignment: .leading, spacing: 16) {
           // Story Title (from API; fall back to river/coordinates while loading)
           Text(story?.title ?? report.displayLocation)
-            .font(.title2.bold())
-            .foregroundColor(.white)
+            .font(.brandTitle2.bold())
+            .foregroundColor(.brandTextPrimary)
             .padding(.top, 8)
 
           // Photo (already downloaded URL from the report)
@@ -29,7 +29,7 @@ struct CatchDetailView: View {
             AsyncImage(url: url) { phase in
               switch phase {
               case .empty:
-                ZStack { Color.white.opacity(0.08); ProgressView() }
+                ZStack { Color.brandSurface; ProgressView() }
                   .frame(maxWidth: .infinity, minHeight: 220)
                   .clipShape(RoundedRectangle(cornerRadius: 14))
               case let .success(img):
@@ -39,13 +39,13 @@ struct CatchDetailView: View {
                   .clipShape(RoundedRectangle(cornerRadius: 14))
               case .failure:
                 ZStack {
-                  Color.white.opacity(0.08)
-                  Image(systemName: "photo").font(.largeTitle)
+                  Color.brandSurface
+                  Image(systemName: "photo").font(.brandLargeTitle)
                 }
                 .frame(maxWidth: .infinity, minHeight: 220)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
               @unknown default:
-                Color.white.opacity(0.08)
+                Color.brandSurface
                   .frame(maxWidth: .infinity, minHeight: 220)
                   .clipShape(RoundedRectangle(cornerRadius: 14))
               }
@@ -74,7 +74,7 @@ struct CatchDetailView: View {
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 12)
-            .background(Color.white.opacity(0.06))
+            .background(Color.brandStrokeSubtle)
             .cornerRadius(12)
           }
 
@@ -84,23 +84,23 @@ struct CatchDetailView: View {
               HStack(spacing: 12) {
                 ProgressView().tint(.white)
                 Text("Generating story…")
-                  .foregroundColor(.white.opacity(0.9))
-                  .font(.subheadline)
+                  .foregroundColor(.brandTextPrimary.opacity(0.9))
+                  .font(.brandSubheadline)
               }
               .padding(.top, 4)
             } else if let err = errorText {
               Text(err)
-                .foregroundColor(.red)
-                .font(.subheadline)
+                .foregroundColor(.brandError)
+                .font(.brandSubheadline)
             } else if let s = story {
               Text(s.summary)
-                .foregroundColor(.white)
-                .font(.body)
+                .foregroundColor(.brandTextPrimary)
+                .font(.brandBody)
                 .fixedSize(horizontal: false, vertical: true)
             } else {
               Text("No story available.")
-                .foregroundColor(.gray)
-                .font(.subheadline)
+                .foregroundColor(.brandTextSecondary)
+                .font(.brandSubheadline)
             }
           }
           .padding(.top, 4)
@@ -108,25 +108,25 @@ struct CatchDetailView: View {
           // Metadata footer (optional, nice touch)
           VStack(alignment: .leading, spacing: 6) {
             Text(Self.fmtDate(report.createdAt))
-              .font(.footnote)
-              .foregroundColor(.gray)
+              .font(.brandFootnote)
+              .foregroundColor(.brandTextSecondary)
             HStack(spacing: 6) {
               Image(systemName: "mappin.and.ellipse")
               Text(String(format: "%.4f, %.4f", report.latitude ?? 0, report.longitude ?? 0))
             }
-            .font(.footnote)
-            .foregroundColor(.gray)
+            .font(.brandFootnote)
+            .foregroundColor(.brandTextSecondary)
 
             // Refresh button placed in the metadata area at the bottom
             Button(action: {
               Task { await refreshStory() }
             }) {
               Text("Refresh Story")
-                .font(.headline)
+                .font(.brandHeadline)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
+                .background(Color.brandAccent)
+                .foregroundColor(.brandTextPrimary)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .disabled(isLoading)
             }
@@ -150,12 +150,12 @@ struct CatchDetailView: View {
   private func detailRow(label: String, value: String) -> some View {
     HStack {
       Text(label)
-        .font(.subheadline)
-        .foregroundColor(.gray)
+        .font(.brandSubheadline)
+        .foregroundColor(.brandTextSecondary)
         .frame(width: 70, alignment: .leading)
       Text(value)
-        .font(.subheadline)
-        .foregroundColor(.white)
+        .font(.brandSubheadline)
+        .foregroundColor(.brandTextPrimary)
       Spacer()
     }
   }

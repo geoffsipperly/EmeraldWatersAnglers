@@ -28,13 +28,13 @@ struct ResearcherCatchConfirmationView: View {
   var body: some View {
     NavigationView {
       ZStack {
-        Color.black.ignoresSafeArea()
+        Color.brandBackground.ignoresSafeArea()
 
         ScrollView {
           VStack(alignment: .leading, spacing: 16) {
             Text("Review Catch Report")
-              .font(.title3.weight(.bold))
-              .foregroundColor(.white)
+              .font(.brandTitle3.weight(.bold))
+              .foregroundColor(.brandTextPrimary)
               .padding(.bottom, 4)
 
             Group {
@@ -82,41 +82,41 @@ struct ResearcherCatchConfirmationView: View {
               if isEditing {
                 Button(action: cancelEdit) {
                   Text("Cancel")
-                    .font(.headline.weight(.bold))
-                    .foregroundColor(.white)
+                    .font(.brandHeadline.weight(.bold))
+                    .foregroundColor(.brandTextPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(Color.white.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+                    .background(Color.brandTextPrimary.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
 
                 Button(action: saveEdits) {
                   Text("Save")
-                    .font(.headline.weight(.bold))
-                    .foregroundColor(.white)
+                    .font(.brandHeadline.weight(.bold))
+                    .foregroundColor(.brandTextPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(Color.blue, in: RoundedRectangle(cornerRadius: 12))
+                    .background(Color.brandAccent, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
               } else {
                 Button(action: startEditing) {
                   Text("Edit")
-                    .font(.headline.weight(.bold))
-                    .foregroundColor(.white)
+                    .font(.brandHeadline.weight(.bold))
+                    .foregroundColor(.brandTextPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(Color.white.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+                    .background(Color.brandTextPrimary.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
 
                 Button { showSavedConfirmation = true } label: {
                   Text("Confirm")
-                    .font(.headline.weight(.bold))
-                    .foregroundColor(.white)
+                    .font(.brandHeadline.weight(.bold))
+                    .foregroundColor(.brandTextPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(Color.blue, in: RoundedRectangle(cornerRadius: 12))
+                    .background(Color.brandAccent, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
               }
@@ -130,7 +130,7 @@ struct ResearcherCatchConfirmationView: View {
         ToolbarItem(placement: .topBarTrailing) {
           if !isEditing {
             Button("Cancel") { showDeleteConfirmation = true }
-              .foregroundColor(.white)
+              .foregroundColor(.brandTextPrimary)
           }
         }
       }
@@ -275,12 +275,12 @@ struct ResearcherCatchConfirmationView: View {
   private func readOnlyRow(label: String, value: String) -> some View {
     HStack(alignment: .top) {
       Text(label)
-        .font(.subheadline.weight(.semibold))
-        .foregroundColor(.gray)
+        .font(.brandSubheadline.weight(.semibold))
+        .foregroundColor(.brandTextSecondary)
         .frame(width: 120, alignment: .leading)
       Text(value)
-        .font(.subheadline)
-        .foregroundColor(.white)
+        .font(.brandSubheadline)
+        .foregroundColor(.brandTextPrimary)
       Spacer()
     }
     .padding(.vertical, 4)
@@ -289,15 +289,15 @@ struct ResearcherCatchConfirmationView: View {
   private func editableRow(label: String, text: Binding<String>, placeholder: String = "") -> some View {
     HStack(alignment: .center) {
       Text(label)
-        .font(.subheadline.weight(.semibold))
-        .foregroundColor(.gray)
+        .font(.brandSubheadline.weight(.semibold))
+        .foregroundColor(.brandTextSecondary)
         .frame(width: 120, alignment: .leading)
       TextField(placeholder, text: text)
-        .font(.subheadline)
-        .foregroundColor(.white)
+        .font(.brandSubheadline)
+        .foregroundColor(.brandTextPrimary)
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .background(Color.white.opacity(0.1))
+        .background(Color.brandTextPrimary.opacity(0.1))
         .cornerRadius(8)
     }
     .padding(.vertical, 2)

@@ -39,12 +39,12 @@ private struct PreferenceCheckbox: View {
     Button(action: action) {
       HStack(spacing: 4) {
         Image(systemName: isOn ? "checkmark.square" : "square")
-          .foregroundColor(.white)
-          .font(.subheadline)
+          .foregroundColor(.brandTextPrimary)
+          .font(.brandSubheadline)
         if !label.isEmpty {
           Text(label)
-            .foregroundColor(.white)
-            .font(.footnote)
+            .foregroundColor(.brandTextPrimary)
+            .font(.brandFootnote)
         }
       }
     }
@@ -85,7 +85,7 @@ struct ManagePreferencesView: View {
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
 
       if isLoading && fields.isEmpty {
         ProgressView().tint(.white)
@@ -93,20 +93,20 @@ struct ManagePreferencesView: View {
         ScrollView {
           VStack(alignment: .leading, spacing: 16) {
             if let err = errorText {
-              Text(err).foregroundColor(.red).font(.footnote)
+              Text(err).foregroundColor(.brandError).font(.brandFootnote)
             }
             if let info = infoText {
-              Text(info).foregroundColor(.gray).font(.footnote)
+              Text(info).foregroundColor(.brandTextSecondary).font(.brandFootnote)
             }
 
             if fields.isEmpty && !isLoading {
               Text("No preferences configured for this community.")
-                .foregroundColor(.gray)
-                .font(.body)
+                .foregroundColor(.brandTextSecondary)
+                .font(.brandBody)
             } else {
               Text("Set preferences")
-                .font(.headline.weight(.semibold))
-                .foregroundColor(.blue)
+                .font(.brandHeadline.weight(.semibold))
+                .foregroundColor(.brandAccent)
 
               ForEach(fields) { field in
                 preferenceSection(field)
@@ -137,12 +137,12 @@ struct ManagePreferencesView: View {
           HStack(spacing: 6) {
             if isSaving { ProgressView().tint(.white) }
             Text("Save")
-              .font(.subheadline.weight(.semibold))
-              .foregroundColor(.white)
+              .font(.brandSubheadline.weight(.semibold))
+              .foregroundColor(.brandTextPrimary)
           }
           .padding(.horizontal, 16)
           .padding(.vertical, 8)
-          .background(hasUnsavedChanges && !isSaving ? Color.blue : Color.gray)
+          .background(hasUnsavedChanges && !isSaving ? Color.brandAccent : Color.brandTextSecondary)
           .clipShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -168,7 +168,7 @@ struct ManagePreferencesView: View {
     VStack(alignment: .leading, spacing: 8) {
       HStack(alignment: .center) {
         Text(field.question_text ?? field.field_label)
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
           .font(.callout)
           .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -203,26 +203,26 @@ struct ManagePreferencesView: View {
             axis: .vertical
           )
           .lineLimit(3, reservesSpace: true)
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
           .font(.callout)
           .padding(8)
-          .background(Color.white.opacity(0.08))
+          .background(Color.brandSurface)
           .clipShape(RoundedRectangle(cornerRadius: 8))
         } else {
           TextEditor(text: Binding(
             get: { textValues[field.id] ?? "" },
             set: { textValues[field.id] = $0 }
           ))
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
           .frame(minHeight: 72)
           .padding(4)
-          .background(Color.white.opacity(0.08))
+          .background(Color.brandSurface)
           .clipShape(RoundedRectangle(cornerRadius: 8))
         }
       }
     }
     .padding()
-    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+    .background(Color.brandSurface, in: RoundedRectangle(cornerRadius: 14))
   }
 
   // MARK: - Networking

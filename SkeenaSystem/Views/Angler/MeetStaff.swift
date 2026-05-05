@@ -49,7 +49,7 @@ struct MeetStaff: View {
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
       VStack(spacing: 18) {
         // Top bar (placeholder)
         HStack { Spacer() }
@@ -68,8 +68,8 @@ struct MeetStaff: View {
         // Messages
         if let errorText = errorText {
           Text(errorText)
-            .font(.footnote)
-            .foregroundColor(.red)
+            .font(.brandFootnote)
+            .foregroundColor(.brandError)
             .multilineTextAlignment(.center)
             .padding(.horizontal, 16)
         }
@@ -98,8 +98,8 @@ struct MeetStaff: View {
 
             if !isLoading && staff.isEmpty && errorText == nil {
               Text("No staff found.")
-                .foregroundColor(.gray)
-                .font(.subheadline)
+                .foregroundColor(.brandTextSecondary)
+                .font(.brandSubheadline)
                 .padding(.top, 20)
             }
           }
@@ -115,8 +115,8 @@ struct MeetStaff: View {
     .toolbar {
       ToolbarItem(placement: .principal) {
         Text("Meet staff")
-          .font(.headline)
-          .foregroundColor(.white)
+          .font(.brandHeadline)
+          .foregroundColor(.brandTextPrimary)
       }
     }
     .navigationBarHidden(false)
@@ -130,15 +130,15 @@ struct MeetStaff: View {
       AsyncImage(url: URL(string: member.photo_url ?? "")) { phase in
         switch phase {
         case .empty:
-          ZStack { Color.white.opacity(0.1) }
-            .overlay(Image(systemName: "person.crop.square").foregroundColor(.white.opacity(0.6)))
+          ZStack { Color.brandTextPrimary.opacity(0.1) }
+            .overlay(Image(systemName: "person.crop.square").foregroundColor(.brandTextPrimary.opacity(0.6)))
         case .success(let image):
           image.resizable().scaledToFill()
         case .failure:
-          ZStack { Color.white.opacity(0.1) }
-            .overlay(Image(systemName: "person.crop.square").foregroundColor(.white.opacity(0.6)))
+          ZStack { Color.brandTextPrimary.opacity(0.1) }
+            .overlay(Image(systemName: "person.crop.square").foregroundColor(.brandTextPrimary.opacity(0.6)))
         @unknown default:
-          Color.white.opacity(0.1)
+          Color.brandTextPrimary.opacity(0.1)
         }
       }
       .frame(width: 60, height: 60)
@@ -146,30 +146,30 @@ struct MeetStaff: View {
 
       VStack(alignment: .leading, spacing: 4) {
         Text("\(member.first_name ?? "") \(member.last_name ?? "")")
-          .font(.headline)
-          .foregroundColor(.white)
+          .font(.brandHeadline)
+          .foregroundColor(.brandTextPrimary)
         if let role = member.role, !role.isEmpty {
           Text(role)
-            .font(.subheadline)
-            .foregroundColor(.blue)
+            .font(.brandSubheadline)
+            .foregroundColor(.brandAccent)
         }
         if let desc = member.short_description, !desc.isEmpty {
           Text(desc)
-            .font(.footnote)
-            .foregroundColor(.white.opacity(0.8))
+            .font(.brandFootnote)
+            .foregroundColor(.brandTextPrimary.opacity(0.8))
         }
       }
       .multilineTextAlignment(.leading)
       Spacer()
       Image(systemName: "chevron.right")
-        .foregroundColor(.white.opacity(0.6))
-        .font(.subheadline.weight(.semibold))
+        .foregroundColor(.brandTextPrimary.opacity(0.6))
+        .font(.brandSubheadline.weight(.semibold))
     }
     .padding(.vertical, 16)
     .padding(.horizontal, 16)
-    .background(Color.white.opacity(0.08))
+    .background(Color.brandSurface)
     .clipShape(RoundedRectangle(cornerRadius: 14))
-    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.12), lineWidth: 1))
+    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.brandStroke, lineWidth: 1))
   }
 
   // MARK: - Networking

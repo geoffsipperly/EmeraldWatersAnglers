@@ -41,7 +41,7 @@ struct FisheryConditionsCalloutView: View {
         catchSpeciesRow
       }
 
-      Divider().background(Color.white.opacity(0.2))
+      Divider().background(Color.brandTextPrimary.opacity(0.2))
 
       metricRow(
         label: "Water temp",
@@ -75,11 +75,11 @@ struct FisheryConditionsCalloutView: View {
         .fill(Color(reportType.pinColor))
         .frame(width: 8, height: 8)
       Text(reportTypeLabel)
-        .font(.subheadline.weight(.semibold))
+        .font(.brandSubheadline.weight(.semibold))
         .foregroundColor(.primary)
       Spacer(minLength: 8)
       Text(formattedDate)
-        .font(.caption)
+        .font(.brandCaption)
         .foregroundColor(.secondary)
     }
   }
@@ -113,7 +113,7 @@ struct FisheryConditionsCalloutView: View {
       HStack(spacing: 6) {
         if !species.isEmpty {
           Text(species)
-            .font(.footnote.weight(.medium))
+            .font(.brandFootnote.weight(.medium))
             .foregroundColor(.primary)
         }
         if !species.isEmpty, length != nil {
@@ -121,7 +121,7 @@ struct FisheryConditionsCalloutView: View {
         }
         if let length {
           Text("\(length)″")
-            .font(.footnote)
+            .font(.brandFootnote)
             .foregroundColor(.secondary)
         }
       }
@@ -142,17 +142,17 @@ struct FisheryConditionsCalloutView: View {
   ) -> some View {
     HStack(spacing: 8) {
       Text(label)
-        .font(.caption)
+        .font(.brandCaption)
         .foregroundColor(.secondary)
         .frame(width: 80, alignment: .leading)
 
       Text(format(reportValueC, kind: kind))
-        .font(.caption.weight(.semibold))
+        .font(.brandCaption.weight(.semibold))
         .foregroundColor(.primary)
         .frame(width: 64, alignment: .leading)
 
       Text("now \(format(currentValueC, kind: kind))")
-        .font(.caption)
+        .font(.brandCaption)
         .foregroundColor(.secondary)
     }
   }

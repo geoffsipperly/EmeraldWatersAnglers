@@ -36,7 +36,7 @@ struct ResearcherMapView: View {
   private var content: some View {
     if !fetchDone {
       ZStack {
-        Color.black
+        Color.brandBackground
         ProgressView().tint(.white)
       }
     } else {
@@ -48,11 +48,11 @@ struct ResearcherMapView: View {
 
         if mapReports.isEmpty {
           Text("No catches recorded yet")
-            .font(.subheadline.weight(.semibold))
-            .foregroundColor(.white)
+            .font(.brandSubheadline.weight(.semibold))
+            .foregroundColor(.brandTextPrimary)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(Color.black.opacity(0.6), in: Capsule())
+            .background(Color.brandScrim.opacity(0.6), in: Capsule())
             .accessibilityIdentifier("researcherMapEmptyState")
         }
       }

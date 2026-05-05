@@ -85,7 +85,7 @@ struct GearChecklist: View {
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
 
       if isLoading && fields.isEmpty {
         ProgressView()
@@ -94,41 +94,41 @@ struct GearChecklist: View {
         ScrollView {
           VStack(alignment: .leading, spacing: 16) {
             if let err = errorText {
-              Text(err).foregroundColor(.red).font(.footnote)
+              Text(err).foregroundColor(.brandError).font(.brandFootnote)
             }
             if let info = infoText {
-              Text(info).foregroundColor(.gray).font(.footnote)
+              Text(info).foregroundColor(.brandTextSecondary).font(.brandFootnote)
             }
 
             if fields.isEmpty && !isLoading {
               Text("No gear items configured for this community.")
-                .foregroundColor(.gray)
-                .font(.body)
+                .foregroundColor(.brandTextSecondary)
+                .font(.brandBody)
             } else {
               if !mandatoryFields.isEmpty {
                 Text("Mandatory gear")
-                  .font(.headline.weight(.semibold))
-                  .foregroundColor(.blue)
+                  .font(.brandHeadline.weight(.semibold))
+                  .foregroundColor(.brandAccent)
 
                 Text("These items are essential for a safe and comfortable trip")
-                  .foregroundColor(.white)
-                  .font(.subheadline)
+                  .foregroundColor(.brandTextPrimary)
+                  .font(.brandSubheadline)
 
                 fieldSection(mandatoryFields)
               }
 
               if !recommendedFields.isEmpty {
                 Text("Recommended gear")
-                  .font(.headline.weight(.semibold))
-                  .foregroundColor(.blue)
+                  .font(.brandHeadline.weight(.semibold))
+                  .foregroundColor(.brandAccent)
 
                 fieldSection(recommendedFields)
               }
 
               if !otherFields.isEmpty {
                 Text("Additional gear")
-                  .font(.headline.weight(.semibold))
-                  .foregroundColor(.blue)
+                  .font(.brandHeadline.weight(.semibold))
+                  .foregroundColor(.brandAccent)
 
                 fieldSection(otherFields)
               }
@@ -147,8 +147,8 @@ struct GearChecklist: View {
     .toolbar {
       ToolbarItem(placement: .principal) {
         Text("Gear checklist")
-          .font(.headline.weight(.semibold))
-          .foregroundColor(.white)
+          .font(.brandHeadline.weight(.semibold))
+          .foregroundColor(.brandTextPrimary)
       }
       ToolbarItem(placement: .navigationBarTrailing) {
         Button {
@@ -169,12 +169,12 @@ struct GearChecklist: View {
               ProgressView().tint(.white)
             }
             Text("Save")
-              .font(.subheadline.weight(.semibold))
-              .foregroundColor(.white)
+              .font(.brandSubheadline.weight(.semibold))
+              .foregroundColor(.brandTextPrimary)
           }
           .padding(.horizontal, 16)
           .padding(.vertical, 8)
-          .background(hasUnsavedChanges && !isSaving ? Color.blue : Color.gray)
+          .background(hasUnsavedChanges && !isSaving ? Color.brandAccent : Color.brandTextSecondary)
           .clipShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -183,7 +183,7 @@ struct GearChecklist: View {
     }
     .alert(saveSucceeded ? "Saved" : "Save failed", isPresented: $showSaveAlert) {
       Button(action: { if saveSucceeded { dismiss() } }) {
-        Text("OK").foregroundColor(.white)
+        Text("OK").foregroundColor(.brandTextPrimary)
       }
     } message: {
       if saveSucceeded {
@@ -192,7 +192,7 @@ struct GearChecklist: View {
         Text(errorText ?? "We couldn't save your gear checklist. Please try again.")
       }
     }
-    .tint(.blue)
+    .tint(.brandAccent)
     .task { await loadGear() }
   }
 
@@ -206,11 +206,11 @@ struct GearChecklist: View {
             let isOn = values[field.id] == "true"
             ZStack {
               RoundedRectangle(cornerRadius: 2)
-                .stroke(Color.blue, lineWidth: 2)
+                .stroke(Color.brandAccent, lineWidth: 2)
                 .frame(width: 16, height: 16)
               if isOn {
                 Image(systemName: "checkmark")
-                  .foregroundColor(.blue)
+                  .foregroundColor(.brandAccent)
                   .font(.system(size: 10, weight: .bold))
               }
             }
@@ -218,12 +218,12 @@ struct GearChecklist: View {
 
           VStack(alignment: .leading, spacing: 4) {
             Text(field.field_label)
-              .foregroundColor(.white)
-              .font(.body)
+              .foregroundColor(.brandTextPrimary)
+              .font(.brandBody)
             if let context = field.context_text, !context.isEmpty {
               Text(context)
-                .foregroundColor(.gray)
-                .font(.subheadline)
+                .foregroundColor(.brandTextSecondary)
+                .font(.brandSubheadline)
             }
           }
           Spacer()

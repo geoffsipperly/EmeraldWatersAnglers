@@ -23,23 +23,23 @@ struct CatchReportCalloutView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
       Text("Species: \(title)")
-        .font(.subheadline.weight(.semibold))
+        .font(.brandSubheadline.weight(.semibold))
         .foregroundColor(.primary)
 
       Text("Lifecycle: \(lifecycleStage ?? "—")")
-        .font(.caption)
+        .font(.brandCaption)
         .foregroundColor(.primary)
 
       Text("Length: \(lengthInches > 0 ? "\(lengthInches)\"" : "—")")
-        .font(.caption)
+        .font(.brandCaption)
         .foregroundColor(.primary)
 
       Text("Member Number: \(memberId)")
-        .font(.caption)
+        .font(.brandCaption)
         .foregroundColor(.primary)
 
       Text(Self.dateFormatter.string(from: createdAt))
-        .font(.caption)
+        .font(.brandCaption)
         .foregroundColor(.secondary)
     }
     .padding(10)

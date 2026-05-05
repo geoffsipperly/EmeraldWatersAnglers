@@ -15,7 +15,7 @@ struct InactiveMemberView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.brandBackground.ignoresSafeArea()
 
             VStack(spacing: 24) {
                 HStack {
@@ -23,11 +23,11 @@ struct InactiveMemberView: View {
                     Button(action: logoutTapped) {
                         HStack(spacing: 6) {
                             Image(systemName: "person.crop.circle.badge.xmark")
-                                .font(.title3.weight(.semibold))
+                                .font(.brandTitle3.weight(.semibold))
                             Text("Log out")
-                                .font(.footnote.weight(.semibold))
+                                .font(.brandFootnote.weight(.semibold))
                         }
-                        .foregroundColor(.white)
+                        .foregroundColor(.brandTextPrimary)
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("logoutCapsule")
@@ -36,17 +36,17 @@ struct InactiveMemberView: View {
 
                 Image(systemName: "person.crop.circle.badge.minus")
                     .font(.system(size: 56))
-                    .foregroundColor(.orange)
+                    .foregroundColor(.brandWarning)
 
                 Text("Community Membership Inactive")
-                    .font(.title2.bold())
-                    .foregroundColor(.white)
+                    .font(.brandTitle2.bold())
+                    .foregroundColor(.brandTextPrimary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
 
                 Text("Your membership in **\(communityService.activeCommunityName)** is currently inactive. Please contact your guide or lodge administrator to restore access.")
-                    .font(.body)
-                    .foregroundColor(.gray)
+                    .font(.brandBody)
+                    .foregroundColor(.brandTextSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
 
@@ -55,11 +55,11 @@ struct InactiveMemberView: View {
                         communityService.clearActiveCommunity()
                     } label: {
                         Text("Switch Community")
-                            .font(.headline)
-                            .foregroundColor(.black)
+                            .font(.brandHeadline)
+                            .foregroundColor(.brandTextOnLight)
                             .padding(.horizontal, 24)
                             .padding(.vertical, 12)
-                            .background(Color.white)
+                            .background(Color.brandSurfaceInverted)
                             .cornerRadius(10)
                     }
                 }
@@ -68,13 +68,13 @@ struct InactiveMemberView: View {
                     showJoinCommunity = true
                 } label: {
                     Text(communityService.hasMultipleCommunities ? "Join Another Community" : "Join a Community")
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(.brandHeadline)
+                        .foregroundColor(.brandTextPrimary)
                         .padding(.horizontal, 24)
                         .padding(.vertical, 12)
                         .background(
                             RoundedRectangle(cornerRadius: 10)
-                                .strokeBorder(Color.white, lineWidth: 1)
+                                .strokeBorder(Color.brandTextPrimary, lineWidth: 1)
                         )
                 }
 
@@ -91,8 +91,8 @@ struct InactiveMemberView: View {
                     }
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
-                        .font(.subheadline)
-                        .foregroundColor(.blue)
+                        .font(.brandSubheadline)
+                        .foregroundColor(.brandAccent)
                 }
             }
         }

@@ -34,7 +34,7 @@ struct JoinCommunityView: View {
     var body: some View {
         ZStack {
             // Dimmed backdrop — tap to dismiss
-            Color.black.opacity(0.6)
+            Color.brandScrim.opacity(0.6)
                 .ignoresSafeArea()
                 .onTapGesture { dismiss() }
 
@@ -43,14 +43,14 @@ struct JoinCommunityView: View {
                 // Title + close
                 ZStack {
                     Text("Join Community")
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(.brandHeadline)
+                        .foregroundColor(.brandTextPrimary)
                     HStack {
                         Spacer()
                         Button { dismiss() } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.title3)
-                                .foregroundColor(.white.opacity(0.5))
+                                .font(.brandTitle3)
+                                .foregroundColor(.brandTextPrimary.opacity(0.5))
                         }
                     }
                 }
@@ -60,21 +60,21 @@ struct JoinCommunityView: View {
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
                     .keyboardType(.asciiCapable)
-                    .font(.subheadline)
+                    .font(.brandSubheadline)
                     .multilineTextAlignment(.center)
                     .padding(.vertical, 10)
                     .padding(.horizontal, 12)
-                    .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
-                    .foregroundColor(.white)
+                    .background(Color.brandTextPrimary.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+                    .foregroundColor(.brandTextPrimary)
 
                 if !code.isEmpty && !isCodeValid {
                     HStack(spacing: 4) {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.caption2)
-                            .foregroundColor(.red)
+                            .font(.brandCaption2)
+                            .foregroundColor(.brandError)
                         Text("Must be 6–8 alphanumeric characters")
-                            .font(.caption2)
-                            .foregroundColor(.red)
+                            .font(.brandCaption2)
+                            .foregroundColor(.brandError)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -84,21 +84,21 @@ struct JoinCommunityView: View {
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
                     .keyboardType(.asciiCapable)
-                    .font(.subheadline)
+                    .font(.brandSubheadline)
                     .multilineTextAlignment(.center)
                     .padding(.vertical, 10)
                     .padding(.horizontal, 12)
-                    .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
-                    .foregroundColor(.white)
+                    .background(Color.brandTextPrimary.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+                    .foregroundColor(.brandTextPrimary)
 
                 if !memberNumber.isEmpty && !isMemberNumberValid {
                     HStack(spacing: 4) {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.caption2)
-                            .foregroundColor(.red)
+                            .font(.brandCaption2)
+                            .foregroundColor(.brandError)
                         Text("Enter the 9-char code from your invite email")
-                            .font(.caption2)
-                            .foregroundColor(.red)
+                            .font(.brandCaption2)
+                            .foregroundColor(.brandError)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -110,29 +110,29 @@ struct JoinCommunityView: View {
                     HStack(spacing: 6) {
                         if isBusy { ProgressView().tint(.white) }
                         Text(isBusy ? "Joining…" : "Join")
-                            .font(.subheadline.bold())
+                            .font(.brandSubheadline.bold())
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                     .background(
                         RoundedRectangle(cornerRadius: 10)
-                            .fill(canJoin ? Color.blue : Color.blue.opacity(0.35))
+                            .fill(canJoin ? Color.brandAccent : Color.brandAccent.opacity(0.35))
                     )
-                    .foregroundColor(.white)
+                    .foregroundColor(.brandTextPrimary)
                 }
                 .disabled(!canJoin)
 
                 if let err = errorText {
                     Text(err)
-                        .foregroundColor(.red)
-                        .font(.caption)
+                        .foregroundColor(.brandError)
+                        .font(.brandCaption)
                         .multilineTextAlignment(.center)
                 }
 
                 if let success = successText {
                     Text(success)
-                        .foregroundColor(.green)
-                        .font(.caption)
+                        .foregroundColor(.brandSuccess)
+                        .font(.brandCaption)
                         .multilineTextAlignment(.center)
                 }
             }

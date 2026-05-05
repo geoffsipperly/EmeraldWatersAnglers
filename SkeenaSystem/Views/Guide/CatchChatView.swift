@@ -39,15 +39,15 @@ struct CatchChatView: View {
       if viewModel.conservationMode && !isResearcherMode {
         HStack(spacing: 6) {
           Image(systemName: "leaf.fill")
-            .font(.caption)
-            .foregroundColor(.green)
+            .font(.brandCaption)
+            .foregroundColor(.brandSuccess)
           Text("Conservation mode")
-            .font(.caption.weight(.semibold))
-            .foregroundColor(.white)
+            .font(.brandCaption.weight(.semibold))
+            .foregroundColor(.brandTextPrimary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 6)
-        .background(Color.green.opacity(0.15))
+        .background(Color.brandSuccess.opacity(0.15))
         .accessibilityIdentifier("conservationModeBanner")
       }
 
@@ -62,7 +62,7 @@ struct CatchChatView: View {
             Image(systemName: "arrow.counterclockwise")
             Text("Reset")
           }
-          .font(.caption)
+          .font(.brandCaption)
           .foregroundColor(hasInteracted ? .white.opacity(0.5) : .white.opacity(0.15))
         }
         .disabled(!hasInteracted)
@@ -85,19 +85,19 @@ struct CatchChatView: View {
                   .resizable()
                   .scaledToFit()
                   .frame(width: 24, height: 24)
-                  .foregroundColor(.green)
+                  .foregroundColor(.brandSuccess)
                   .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
 
                 HStack(spacing: 6) {
                   ProgressView()
                     .scaleEffect(0.8)
                   Text("Analyzing…")
-                    .font(.footnote)
+                    .font(.brandFootnote)
                 }
-                .foregroundColor(.white.opacity(0.9))
+                .foregroundColor(.brandTextPrimary.opacity(0.9))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(Color.white.opacity(0.12))
+                .background(Color.brandStroke)
                 .cornerRadius(16)
 
                 Spacer(minLength: 40)
@@ -128,7 +128,7 @@ struct CatchChatView: View {
 
       // Subtle separator between messages and input
       Divider()
-        .background(Color.white.opacity(0.15))
+        .background(Color.brandStrokeStrong)
 
       inputBar
     }
@@ -224,9 +224,9 @@ struct CatchChatView: View {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 10)
-        .background(Color.white.opacity(0.08))
+        .background(Color.brandSurface)
         .cornerRadius(16)
-        .foregroundColor(.white)
+        .foregroundColor(.brandTextPrimary)
 
       Button(action: {
         viewModel.sendCurrentInput()
@@ -236,11 +236,11 @@ struct CatchChatView: View {
           .font(.system(size: 16, weight: .semibold))
           .padding(8)
       }
-      .foregroundColor(.white)
+      .foregroundColor(.brandTextPrimary)
       .background(
         viewModel.userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-          ? Color.white.opacity(0.15)
-          : Color.blue
+          ? Color.brandStrokeStrong
+          : Color.brandAccent
       )
       .cornerRadius(16)
       .disabled(
@@ -290,12 +290,12 @@ struct CatchChatView: View {
   private func choiceButton(_ label: String, icon: String, disabled: Bool, action: @escaping () -> Void) -> some View {
     Button(action: action) {
       Image(systemName: icon)
-        .font(.title3)
+        .font(.brandTitle3)
         .foregroundColor(disabled ? .gray : .white)
         .frame(minWidth: 40)
         .padding(.vertical, 8)
         .padding(.horizontal, 4)
-        .background(Color.white.opacity(disabled ? 0.05 : 0.12))
+        .background(Color.brandTextPrimary.opacity(disabled ? 0.05 : 0.12))
         .cornerRadius(12)
     }
     .disabled(disabled)
@@ -312,9 +312,9 @@ struct CatchChatView: View {
         // Study type options: Pit (disabled), Floy, Radio (disabled)
         Button {} label: {
           VStack(spacing: 4) {
-            Image(systemName: "tag.fill").font(.title3)
-            Text("Pit").font(.caption)
-          }.foregroundColor(.gray)
+            Image(systemName: "tag.fill").font(.brandTitle3)
+            Text("Pit").font(.brandCaption)
+          }.foregroundColor(.brandTextSecondary)
         }
         .disabled(true)
 
@@ -323,27 +323,27 @@ struct CatchChatView: View {
           viewModel.researcherSelectStudy(.floy)
         } label: {
           VStack(spacing: 4) {
-            Image(systemName: "tag.fill").font(.title3)
-            Text("Floy").font(.caption)
+            Image(systemName: "tag.fill").font(.brandTitle3)
+            Text("Floy").font(.brandCaption)
           }
         }
 
         Button {} label: {
           VStack(spacing: 4) {
-            Image(systemName: "antenna.radiowaves.left.and.right").font(.title3)
-            Text("Radio").font(.caption)
-          }.foregroundColor(.gray)
+            Image(systemName: "antenna.radiowaves.left.and.right").font(.brandTitle3)
+            Text("Radio").font(.brandCaption)
+          }.foregroundColor(.brandTextSecondary)
         }
         .disabled(true)
       } else {
         // Yes / No
         Button { showStudyTypeIcons = true } label: {
-          Image(systemName: "checkmark.circle.fill").font(.title2)
+          Image(systemName: "checkmark.circle.fill").font(.brandTitle2)
         }
         Button {
           viewModel.researcherConfirm()
         } label: {
-          Image(systemName: "xmark.circle.fill").font(.title2)
+          Image(systemName: "xmark.circle.fill").font(.brandTitle2)
         }
       }
     } else if step == .sampleCollection {
@@ -352,12 +352,12 @@ struct CatchChatView: View {
       Button {
         viewModel.handleCapsuleTap(.sampleCollect(yes: true))
       } label: {
-        Image(systemName: "checkmark.circle.fill").font(.title2)
+        Image(systemName: "checkmark.circle.fill").font(.brandTitle2)
       }
       Button {
         viewModel.researcherConfirm()
       } label: {
-        Image(systemName: "xmark.circle.fill").font(.title2)
+        Image(systemName: "xmark.circle.fill").font(.brandTitle2)
       }
     } else if step == .envelopeContents {
       // Pure capsule-driven step (Scale / Fin clip / Both live on the bubble).
@@ -370,7 +370,7 @@ struct CatchChatView: View {
           viewModel.researcherConfirm()
         } label: {
           Image(systemName: "checkmark.circle.fill")
-            .font(.title2)
+            .font(.brandTitle2)
         }
       }
     } else if step == .envelopeScan {
@@ -381,14 +381,14 @@ struct CatchChatView: View {
       Button {
         viewModel.handleCapsuleTap(.openEnvelopeScanner)
       } label: {
-        Image(systemName: "barcode.viewfinder").font(.title2)
+        Image(systemName: "barcode.viewfinder").font(.brandTitle2)
       }
       if let code = viewModel.researcherFlow?.envelopeBarcode, !code.isEmpty {
         Button {
           viewModel.researcherConfirm()
         } label: {
           Image(systemName: "checkmark.circle.fill")
-            .font(.title2)
+            .font(.brandTitle2)
         }
       }
     } else {
@@ -432,7 +432,7 @@ struct CatchChatView: View {
             .resizable()
             .scaledToFit()
             .frame(width: 24, height: 24)
-            .foregroundColor(.green)
+            .foregroundColor(.brandSuccess)
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
 
           bubble(message, isUser: false)
@@ -467,7 +467,7 @@ struct CatchChatView: View {
                 showSourceActionSheet = true
               } label: {
                 Image(systemName: "camera.fill")
-                  .font(.title2)
+                  .font(.brandTitle2)
               }
             }
 
@@ -477,14 +477,14 @@ struct CatchChatView: View {
                 viewModel.confirmHeadPhoto()
               } label: {
                 Image(systemName: "checkmark.circle.fill")
-                  .font(.title2)
+                  .font(.brandTitle2)
               }
 
               Button {
                 viewModel.retakeHeadPhoto()
               } label: {
                 Image(systemName: "arrow.counterclockwise")
-                  .font(.title2)
+                  .font(.brandTitle2)
               }
             }
 
@@ -495,9 +495,9 @@ struct CatchChatView: View {
               } label: {
                 VStack(spacing: 2) {
                   Image(systemName: "square.and.pencil")
-                    .font(.title2)
+                    .font(.brandTitle2)
                   Text("Catch")
-                    .font(.caption2)
+                    .font(.brandCaption2)
                 }
               }
 
@@ -506,9 +506,9 @@ struct CatchChatView: View {
               } label: {
                 VStack(spacing: 2) {
                   Image(systemName: "mic.fill")
-                    .font(.title2)
+                    .font(.brandTitle2)
                   Text("Observation")
-                    .font(.caption2)
+                    .font(.brandCaption2)
                 }
               }
             }
@@ -519,14 +519,14 @@ struct CatchChatView: View {
                 showVoiceNoteSheet = true
               } label: {
                 Image(systemName: "checkmark.circle.fill")
-                  .font(.title2)
+                  .font(.brandTitle2)
               }
 
               Button {
                 viewModel.researcherSkipVoiceMemo()
               } label: {
                 Image(systemName: "xmark.circle.fill")
-                  .font(.title2)
+                  .font(.brandTitle2)
               }
             }
 
@@ -534,7 +534,7 @@ struct CatchChatView: View {
               researcherStepButtons
             }
           }
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
           .fixedSize(horizontal: true, vertical: false)
           } // end if !showCapsules
 
@@ -567,10 +567,10 @@ struct CatchChatView: View {
         } label: {
           HStack(spacing: 6) {
             Text(capsule.label)
-              .font(.footnote.weight(.medium))
+              .font(.brandFootnote.weight(.medium))
             if let conf = capsule.confidence {
               Text(String(format: "%.0f%%", conf * 100))
-                .font(.caption2)
+                .font(.brandCaption2)
                 .opacity(0.85)
             }
           }
@@ -584,7 +584,7 @@ struct CatchChatView: View {
             Capsule()
               .stroke(capsuleBorder(capsule.color), lineWidth: 1)
           )
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(capsule.label)
@@ -594,19 +594,19 @@ struct CatchChatView: View {
 
   private func capsuleFill(_ color: ChatCapsuleColor) -> Color {
     switch color {
-    case .green:  return Color.green.opacity(0.25)
+    case .green:  return Color.brandSuccess.opacity(0.25)
     case .yellow: return Color.yellow.opacity(0.25)
-    case .red:    return Color.red.opacity(0.25)
-    case .grey:   return Color.gray.opacity(0.25)
+    case .red:    return Color.brandError.opacity(0.25)
+    case .grey:   return Color.brandTextSecondary.opacity(0.25)
     }
   }
 
   private func capsuleBorder(_ color: ChatCapsuleColor) -> Color {
     switch color {
-    case .green:  return Color.green.opacity(0.9)
+    case .green:  return Color.brandSuccess.opacity(0.9)
     case .yellow: return Color.yellow.opacity(0.9)
-    case .red:    return Color.red.opacity(0.9)
-    case .grey:   return Color.gray.opacity(0.9)
+    case .red:    return Color.brandError.opacity(0.9)
+    case .grey:   return Color.brandTextSecondary.opacity(0.9)
     }
   }
 
@@ -620,7 +620,7 @@ struct CatchChatView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
           RoundedRectangle(cornerRadius: 16)
-            .stroke(Color.white.opacity(0.4), lineWidth: 1)
+            .stroke(Color.brandTextPrimary.opacity(0.4), lineWidth: 1)
         )
         .padding(2)
     } else if let text = message.text {
@@ -635,11 +635,11 @@ struct CatchChatView: View {
         researcherBubble(text)
       } else {
         Text(text)
-          .font(.subheadline)
-          .foregroundColor(.white)
+          .font(.brandSubheadline)
+          .foregroundColor(.brandTextPrimary)
           .padding(.horizontal, 12)
           .padding(.vertical, 8)
-          .background(isUser ? Color.blue : Color.white.opacity(0.12))
+          .background(isUser ? Color.brandAccent : Color.brandStroke)
           .cornerRadius(16)
       }
     }
@@ -653,17 +653,17 @@ struct CatchChatView: View {
 
     return VStack(alignment: .leading, spacing: 6) {
       Text(primary)
-        .font(.subheadline)
-        .foregroundColor(.white)
+        .font(.brandSubheadline)
+        .foregroundColor(.brandTextPrimary)
       if let secondary, !secondary.isEmpty {
         Text(secondary)
-          .font(.caption)
-          .foregroundColor(.gray)
+          .font(.brandCaption)
+          .foregroundColor(.brandTextSecondary)
       }
     }
     .padding(.horizontal, 12)
     .padding(.vertical, 8)
-    .background(Color.white.opacity(0.12))
+    .background(Color.brandStroke)
     .cornerRadius(16)
   }
 
@@ -680,22 +680,22 @@ struct CatchChatView: View {
 
     return VStack(alignment: .leading, spacing: 4) {
       Text(title)
-        .font(.subheadline.weight(.semibold))
-        .foregroundColor(.blue)
+        .font(.brandSubheadline.weight(.semibold))
+        .foregroundColor(.brandAccent)
       if !body.isEmpty {
         Text(body)
-          .font(.subheadline)
-          .foregroundColor(.white)
+          .font(.brandSubheadline)
+          .foregroundColor(.brandTextPrimary)
       }
       if isResearcherMode, let supporting, !supporting.isEmpty {
         Text(supporting)
-          .font(.caption)
-          .foregroundColor(.gray)
+          .font(.brandCaption)
+          .foregroundColor(.brandTextSecondary)
       }
     }
     .padding(.horizontal, 12)
     .padding(.vertical, 8)
-    .background(Color.white.opacity(0.12))
+    .background(Color.brandStroke)
     .cornerRadius(16)
   }
 }
@@ -721,7 +721,7 @@ private struct DarkChatTextEditor: UIViewRepresentable {
 
   func makeUIView(context: Context) -> UITextView {
     let tv = UITextView()
-    tv.backgroundColor = UIColor.white.withAlphaComponent(0.08)
+    tv.backgroundColor = UIColor.brandSurface
     tv.textColor = .white
     tv.font = UIFont.preferredFont(forTextStyle: .body)
     tv.isEditable = true
@@ -769,8 +769,8 @@ struct ChatVoiceNoteSheet: View {
     NavigationView {
       VStack(spacing: 16) {
         Text("Record a memo for this catch")
-          .font(.headline)
-          .foregroundColor(.white)
+          .font(.brandHeadline)
+          .foregroundColor(.brandTextPrimary)
           .multilineTextAlignment(.center)
           .padding(.top, 8)
 
@@ -778,18 +778,18 @@ struct ChatVoiceNoteSheet: View {
           // Main record / pause button
           ZStack {
             Circle()
-              .strokeBorder(Color.white.opacity(0.35), lineWidth: 2)
+              .strokeBorder(Color.brandTextPrimary.opacity(0.35), lineWidth: 2)
               .frame(width: 120, height: 120)
 
             Circle()
               .fill(recorder.isRecording && !recorder.isPaused
-                ? Color.red.opacity(0.7)
-                : Color.white.opacity(0.15))
+                ? Color.brandError.opacity(0.7)
+                : Color.brandStrokeStrong)
               .frame(width: 100, height: 100)
 
             Image(systemName: micButtonIcon)
               .font(.system(size: 36, weight: .bold))
-              .foregroundColor(.white)
+              .foregroundColor(.brandTextPrimary)
           }
           .onTapGesture { toggleRecording() }
 
@@ -797,16 +797,16 @@ struct ChatVoiceNoteSheet: View {
           if recorder.isRecording {
             ZStack {
               Circle()
-                .strokeBorder(Color.white.opacity(0.35), lineWidth: 2)
+                .strokeBorder(Color.brandTextPrimary.opacity(0.35), lineWidth: 2)
                 .frame(width: 64, height: 64)
 
               Circle()
-                .fill(Color.white.opacity(0.15))
+                .fill(Color.brandStrokeStrong)
                 .frame(width: 52, height: 52)
 
               Image(systemName: "stop.fill")
                 .font(.system(size: 20, weight: .bold))
-                .foregroundColor(.red)
+                .foregroundColor(.brandError)
             }
             .onTapGesture { stopRecording() }
           }
@@ -814,7 +814,7 @@ struct ChatVoiceNoteSheet: View {
         .padding(.vertical, 8)
           
         Text(String(format: "%d:%02d", remainingSeconds / 60, remainingSeconds % 60))
-          .font(.headline)
+          .font(.brandHeadline)
           .foregroundColor(timerColor)
           .opacity(timerOpacity)
     
@@ -828,11 +828,11 @@ struct ChatVoiceNoteSheet: View {
                     ? "Transcript will appear here as you speak…"
                     : transcriptSnapshot
                 )
-                .font(.body)
-                .foregroundColor(.white.opacity(0.9))
+                .font(.brandBody)
+                .foregroundColor(.brandTextPrimary.opacity(0.9))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
-                .background(Color.white.opacity(0.08))
+                .background(Color.brandSurface)
                 .cornerRadius(12)
 
                 Color.clear
@@ -856,8 +856,8 @@ struct ChatVoiceNoteSheet: View {
           if !recorder.isRecording && hasRecordedAudio {
             VStack(alignment: .leading, spacing: 4) {
               Text("Tap to edit transcript")
-                .font(.caption)
-                .foregroundColor(.white.opacity(0.5))
+                .font(.brandCaption)
+                .foregroundColor(.brandTextPrimary.opacity(0.5))
               DarkChatTextEditor(text: $transcriptSnapshot)
                 .frame(maxHeight: 340)
             }
@@ -867,8 +867,8 @@ struct ChatVoiceNoteSheet: View {
 
         if let error = errorMessage {
           Text(error)
-            .font(.footnote)
-            .foregroundColor(.red)
+            .font(.brandFootnote)
+            .foregroundColor(.brandError)
             .multilineTextAlignment(.center)
             .padding(.horizontal)
         }
@@ -882,23 +882,23 @@ struct ChatVoiceNoteSheet: View {
           }
           .frame(maxWidth: .infinity)
           .padding()
-          .background(Color.white.opacity(0.12))
+          .background(Color.brandStroke)
           .cornerRadius(12)
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
 
           Button("Save") {
             saveNote()
           }
           .frame(maxWidth: .infinity)
           .padding()
-          .background(Color.blue)
+          .background(Color.brandAccent)
           .cornerRadius(12)
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
           .disabled(recorder.currentTempURL() == nil)
         }
       }
       .padding()
-      .background(Color.black.ignoresSafeArea())
+      .background(Color.brandBackground.ignoresSafeArea())
       .navigationBarHidden(true)
     }
   }

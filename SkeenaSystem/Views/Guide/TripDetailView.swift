@@ -62,7 +62,7 @@ struct TripDetailView: View {
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
       List {
         // Trip summary
         Section {
@@ -90,7 +90,7 @@ struct TripDetailView: View {
             StatusPill(status: status)
           }
         }
-        .listRowBackground(Color.black)
+        .listRowBackground(Color.brandBackground)
 
         // Anglers list with Classified Waters — clickable to profiles
         Section(header: Text("Anglers")) {
@@ -115,10 +115,10 @@ struct TripDetailView: View {
             }
           }
         }
-        .listRowBackground(Color.black)
+        .listRowBackground(Color.brandBackground)
       }
       .listStyle(.plain)
-      .background(Color.black)
+      .background(Color.brandBackground)
       .modifier(HideListBackgroundIfAvailable())
       .environment(\.colorScheme, .dark)
       .navigationTitle("Trip details")
@@ -163,12 +163,12 @@ struct TripDetailView: View {
 
     VStack(alignment: .leading, spacing: 8) {
       Text(displayName.isEmpty ? "(Unnamed)" : displayName)
-        .font(.body)
-        .foregroundColor(.white)
+        .font(.brandBody)
+        .foregroundColor(.brandTextPrimary)
 
       if !angler.memberId.isEmpty {
         Text("Member Number: \(angler.memberId)")
-          .font(.caption)
+          .font(.brandCaption)
           .foregroundColor(.secondary)
       }
 
@@ -176,28 +176,28 @@ struct TripDetailView: View {
         let licenses = angler.licenses ?? []
         if licenses.isEmpty {
           Text("No Classified Waters licences.")
-            .font(.caption)
+            .font(.brandCaption)
             .foregroundColor(.secondary)
         } else {
           VStack(alignment: .leading, spacing: 6) {
             Text("Classified Waters")
-              .font(.caption).fontWeight(.semibold)
+              .font(.brandCaption).fontWeight(.semibold)
               .foregroundColor(.secondary)
 
             ForEach(licenses, id: \.id) { lic in
               VStack(alignment: .leading, spacing: 2) {
                 Text("\(lic.riverName ?? "—") • \(lic.licenseNumber ?? "—")")
                   .font(.callout)
-                  .foregroundColor(.white)
+                  .foregroundColor(.brandTextPrimary)
                 HStack(spacing: 8) {
                   if let from = lic.startDate {
                     Text("From: \(formatDateString(from))")
-                      .font(.caption)
+                      .font(.brandCaption)
                       .foregroundColor(.secondary)
                   }
                   if let to = lic.endDate {
                     Text("To: \(formatDateString(to))")
-                      .font(.caption)
+                      .font(.brandCaption)
                       .foregroundColor(.secondary)
                   }
                 }
@@ -225,7 +225,7 @@ private struct StatusPill: View {
 
   var body: some View {
     Text(status.rawValue)
-      .font(.caption2)
+      .font(.brandCaption2)
       .padding(.horizontal, 8)
       .padding(.vertical, 3)
       .background(background)
@@ -237,8 +237,8 @@ private struct StatusPill: View {
   private var background: Color {
     switch status {
     case .notStarted: Color.yellow.opacity(0.18)
-    case .inProgress: Color.green.opacity(0.18)
-    case .completed: Color.gray.opacity(0.15)
+    case .inProgress: Color.brandSuccess.opacity(0.18)
+    case .completed: Color.brandTextSecondary.opacity(0.15)
     }
   }
 

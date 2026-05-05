@@ -413,14 +413,14 @@ struct ReportsListView: View {
             VStack {
               VStack(spacing: 12) {
                 Image(systemName: "archivebox")
-                  .font(.largeTitle)
+                  .font(.brandLargeTitle)
                   .foregroundColor(.secondary)
                 Text("All catch reports have been archived.")
-                  .font(.headline)
-                  .foregroundColor(.white)
+                  .font(.brandHeadline)
+                  .foregroundColor(.brandTextPrimary)
                   .multilineTextAlignment(.center)
                 Text("Tap the archive icon in the toolbar to view previous catch reports.")
-                  .font(.subheadline)
+                  .font(.brandSubheadline)
                   .foregroundColor(.secondary)
                   .multilineTextAlignment(.center)
               }
@@ -430,12 +430,12 @@ struct ReportsListView: View {
           } else {
               List {
                 if !groupedPending.isEmpty {
-                  Section(header: Text("Pending Upload").foregroundColor(.white)) {
+                  Section(header: Text("Pending Upload").foregroundColor(.brandTextPrimary)) {
                     ForEach(groupedPending, id: \.date) { section in
                       Text(section.date)
-                        .font(.subheadline)
+                        .font(.brandSubheadline)
                         .foregroundColor(.secondary)
-                        .listRowBackground(Color.black)
+                        .listRowBackground(Color.brandBackground)
 
                       ForEach(section.reports) { report in
                         NavigationLink {
@@ -443,7 +443,7 @@ struct ReportsListView: View {
                         } label: {
                           CatchReportRow(report: report)
                         }
-                        .listRowBackground(Color.black)
+                        .listRowBackground(Color.brandBackground)
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                           Button(role: .destructive) {
                             self.reportToDelete = report
@@ -459,12 +459,12 @@ struct ReportsListView: View {
                 }
 
                 if !groupedUploaded.isEmpty {
-                  Section(header: Text("Uploaded").foregroundColor(.white)) {
+                  Section(header: Text("Uploaded").foregroundColor(.brandTextPrimary)) {
                     ForEach(groupedUploaded, id: \.date) { section in
                       Text(section.date)
-                        .font(.subheadline)
+                        .font(.brandSubheadline)
                         .foregroundColor(.secondary)
-                        .listRowBackground(Color.black)
+                        .listRowBackground(Color.brandBackground)
 
                       ForEach(section.reports) { report in
                         NavigationLink {
@@ -472,14 +472,14 @@ struct ReportsListView: View {
                         } label: {
                           CatchReportRow(report: report)
                         }
-                        .listRowBackground(Color.black)
+                        .listRowBackground(Color.brandBackground)
                       }
                     }
                   }
                 }
               }
               .listStyle(.plain)
-              .background(Color.black)
+              .background(Color.brandBackground)
               .modifier(HideListBackgroundIfAvailable())
               .alert("Delete Catch Report?", isPresented: $showDeleteConfirm) {
                 Button("Cancel", role: .cancel) {
@@ -507,7 +507,7 @@ struct ReportsListView: View {
                 .progressViewStyle(LinearProgressViewStyle())
                 .padding(.horizontal)
               Text("Uploading catch reports… \(Int(uploadProgress * 100))%")
-                .font(.caption)
+                .font(.brandCaption)
                 .foregroundColor(.secondary)
             }
             .padding()
@@ -612,20 +612,20 @@ private struct CatchReportRow: View {
     VStack(alignment: .leading, spacing: 6) {
       HStack(alignment: .firstTextBaseline, spacing: 6) {
         Text(speciesText)
-          .font(.headline)
-          .foregroundColor(.white)
+          .font(.brandHeadline)
+          .foregroundColor(.brandTextPrimary)
           .lineLimit(1)
           .truncationMode(.tail)
 
         if let lengthText {
           Text("• \(lengthText)")
-            .font(.subheadline)
+            .font(.brandSubheadline)
             .foregroundColor(.secondary)
         }
 
         if let riverText {
           Text("• \(riverText)")
-            .font(.subheadline)
+            .font(.brandSubheadline)
             .foregroundColor(.secondary)
             .lineLimit(1)
             .truncationMode(.tail)
@@ -636,18 +636,18 @@ private struct CatchReportRow: View {
       }
 
       Text("\(authorRoleLabel): \(guideText)")
-        .font(.footnote)
+        .font(.brandFootnote)
         .foregroundColor(.secondary)
         .lineLimit(1)
         .truncationMode(.tail)
 
       Text("Member Number: \(report.memberId)")
-        .font(.footnote)
+        .font(.brandFootnote)
         .foregroundColor(.secondary)
         .lineLimit(1)
         .truncationMode(.tail)
     }
-    .listRowBackground(Color.black)
+    .listRowBackground(Color.brandBackground)
   }
 
   private var speciesText: String {
@@ -685,7 +685,7 @@ private struct CatchReportStatusChip: View {
 
   var body: some View {
     Text(displayText)
-      .font(.caption2)
+      .font(.brandCaption2)
       .padding(.horizontal, 8)
       .padding(.vertical, 3)
       .background(background)
@@ -698,10 +698,10 @@ private struct CatchReportStatusChip: View {
   }
 
   private var background: Color {
-    if isArchived { return Color.gray.opacity(0.15) }
+    if isArchived { return Color.brandTextSecondary.opacity(0.15) }
     switch status {
-    case .savedLocally: return Color.blue.opacity(0.12)
-    case .uploaded: return Color.green.opacity(0.12)
+    case .savedLocally: return Color.brandAccent.opacity(0.12)
+    case .uploaded: return Color.brandSuccess.opacity(0.12)
     }
   }
 
@@ -760,7 +760,7 @@ private struct CatchReportMapView: View {
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
 
       Map(initialViewport: initialViewport) {
         PointAnnotationGroup(annotations) { annotation in
@@ -851,7 +851,7 @@ private struct CatchReportDetailView: View {
       }
 
     }
-    .background(Color.black.ignoresSafeArea())
+    .background(Color.brandBackground.ignoresSafeArea())
     .navigationTitle("Catch Details")
     .navigationDestination(isPresented: $showVoiceNoteRecorder) {
       ChatVoiceNoteSheet { note in
@@ -883,11 +883,11 @@ private struct CatchReportDetailView: View {
             } label: {
               if isEditing {
                 Text("Save")
-                  .font(.subheadline.weight(.semibold))
-                  .foregroundColor(.white)
+                  .font(.brandSubheadline.weight(.semibold))
+                  .foregroundColor(.brandTextPrimary)
                   .padding(.horizontal, 12)
                   .padding(.vertical, 8)
-                  .background(Color.blue)
+                  .background(Color.brandAccent)
                   .clipShape(Capsule())
               } else {
                 Text("Edit")
@@ -912,7 +912,7 @@ private struct CatchReportDetailView: View {
           .cornerRadius(12)
       } else {
         RoundedRectangle(cornerRadius: 12)
-          .stroke(Color.gray.opacity(0.6), style: StrokeStyle(lineWidth: 1, dash: [4]))
+          .stroke(Color.brandTextSecondary.opacity(0.6), style: StrokeStyle(lineWidth: 1, dash: [4]))
           .frame(height: 200)
           .overlay(
             Text("No photo available")
@@ -925,8 +925,8 @@ private struct CatchReportDetailView: View {
   private var catchInfoSection: some View {
     VStack(alignment: .leading, spacing: 8) {
       Text("Catch Info")
-        .font(.headline)
-        .foregroundColor(.white)
+        .font(.brandHeadline)
+        .foregroundColor(.brandTextPrimary)
 
       editableTextField(title: "Species", text: Binding(
         get: { report.species ?? "" },
@@ -949,7 +949,7 @@ private struct CatchReportDetailView: View {
       ))
     }
     .padding()
-    .background(Color.white.opacity(0.06))
+    .background(Color.brandStrokeSubtle)
     .cornerRadius(12)
   }
 
@@ -960,15 +960,15 @@ private struct CatchReportDetailView: View {
   private var conservationBadge: some View {
     HStack(spacing: 6) {
       Image(systemName: "leaf.fill")
-        .font(.caption)
-        .foregroundColor(.green)
+        .font(.brandCaption)
+        .foregroundColor(.brandSuccess)
       Text("Conservation Mode")
-        .font(.caption.weight(.semibold))
-        .foregroundColor(.green)
+        .font(.brandCaption.weight(.semibold))
+        .foregroundColor(.brandSuccess)
     }
     .frame(maxWidth: .infinity)
     .padding(.vertical, 8)
-    .background(Color.green.opacity(0.12))
+    .background(Color.brandSuccess.opacity(0.12))
     .cornerRadius(10)
     .accessibilityIdentifier("conservationBadge")
   }
@@ -978,8 +978,8 @@ private struct CatchReportDetailView: View {
   private var headPhotoSection: some View {
     VStack(alignment: .leading, spacing: 8) {
       Text("Head Photo")
-        .font(.headline)
-        .foregroundColor(.white)
+        .font(.brandHeadline)
+        .foregroundColor(.brandTextPrimary)
 
       if let filename = report.headPhotoFilename,
          let image = loadCatchImage(filename: filename) {
@@ -990,7 +990,7 @@ private struct CatchReportDetailView: View {
       }
     }
     .padding()
-    .background(Color.white.opacity(0.06))
+    .background(Color.brandStrokeSubtle)
     .cornerRadius(12)
   }
 
@@ -1001,13 +1001,13 @@ private struct CatchReportDetailView: View {
   private var measurementsSection: some View {
     VStack(alignment: .leading, spacing: 8) {
       Text("Measurements")
-        .font(.headline)
-        .foregroundColor(.white)
+        .font(.brandHeadline)
+        .foregroundColor(.brandTextPrimary)
 
       HStack {
         Text("Length (in)")
-          .font(.subheadline)
-          .foregroundColor(.blue)
+          .font(.brandSubheadline)
+          .foregroundColor(.brandAccent)
         Spacer()
         TextField(
           canEdit ? "Length" : "",
@@ -1024,7 +1024,7 @@ private struct CatchReportDetailView: View {
         )
         .keyboardType(.numberPad)
         .multilineTextAlignment(.trailing)
-        .foregroundColor(.white)
+        .foregroundColor(.brandTextPrimary)
         .disabled(!canEdit)
       }
 
@@ -1036,7 +1036,7 @@ private struct CatchReportDetailView: View {
       }
     }
     .padding()
-    .background(Color.white.opacity(0.06))
+    .background(Color.brandStrokeSubtle)
     .cornerRadius(12)
   }
 
@@ -1052,8 +1052,8 @@ private struct CatchReportDetailView: View {
   private var researchTagsSection: some View {
     VStack(alignment: .leading, spacing: 8) {
       Text("Research Tags & Samples")
-        .font(.headline)
-        .foregroundColor(.white)
+        .font(.brandHeadline)
+        .foregroundColor(.brandTextPrimary)
 
       if let floy = report.floyId, !floy.isEmpty {
         infoRow(label: "Floy Tag", value: floy)
@@ -1069,7 +1069,7 @@ private struct CatchReportDetailView: View {
       }
     }
     .padding()
-    .background(Color.white.opacity(0.06))
+    .background(Color.brandStrokeSubtle)
     .cornerRadius(12)
   }
 
@@ -1090,17 +1090,17 @@ private struct CatchReportDetailView: View {
   private var tripInfoSection: some View {
     VStack(alignment: .leading, spacing: 8) {
       Text("Trip / Angler")
-        .font(.headline)
-        .foregroundColor(.white)
+        .font(.brandHeadline)
+        .foregroundColor(.brandTextPrimary)
 
       HStack {
         Text("Trip Name")
-          .font(.subheadline)
-          .foregroundColor(.blue)
+          .font(.brandSubheadline)
+          .foregroundColor(.brandAccent)
         Spacer()
         Text(resolvedTripName())
-          .font(.body)
-          .foregroundColor(.white)
+          .font(.brandBody)
+          .foregroundColor(.brandTextPrimary)
       }
 
       editableTextField(title: "Guide", text: Binding(
@@ -1132,15 +1132,15 @@ private struct CatchReportDetailView: View {
       }
     }
     .padding()
-    .background(Color.white.opacity(0.06))
+    .background(Color.brandStrokeSubtle)
     .cornerRadius(12)
   }
 
   private var locationSection: some View {
     VStack(alignment: .leading, spacing: 8) {
       Text("Location")
-        .font(.headline)
-        .foregroundColor(.white)
+        .font(.brandHeadline)
+        .foregroundColor(.brandTextPrimary)
 
       editableDoubleField(
         title: "Latitude",
@@ -1159,15 +1159,15 @@ private struct CatchReportDetailView: View {
       )
     }
     .padding()
-    .background(Color.white.opacity(0.06))
+    .background(Color.brandStrokeSubtle)
     .cornerRadius(12)
   }
 
   private var voiceMemoSection: some View {
     VStack(alignment: .leading, spacing: 8) {
       Text("Voice Memo")
-        .font(.headline)
-        .foregroundColor(.white)
+        .font(.brandHeadline)
+        .foregroundColor(.brandTextPrimary)
 
       if let voiceId = report.voiceNoteId,
          let note = voiceStore.notes.first(where: { $0.id == voiceId }) {
@@ -1178,11 +1178,11 @@ private struct CatchReportDetailView: View {
 
         if !transcript.isEmpty {
           Text(transcript)
-            .font(.subheadline)
-            .foregroundColor(.white)
+            .font(.brandSubheadline)
+            .foregroundColor(.brandTextPrimary)
         } else {
           Text("No transcript available")
-            .font(.subheadline)
+            .font(.brandSubheadline)
             .foregroundColor(.secondary)
         }
 
@@ -1196,8 +1196,8 @@ private struct CatchReportDetailView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Color.white)
-            .foregroundColor(.black)
+            .background(Color.brandSurfaceInverted)
+            .foregroundColor(.brandTextOnLight)
             .cornerRadius(8)
           }
 
@@ -1212,8 +1212,8 @@ private struct CatchReportDetailView: View {
               }
               .padding(.horizontal, 12)
               .padding(.vertical, 6)
-              .background(Color.white.opacity(0.1))
-              .foregroundColor(.white)
+              .background(Color.brandTextPrimary.opacity(0.1))
+              .foregroundColor(.brandTextPrimary)
               .cornerRadius(8)
             }
           }
@@ -1222,7 +1222,7 @@ private struct CatchReportDetailView: View {
       } else {
         // No voice memo attached
         Text("No voice memo attached")
-          .font(.subheadline)
+          .font(.brandSubheadline)
           .foregroundColor(.secondary)
 
         if canEdit {
@@ -1236,15 +1236,15 @@ private struct CatchReportDetailView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Color.white.opacity(0.1))
-            .foregroundColor(.white)
+            .background(Color.brandTextPrimary.opacity(0.1))
+            .foregroundColor(.brandTextPrimary)
             .cornerRadius(8)
           }
         }
       }
     }
     .padding()
-    .background(Color.white.opacity(0.06))
+    .background(Color.brandStrokeSubtle)
     .cornerRadius(12)
   }
 
@@ -1253,15 +1253,15 @@ private struct CatchReportDetailView: View {
   private func editableTextField(title: String, text: Binding<String>) -> some View {
     HStack {
       Text(title)
-        .font(.subheadline)
-        .foregroundColor(.blue)
+        .font(.brandSubheadline)
+        .foregroundColor(.brandAccent)
       Spacer()
       TextField(
         canEdit ? title : "",
         text: text
       )
       .multilineTextAlignment(.trailing)
-      .foregroundColor(.white)
+      .foregroundColor(.brandTextPrimary)
       .disabled(!canEdit)
     }
   }
@@ -1269,8 +1269,8 @@ private struct CatchReportDetailView: View {
   private func editableDoubleField(title: String, value: Binding<Double?>) -> some View {
     HStack {
       Text(title)
-        .font(.subheadline)
-        .foregroundColor(.blue)
+        .font(.brandSubheadline)
+        .foregroundColor(.brandAccent)
       Spacer()
       TextField(
         canEdit ? title : "",
@@ -1293,7 +1293,7 @@ private struct CatchReportDetailView: View {
       )
       .keyboardType(.decimalPad)
       .multilineTextAlignment(.trailing)
-      .foregroundColor(.white)
+      .foregroundColor(.brandTextPrimary)
       .disabled(!canEdit)
     }
   }
@@ -1301,12 +1301,12 @@ private struct CatchReportDetailView: View {
   private func infoRow(label: String, value: String) -> some View {
     HStack {
       Text(label)
-        .font(.subheadline)
-        .foregroundColor(.blue)
+        .font(.brandSubheadline)
+        .foregroundColor(.brandAccent)
       Spacer()
       Text(value)
-        .font(.subheadline)
-        .foregroundColor(.white)
+        .font(.brandSubheadline)
+        .foregroundColor(.brandTextPrimary)
     }
   }
 
@@ -1389,23 +1389,23 @@ private struct CatchReportVoiceNoteSheet: View {
     NavigationView {
       VStack(spacing: 16) {
         Text("Record a quick voice memo for this catch.")
-          .font(.headline)
-          .foregroundColor(.white)
+          .font(.brandHeadline)
+          .foregroundColor(.brandTextPrimary)
           .multilineTextAlignment(.center)
           .padding(.top, 8)
 
         ZStack {
           Circle()
-            .strokeBorder(Color.white.opacity(0.35), lineWidth: 2)
+            .strokeBorder(Color.brandTextPrimary.opacity(0.35), lineWidth: 2)
             .frame(width: 120, height: 120)
 
           Circle()
-            .fill(recorder.isRecording ? Color.red.opacity(0.7) : Color.white.opacity(0.15))
+            .fill(recorder.isRecording ? Color.brandError.opacity(0.7) : Color.brandStrokeStrong)
             .frame(width: 100, height: 100)
 
           Image(systemName: recorder.isRecording ? "stop.fill" : "mic.fill")
             .font(.system(size: 36, weight: .bold))
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
         }
         .padding(.vertical, 8)
         .onTapGesture { toggleRecording() }
@@ -1416,19 +1416,19 @@ private struct CatchReportVoiceNoteSheet: View {
               ? "Transcript will appear here as you speak…"
               : recorder.partialTranscript
           )
-          .font(.body)
-          .foregroundColor(.white.opacity(0.9))
+          .font(.brandBody)
+          .foregroundColor(.brandTextPrimary.opacity(0.9))
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding()
-          .background(Color.white.opacity(0.08))
+          .background(Color.brandSurface)
           .cornerRadius(12)
         }
         .frame(maxHeight: 260)
 
         if let error = errorMessage {
           Text(error)
-            .font(.footnote)
-            .foregroundColor(.red)
+            .font(.brandFootnote)
+            .foregroundColor(.brandError)
             .multilineTextAlignment(.center)
             .padding(.horizontal)
         }
@@ -1442,23 +1442,23 @@ private struct CatchReportVoiceNoteSheet: View {
           }
           .frame(maxWidth: .infinity)
           .padding()
-          .background(Color.white.opacity(0.12))
+          .background(Color.brandStroke)
           .cornerRadius(12)
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
 
           Button("Save") {
             saveNote()
           }
           .frame(maxWidth: .infinity)
           .padding()
-          .background(Color.blue)
+          .background(Color.brandAccent)
           .cornerRadius(12)
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
           .disabled(recorder.currentTempURL() == nil)
         }
       }
       .padding()
-      .background(Color.black.ignoresSafeArea())
+      .background(Color.brandBackground.ignoresSafeArea())
       .navigationBarHidden(true)
     }
   }
@@ -1528,7 +1528,7 @@ struct CatchReportArchiveListView: View {
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
       if reports.isEmpty {
         Text("No archived catches.")
           .foregroundColor(.secondary)
@@ -1536,9 +1536,9 @@ struct CatchReportArchiveListView: View {
         List {
           ForEach(groupedArchived, id: \.date) { section in
             Text(section.date)
-              .font(.subheadline)
+              .font(.brandSubheadline)
               .foregroundColor(.secondary)
-              .listRowBackground(Color.black)
+              .listRowBackground(Color.brandBackground)
 
             ForEach(section.reports) { report in
               NavigationLink {
@@ -1546,12 +1546,12 @@ struct CatchReportArchiveListView: View {
               } label: {
                 CatchReportRow(report: report, isArchived: true)
               }
-              .listRowBackground(Color.black)
+              .listRowBackground(Color.brandBackground)
             }
           }
         }
         .listStyle(.plain)
-        .background(Color.black)
+        .background(Color.brandBackground)
         .modifier(HideListBackgroundIfAvailable())
       }
     }

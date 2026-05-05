@@ -25,8 +25,8 @@ struct AnglerCatchCalloutView: View {
           image.resizable().scaledToFill()
         case .failure:
           Image(systemName: "photo")
-            .font(.title3)
-            .foregroundColor(.gray)
+            .font(.brandTitle3)
+            .foregroundColor(.brandTextSecondary)
         default:
           ProgressView()
         }
@@ -38,11 +38,11 @@ struct AnglerCatchCalloutView: View {
       VStack(alignment: .leading, spacing: 2) {
         if !annotation.river.isEmpty {
           Text(annotation.river)
-            .font(.subheadline.weight(.semibold))
+            .font(.brandSubheadline.weight(.semibold))
             .foregroundColor(.primary)
         }
         Text(Self.dateFormatter.string(from: annotation.createdAt))
-          .font(.caption)
+          .font(.brandCaption)
           .foregroundColor(.secondary)
       }
     }

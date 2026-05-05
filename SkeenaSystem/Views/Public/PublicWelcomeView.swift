@@ -61,7 +61,7 @@ struct PublicWelcomeView: View {
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
 
       ScrollView {
         VStack(alignment: .leading, spacing: 20) {
@@ -95,10 +95,10 @@ struct PublicWelcomeView: View {
         dismiss()
       } label: {
         Image(systemName: "xmark")
-          .font(.title3.weight(.semibold))
-          .foregroundColor(.white)
+          .font(.brandTitle3.weight(.semibold))
+          .foregroundColor(.brandTextPrimary)
           .padding(10)
-          .background(Color.white.opacity(0.08), in: Circle())
+          .background(Color.brandSurface, in: Circle())
       }
       .buttonStyle(.plain)
       .accessibilityIdentifier("publicWelcomeCloseButton")
@@ -113,13 +113,13 @@ struct PublicWelcomeView: View {
       // `.minimumScaleFactor` shrinks automatically for unusually long names
       // so the title never wraps to a second row.
       Text(greetingTitle)
-        .font(.title2.weight(.bold))
-        .foregroundColor(.white)
+        .font(.brandTitle2.weight(.bold))
+        .foregroundColor(.brandTextPrimary)
         .lineLimit(1)
         .minimumScaleFactor(0.6)
       Text("You just became part of the living knowledge that protects wild places")
         .font(.callout)
-        .foregroundColor(.white.opacity(0.85))
+        .foregroundColor(.brandTextPrimary.opacity(0.85))
         .fixedSize(horizontal: false, vertical: true)
     }
     .padding(.horizontal, 20)
@@ -127,21 +127,21 @@ struct PublicWelcomeView: View {
 
   private var speciesNote: some View {
     Text("Every contribution helps protect the wild places you love for the next generation")
-      .font(.subheadline)
-      .foregroundColor(.white)
+      .font(.brandSubheadline)
+      .foregroundColor(.brandTextPrimary)
       .fixedSize(horizontal: false, vertical: true)
       .frame(maxWidth: .infinity, alignment: .leading)
       .padding(.horizontal, 16)
       .padding(.vertical, 14)
-      .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+      .background(Color.brandSurface, in: RoundedRectangle(cornerRadius: 12))
       .padding(.horizontal, 20)
   }
 
   private var capabilitiesSection: some View {
     VStack(alignment: .leading, spacing: 12) {
       Text("What you can do")
-        .font(.headline)
-        .foregroundColor(.white)
+        .font(.brandHeadline)
+        .foregroundColor(.brandTextPrimary)
         .padding(.bottom, 2)
 
       ForEach(Self.capabilities, id: \.title) { cap in
@@ -154,8 +154,8 @@ struct PublicWelcomeView: View {
 
   private var closingNote: some View {
     Text("Thanks again for joining us. You can revisit this overview anytime from your Profile page.")
-      .font(.subheadline)
-      .foregroundColor(.white.opacity(0.85))
+      .font(.brandSubheadline)
+      .foregroundColor(.brandTextPrimary.opacity(0.85))
       .fixedSize(horizontal: false, vertical: true)
       .padding(.horizontal, 20)
       .padding(.top, 4)
@@ -178,11 +178,11 @@ struct PublicWelcomeView: View {
       dismiss()
     } label: {
       Text("Get Started")
-        .font(.headline.weight(.semibold))
-        .foregroundColor(.white)
+        .font(.brandHeadline.weight(.semibold))
+        .foregroundColor(.brandTextPrimary)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
-        .background(Color.blue, in: RoundedRectangle(cornerRadius: 12))
+        .background(Color.brandAccent, in: RoundedRectangle(cornerRadius: 12))
     }
     .buttonStyle(.plain)
     .padding(.horizontal, 20)
@@ -198,18 +198,18 @@ struct PublicWelcomeView: View {
       // Functional icon doubles as the bullet — green to match the previous
       // checkmark's visual weight, fixed-width so titles line up across rows.
       Image(systemName: icon)
-        .font(.subheadline)
-        .foregroundColor(.green)
+        .font(.brandSubheadline)
+        .foregroundColor(.brandSuccess)
         .frame(width: 20, alignment: .center)
         .padding(.top, 3)
 
       VStack(alignment: .leading, spacing: 3) {
         Text(title)
           .font(.callout.weight(.semibold))
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
         Text(subtitle)
-          .font(.caption)
-          .foregroundColor(.white.opacity(0.7))
+          .font(.brandCaption)
+          .foregroundColor(.brandTextPrimary.opacity(0.7))
           .fixedSize(horizontal: false, vertical: true)
       }
 
@@ -222,19 +222,19 @@ struct PublicWelcomeView: View {
     Link(destination: url) {
       HStack(spacing: 10) {
         Image(systemName: icon)
-          .font(.subheadline)
-          .foregroundColor(.white.opacity(0.7))
+          .font(.brandSubheadline)
+          .foregroundColor(.brandTextPrimary.opacity(0.7))
           .frame(width: 20)
         Text(title)
           .font(.callout.weight(.semibold))
-          .foregroundColor(.blue)
+          .foregroundColor(.brandAccent)
         Spacer()
         Image(systemName: "arrow.up.right")
-          .font(.caption)
-          .foregroundColor(.white.opacity(0.4))
+          .font(.brandCaption)
+          .foregroundColor(.brandTextPrimary.opacity(0.4))
       }
       .padding(12)
-      .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
+      .background(Color.brandStrokeSubtle, in: RoundedRectangle(cornerRadius: 10))
     }
   }
 }

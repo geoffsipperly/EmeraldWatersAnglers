@@ -9,7 +9,7 @@ struct SectionDivider: View {
     HStack(spacing: 8) {
       Rectangle().fill(Color.secondary.opacity(0.25)).frame(height: 1)
       Text(label.uppercased())
-        .font(.caption)
+        .font(.brandCaption)
         .fontWeight(.semibold)
         .foregroundColor(.secondary)
       Rectangle().fill(Color.secondary.opacity(0.25)).frame(height: 1)
@@ -23,7 +23,7 @@ struct SectionHeader: View {
   let title: String
   var body: some View {
     Text(title)
-      .font(.headline)
+      .font(.brandHeadline)
       .foregroundColor(.primary)
   }
 }

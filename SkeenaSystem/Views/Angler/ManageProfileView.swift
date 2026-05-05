@@ -122,10 +122,10 @@ struct ManageProfileView: View {
     DarkPageTemplate {
       VStack(alignment: .leading, spacing: 16) {
         if let err = errorText {
-          Text(err).foregroundColor(.red).font(.footnote)
+          Text(err).foregroundColor(.brandError).font(.brandFootnote)
         }
         if let info = infoText {
-          Text(info).foregroundColor(.gray).font(.footnote)
+          Text(info).foregroundColor(.brandTextSecondary).font(.brandFootnote)
         }
 
         if #available(iOS 16.0, *) {
@@ -139,7 +139,7 @@ struct ManageProfileView: View {
             dangerSection
           }
           .scrollContentBackground(.hidden)
-          .background(Color.black)
+          .background(Color.brandBackground)
         } else {
           Form {
             profileFields
@@ -150,7 +150,7 @@ struct ManageProfileView: View {
             }
             dangerSection
           }
-          .background(Color.black)
+          .background(Color.brandBackground)
         }
 
         Spacer()
@@ -171,11 +171,11 @@ struct ManageProfileView: View {
           HStack(spacing: 6) {
             if isSaving { ProgressView() }
             Text("Save")
-              .font(.subheadline.weight(.semibold))
-              .foregroundColor(.white)
+              .font(.brandSubheadline.weight(.semibold))
+              .foregroundColor(.brandTextPrimary)
               .padding(.horizontal, 12)
               .padding(.vertical, 6)
-              .background((hasUnsavedChanges && !isSaving && !isLoading) ? Color.blue : Color.gray)
+              .background((hasUnsavedChanges && !isSaving && !isLoading) ? Color.brandAccent : Color.brandTextSecondary)
               .clipShape(Capsule())
           }
         }
@@ -232,9 +232,9 @@ struct ManageProfileView: View {
           Text("Privacy Policy")
           Spacer()
           Image(systemName: "arrow.up.right.square")
-            .foregroundColor(.gray)
+            .foregroundColor(.brandTextSecondary)
         }
-        .foregroundColor(.blue)
+        .foregroundColor(.brandAccent)
         .font(.callout)
       }
       .accessibilityIdentifier("manageProfilePrivacyPolicyLink")
@@ -245,16 +245,16 @@ struct ManageProfileView: View {
           Text("Acceptable Use Policy")
           Spacer()
           Image(systemName: "arrow.up.right.square")
-            .foregroundColor(.gray)
+            .foregroundColor(.brandTextSecondary)
         }
-        .foregroundColor(.blue)
+        .foregroundColor(.brandAccent)
         .font(.callout)
       }
       .accessibilityIdentifier("manageProfileAcceptableUsePolicyLink")
     } header: {
       Text("Legal")
     }
-    .listRowBackground(Color.white.opacity(0.04))
+    .listRowBackground(Color.brandSurfaceMuted)
   }
 
   // MARK: - App overview (public users only)
@@ -265,23 +265,23 @@ struct ManageProfileView: View {
       Button { showAppOverview = true } label: {
         HStack(spacing: 10) {
           Image(systemName: "sparkles")
-            .foregroundColor(.blue)
+            .foregroundColor(.brandAccent)
           Text("App Overview")
-            .foregroundColor(.blue)
+            .foregroundColor(.brandAccent)
             .font(.callout.weight(.semibold))
           Spacer()
           Image(systemName: "chevron.right")
-            .font(.caption.weight(.semibold))
-            .foregroundColor(.white.opacity(0.4))
+            .font(.brandCaption.weight(.semibold))
+            .foregroundColor(.brandTextPrimary.opacity(0.4))
         }
       }
       .accessibilityIdentifier("appOverviewButton")
     } footer: {
       Text("Revisit the welcome overview — what Mad Thinker does, and links to the privacy and acceptable use policies.")
-        .font(.caption)
-        .foregroundColor(.gray)
+        .font(.brandCaption)
+        .foregroundColor(.brandTextSecondary)
     }
-    .listRowBackground(Color.white.opacity(0.04))
+    .listRowBackground(Color.brandSurfaceMuted)
   }
 
   // MARK: - Privacy (public users only)
@@ -291,10 +291,10 @@ struct ManageProfileView: View {
     Section {
       Toggle(isOn: $conservationModeDraft) {
         Text("Conservation mode")
-          .foregroundColor(.blue)
+          .foregroundColor(.brandAccent)
           .font(.callout)
       }
-      .tint(.blue)
+      .tint(.brandAccent)
       .accessibilityIdentifier("conservationModeToggle")
 
       Toggle(isOn: Binding(
@@ -302,10 +302,10 @@ struct ManageProfileView: View {
         set: { mlOptOutDraft = !$0 }
       )) {
         Text("Help improve species detection")
-          .foregroundColor(.blue)
+          .foregroundColor(.brandAccent)
           .font(.callout)
       }
-      .tint(.blue)
+      .tint(.brandAccent)
       .accessibilityIdentifier("mlTrainingOptOutToggle")
     } header: {
       Text("Privacy")
@@ -314,10 +314,10 @@ struct ManageProfileView: View {
         Text("Conservation mode: when on, your catches contribute additional data (head photo, measurements, sample IDs) used in conservation research. Turn off for a faster, lighter recording experience.")
         Text("Help improve species detection: your anonymized catch photos and measurements help our models get better at identifying fish and improve your usability. Turn off to opt out of this use.")
       }
-      .font(.caption)
-      .foregroundColor(.gray)
+      .font(.brandCaption)
+      .foregroundColor(.brandTextSecondary)
     }
-    .listRowBackground(Color.white.opacity(0.04))
+    .listRowBackground(Color.brandSurfaceMuted)
   }
 
   // MARK: - Danger zone
@@ -333,7 +333,7 @@ struct ManageProfileView: View {
           Text("Leave \(communityService.activeCommunityName)")
         }
         .font(.callout.weight(.semibold))
-        .foregroundColor(.red)
+        .foregroundColor(.brandError)
       }
       .accessibilityIdentifier("leaveCommunityButton")
 
@@ -350,12 +350,12 @@ struct ManageProfileView: View {
           Text("Delete Mad Thinker Account")
         }
         .font(.callout.weight(.semibold))
-        .foregroundColor(.red)
+        .foregroundColor(.brandError)
       }
       .disabled(isDeletingAccount)
       .accessibilityIdentifier("deleteAccountButton")
     }
-    .listRowBackground(Color.white.opacity(0.04))
+    .listRowBackground(Color.brandSurfaceMuted)
   }
 
   // MARK: - Destructive actions (backend stubs)
@@ -434,33 +434,33 @@ struct ManageProfileView: View {
     Section {
       if let memberId = profile.memberId, !memberId.isEmpty {
         HStack {
-          Text("Member #").foregroundColor(.blue).font(.callout)
+          Text("Member #").foregroundColor(.brandAccent).font(.callout)
           Spacer()
           Text(memberId)
-            .foregroundColor(.gray)
+            .foregroundColor(.brandTextSecondary)
             .font(.callout)
         }
       }
       HStack {
-        Text("First Name").foregroundColor(.blue).font(.callout)
+        Text("First Name").foregroundColor(.brandAccent).font(.callout)
         Spacer()
         TextField("First name", text: Binding(get: { profile.firstName ?? "" }, set: { profile.firstName = $0 }))
           .multilineTextAlignment(.trailing)
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
           .font(.callout)
           .accessibilityIdentifier("firstNameTextField")
       }
       HStack {
-        Text("Last Name").foregroundColor(.blue).font(.callout)
+        Text("Last Name").foregroundColor(.brandAccent).font(.callout)
         Spacer()
         TextField("Last name", text: Binding(get: { profile.lastName ?? "" }, set: { profile.lastName = $0 }))
           .multilineTextAlignment(.trailing)
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
           .font(.callout)
           .accessibilityIdentifier("lastNameTextField")
       }
       HStack {
-        Text("Date of Birth").foregroundColor(.blue).font(.callout)
+        Text("Date of Birth").foregroundColor(.brandAccent).font(.callout)
         Spacer()
         if let currentDob = dobDate {
           DatePicker(
@@ -472,7 +472,7 @@ struct ManageProfileView: View {
             displayedComponents: .date
           )
           .labelsHidden()
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
           .accessibilityIdentifier("dobPicker")
         } else {
           Button("Set") {
@@ -481,24 +481,24 @@ struct ManageProfileView: View {
             dobDate = Date()
           }
           .font(.callout.weight(.semibold))
-          .foregroundColor(.blue)
+          .foregroundColor(.brandAccent)
           .accessibilityIdentifier("setDateOfBirthButton")
         }
       }
       VStack(alignment: .leading, spacing: 4) {
         HStack {
-          Text("Phone Number").foregroundColor(.blue).font(.callout)
+          Text("Phone Number").foregroundColor(.brandAccent).font(.callout)
           Spacer()
           TextField("Phone number", text: Binding(get: { profile.phoneNumber ?? "" }, set: { profile.phoneNumber = $0 }))
             .multilineTextAlignment(.trailing)
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
             .font(.callout)
             .accessibilityIdentifier("phoneTextField")
         }
         if let phone = profile.phoneNumber, !phone.isEmpty, !isValidPhone(phone) {
           Text("Please enter a valid phone number (10\u{2013}15 digits, digits only or formatted).")
-            .font(.caption)
-            .foregroundColor(.red)
+            .font(.brandCaption)
+            .foregroundColor(.brandError)
         }
       }
     }

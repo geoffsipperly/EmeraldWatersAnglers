@@ -21,16 +21,16 @@ struct GuideMapCalloutView: View {
     VStack(alignment: .leading, spacing: 4) {
       if let species, !species.isEmpty {
         Text(species)
-          .font(.subheadline.weight(.semibold))
+          .font(.brandSubheadline.weight(.semibold))
           .foregroundColor(.primary)
       }
       if let length = lengthInches {
         Text("\(length)″")
-          .font(.caption.weight(.medium))
+          .font(.brandCaption.weight(.medium))
           .foregroundColor(.secondary)
       }
       Text(Self.dateFormatter.string(from: date))
-        .font(.caption)
+        .font(.brandCaption)
         .foregroundColor(.secondary)
     }
     .padding(.horizontal, 12)

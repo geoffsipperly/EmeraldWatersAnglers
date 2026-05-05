@@ -403,7 +403,7 @@ struct AnglerProfilesView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let err = vm.error {
                 Text(err)
-                    .foregroundColor(.red)
+                    .foregroundColor(.brandError)
                     .padding()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if vm.anglers.isEmpty {
@@ -414,9 +414,9 @@ struct AnglerProfilesView: View {
                 List(vm.anglers, id: \.id) { a in
                     NavigationLink(destination: AnglerDetailsSheetView(memberID: a.member_id, displayName: "\(a.first_name) \(a.last_name)", memberNumber: a.member_number)) {
                         Text("\(a.last_name), \(a.first_name)")
-                            .foregroundColor(.white)
+                            .foregroundColor(.brandTextPrimary)
                     }
-                    .listRowBackground(Color.black)
+                    .listRowBackground(Color.brandBackground)
                 }
                 .listStyle(.plain)
             }
@@ -430,12 +430,12 @@ struct AnglerProfilesView: View {
                     dismiss()
                 } label: {
                     Image(systemName: "chevron.backward")
-                        .foregroundColor(.white)
+                        .foregroundColor(.brandTextPrimary)
                 }
             }
         }
-        .background(Color.black.edgesIgnoringSafeArea(.all))
-        .background(Color.black)
+        .background(Color.brandBackground.edgesIgnoringSafeArea(.all))
+        .background(Color.brandBackground)
         .preferredColorScheme(.dark)
         .task {
             await vm.load()
@@ -505,7 +505,7 @@ struct AnglerDetailsSheetView: View {
           .frame(maxWidth: .infinity)
         } else if let err = vm.error {
           Text(err)
-            .foregroundColor(.red)
+            .foregroundColor(.brandError)
         } else if let details = vm.details {
 
           // Learning style sentence above proficiencies
@@ -514,16 +514,16 @@ struct AnglerDetailsSheetView: View {
               HStack(alignment: .firstTextBaseline, spacing: 4) {
                 let parts = sentence.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: true)
                 Text("Learning style:")
-                  .foregroundColor(.blue)
-                  .font(.subheadline)
+                  .foregroundColor(.brandAccent)
+                  .font(.brandSubheadline)
                 if parts.count == 2 {
                   Text(String(parts[1]).trimmingCharacters(in: .whitespaces))
-                    .foregroundColor(.white)
-                    .font(.subheadline)
+                    .foregroundColor(.brandTextPrimary)
+                    .font(.brandSubheadline)
                 } else {
                   Text(sentence)
-                    .foregroundColor(.white)
-                    .font(.subheadline)
+                    .foregroundColor(.brandTextPrimary)
+                    .font(.brandSubheadline)
                 }
               }
             }
@@ -539,7 +539,7 @@ struct AnglerDetailsSheetView: View {
       }
       .padding()
       .frame(maxWidth: .infinity, alignment: .leading)
-      .background(Color.black)
+      .background(Color.brandBackground)
     }
     .navigationTitle(displayName)
     .navigationBarTitleDisplayMode(.inline)
@@ -571,8 +571,8 @@ func proficiencyQuestionMeterRow(_ prof: ProficiencyDetailsDTO) -> some View {
     if let question = prof.casting_context?.question {
       HStack(alignment: .center) {
         Text(question)
-          .foregroundColor(.white)
-          .font(.subheadline)
+          .foregroundColor(.brandTextPrimary)
+          .font(.brandSubheadline)
           .frame(maxWidth: .infinity, alignment: .leading)
         meter(label: "", value: prof.casting, kind: .skill)
       }
@@ -581,8 +581,8 @@ func proficiencyQuestionMeterRow(_ prof: ProficiencyDetailsDTO) -> some View {
     if let question = prof.wading_context?.question {
       HStack(alignment: .center) {
         Text(question)
-          .foregroundColor(.white)
-          .font(.subheadline)
+          .foregroundColor(.brandTextPrimary)
+          .font(.brandSubheadline)
           .frame(maxWidth: .infinity, alignment: .leading)
         meter(label: "", value: prof.wading, kind: .skill)
       }
@@ -591,8 +591,8 @@ func proficiencyQuestionMeterRow(_ prof: ProficiencyDetailsDTO) -> some View {
     if let question = prof.hiking_context?.question {
       HStack(alignment: .center) {
         Text(question)
-          .foregroundColor(.white)
-          .font(.subheadline)
+          .foregroundColor(.brandTextPrimary)
+          .font(.brandSubheadline)
           .frame(maxWidth: .infinity, alignment: .leading)
         meter(label: "", value: prof.hiking, kind: .skill)
       }
@@ -617,8 +617,8 @@ struct PreferencesSection: View {
     VStack(alignment: .leading, spacing: 8) {
       Button(action: { withAnimation { show.toggle() } }) {
         HStack {
-          Image(systemName: show ? "chevron.down" : "chevron.right").foregroundColor(.blue)
-          Text("Preferences").font(.headline).foregroundColor(.blue).fontWeight(.semibold)
+          Image(systemName: show ? "chevron.down" : "chevron.right").foregroundColor(.brandAccent)
+          Text("Preferences").font(.brandHeadline).foregroundColor(.brandAccent).fontWeight(.semibold)
           Spacer()
         }
         .padding(.vertical, 4)
@@ -647,21 +647,21 @@ struct PreferencesSection: View {
             // Footer message depending on presence of any 'yes'
             if anyYes {
               Text("No additional preferences indicated")
-                .font(.subheadline)
-                .foregroundColor(.white)
+                .font(.brandSubheadline)
+                .foregroundColor(.brandTextPrimary)
                 .italic()
                 .padding(.top, 6)
             } else {
               Text("No preferences indicated")
-                .font(.subheadline)
-                .foregroundColor(.white)
+                .font(.brandSubheadline)
+                .foregroundColor(.brandTextPrimary)
                 .italic()
                 .padding(.top, 6)
             }
           }
           .transition(.opacity.combined(with: .move(edge: .top)))
         } else {
-          Text("No preferences provided.").foregroundColor(.gray).padding(.leading, 4).transition(.opacity)
+          Text("No preferences provided.").foregroundColor(.brandTextSecondary).padding(.leading, 4).transition(.opacity)
         }
       }
     }
@@ -676,8 +676,8 @@ struct SelfAssessmentSection: View {
     VStack(alignment: .leading, spacing: 8) {
       Button(action: { withAnimation { show.toggle() } }) {
         HStack {
-          Image(systemName: show ? "chevron.down" : "chevron.right").foregroundColor(.blue)
-          Text("Self-assessment").font(.headline).foregroundColor(.blue).fontWeight(.semibold)
+          Image(systemName: show ? "chevron.down" : "chevron.right").foregroundColor(.brandAccent)
+          Text("Self-assessment").font(.brandHeadline).foregroundColor(.brandAccent).fontWeight(.semibold)
           Spacer()
         }
         .padding(.vertical, 4)
@@ -698,14 +698,14 @@ struct SelfAssessmentSection: View {
             ForEach(profs.indices, id: \.self) { idx in
               proficiencyQuestionMeterRow(profs[idx])
               if idx < profs.count - 1 {
-                Divider().background(Color.white.opacity(0.2))
+                Divider().background(Color.brandTextPrimary.opacity(0.2))
               }
             }
           }
           .transition(.opacity.combined(with: .move(edge: .top)))
         } else {
           Text("No proficiencies recorded.")
-            .foregroundColor(.gray)
+            .foregroundColor(.brandTextSecondary)
             .padding(.leading, 4)
             .transition(.opacity)
         }
@@ -723,8 +723,8 @@ struct AnglerProfileGearSection: View {
     VStack(alignment: .leading, spacing: 8) {
       Button(action: { withAnimation { show.toggle() } }) {
         HStack {
-          Image(systemName: show ? "chevron.down" : "chevron.right").foregroundColor(.blue)
-          Text("Gear").font(.headline).foregroundColor(.blue).fontWeight(.semibold)
+          Image(systemName: show ? "chevron.down" : "chevron.right").foregroundColor(.brandAccent)
+          Text("Gear").font(.brandHeadline).foregroundColor(.brandAccent).fontWeight(.semibold)
           Spacer()
         }
         .padding(.vertical, 4)
@@ -735,19 +735,19 @@ struct AnglerProfileGearSection: View {
           let reelDisplay = (reel?.isEmpty == false ? reel!.lowercased() : "—")
           VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
-              Text("Reel hand:").foregroundColor(.blue).font(.subheadline)
-              Text("\(firstName) reels \(reelDisplay)-handed").foregroundColor(.white).font(.subheadline)
+              Text("Reel hand:").foregroundColor(.brandAccent).font(.brandSubheadline)
+              Text("\(firstName) reels \(reelDisplay)-handed").foregroundColor(.brandTextPrimary).font(.brandSubheadline)
             }
             ForEach(gearList.indices, id: \.self) { idx in
               gearRow(gearList[idx], firstName: firstName)
               if idx < gearList.count - 1 {
-                Divider().background(Color.white.opacity(0.2))
+                Divider().background(Color.brandTextPrimary.opacity(0.2))
               }
             }
           }
           .transition(.opacity.combined(with: .move(edge: .top)))
         } else {
-          Text("No gear recorded.").foregroundColor(.gray).padding(.leading, 4).transition(.opacity)
+          Text("No gear recorded.").foregroundColor(.brandTextSecondary).padding(.leading, 4).transition(.opacity)
         }
       }
     }
@@ -758,8 +758,8 @@ struct AnglerProfileGearSection: View {
 
 func sectionHeader(_ title: String) -> some View {
   Text(title)
-    .font(.headline)
-    .foregroundColor(Color.blue)
+    .font(.brandHeadline)
+    .foregroundColor(.brandAccent)
     .fontWeight(.semibold)
     .padding(.vertical, 4)
 }
@@ -770,12 +770,12 @@ func preferenceRow(label: String, value: Bool?, text: String?) -> some View {
     VStack(alignment: .leading, spacing: 4) {
       HStack(alignment: .firstTextBaseline, spacing: 6) {
         Text(label)
-          .font(.subheadline)
-          .foregroundColor(.blue)
+          .font(.brandSubheadline)
+          .foregroundColor(.brandAccent)
         if let t = text, !t.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
           Text(t)
-            .font(.subheadline)
-            .foregroundColor(.white)
+            .font(.brandSubheadline)
+            .foregroundColor(.brandTextPrimary)
         }
       }
     }
@@ -789,7 +789,7 @@ func meter(label: String, value: Int?, kind: MeterKind) -> some View {
   VStack(spacing: 6) {
     ZStack {
       Circle()
-        .stroke(Color.white.opacity(0.15), lineWidth: 8)
+        .stroke(Color.brandStrokeStrong, lineWidth: 8)
         .frame(width: 54, height: 54)
       if let v = value {
         let clamped = max(0, min(v, 100))
@@ -807,30 +807,30 @@ func meter(label: String, value: Int?, kind: MeterKind) -> some View {
           .rotationEffect(.degrees(-90))
           .frame(width: 54, height: 54)
         Text("\(clamped)")
-          .font(.caption)
-          .foregroundColor(.white)
+          .font(.brandCaption)
+          .foregroundColor(.brandTextPrimary)
       } else {
         Text("–")
-          .font(.caption)
+          .font(.brandCaption)
           .foregroundColor(.secondary)
       }
     }
     Text(label)
-      .font(.caption2)
-      .foregroundColor(.white)
+      .font(.brandCaption2)
+      .foregroundColor(.brandTextPrimary)
   }
 }
 
 // Updated chip function styling as per instructions
 func chip(_ text: String) -> some View {
   Text(text)
-    .font(.caption)
-    .foregroundColor(.white)
+    .font(.brandCaption)
+    .foregroundColor(.brandTextPrimary)
     .padding(.horizontal, 10)
     .padding(.vertical, 4)
     .background(
       Capsule()
-        .fill(Color.blue.opacity(0.35))
+        .fill(Color.brandAccent.opacity(0.35))
     )
 }
 
@@ -843,51 +843,51 @@ func gearRow(_ gear: GearDTO, firstName: String) -> some View {
       if let waders = gear.waders {
         HStack {
           Text("Waders")
-            .foregroundColor(.blue)
-            .font(.subheadline)
+            .foregroundColor(.brandAccent)
+            .font(.brandSubheadline)
           Spacer()
           Image(systemName: waders ? "checkmark.square" : "square")
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
         }
       }
       if let boots = gear.boots {
         HStack {
           Text("Boots")
-            .foregroundColor(.blue)
-            .font(.subheadline)
+            .foregroundColor(.brandAccent)
+            .font(.brandSubheadline)
           Spacer()
           Image(systemName: boots ? "checkmark.square" : "square")
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
         }
       }
       if let jacket = gear.wading_jacket {
         HStack {
           Text("Wading Jacket")
-            .foregroundColor(.blue)
-            .font(.subheadline)
+            .foregroundColor(.brandAccent)
+            .font(.brandSubheadline)
           Spacer()
           Image(systemName: jacket ? "checkmark.square" : "square")
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
         }
       }
       if let switchRod = gear.switch_rod {
         HStack {
           Text("Switch Rod")
-            .foregroundColor(.blue)
-            .font(.subheadline)
+            .foregroundColor(.brandAccent)
+            .font(.brandSubheadline)
           Spacer()
           Image(systemName: switchRod ? "checkmark.square" : "square")
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
         }
       }
       if let shortSpey = gear.short_spey {
         HStack {
           Text("Short Spey")
-            .foregroundColor(.blue)
-            .font(.subheadline)
+            .foregroundColor(.brandAccent)
+            .font(.brandSubheadline)
           Spacer()
           Image(systemName: shortSpey ? "checkmark.square" : "square")
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
         }
       }
     }

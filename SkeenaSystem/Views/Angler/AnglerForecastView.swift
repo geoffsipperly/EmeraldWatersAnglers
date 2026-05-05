@@ -68,33 +68,33 @@ struct AnglerForecastView: View {
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
 
       Group {
         if isLoading, forecast == nil {
           VStack(spacing: 12) {
             ProgressView().tint(.white)
             Text("Fetching forecast…")
-              .foregroundColor(.gray)
-              .font(.footnote)
+              .foregroundColor(.brandTextSecondary)
+              .font(.brandFootnote)
           }
         } else if let errorText {
           ScrollView {
             VStack(spacing: 12) {
               Image(systemName: "exclamationmark.triangle.fill")
-                .font(.title)
+                .font(.brandTitle)
                 .foregroundColor(.yellow)
               Text(errorText)
-                .foregroundColor(.white)
+                .foregroundColor(.brandTextPrimary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 20)
 
               if let debugText {
                 Text(debugText)
-                  .font(.caption)
-                  .foregroundColor(.gray)
+                  .font(.brandCaption)
+                  .foregroundColor(.brandTextSecondary)
                   .padding()
-                  .background(Color.white.opacity(0.06))
+                  .background(Color.brandStrokeSubtle)
                   .clipShape(RoundedRectangle(cornerRadius: 12))
                   .padding(.horizontal, 16)
               }
@@ -109,27 +109,27 @@ struct AnglerForecastView: View {
             VStack(spacing: 16) {
               VStack(spacing: 6) {
                 Text(data.location)
-                  .font(.title2).bold()
-                  .foregroundColor(.white)
+                  .font(.brandTitle2).bold()
+                  .foregroundColor(.brandTextPrimary)
                 if let gen = AnglerForecastView.formatGeneratedAt(data.generatedAt) {
                   Text("Generated \(gen)")
-                    .font(.footnote)
-                    .foregroundColor(.gray)
+                    .font(.brandFootnote)
+                    .foregroundColor(.brandTextSecondary)
                 }
                 Text(String(
                   format: "Lat %.4f, Lon %.4f",
                   data.coordinates.latitude,
                   data.coordinates.longitude
                 ))
-                .font(.caption)
-                .foregroundColor(.gray)
+                .font(.brandCaption)
+                .foregroundColor(.brandTextSecondary)
               }
               .padding(.vertical, 12)
               .frame(maxWidth: .infinity)
-              .background(Color.white.opacity(0.06))
+              .background(Color.brandStrokeSubtle)
               .clipShape(RoundedRectangle(cornerRadius: 14))
               .overlay(RoundedRectangle(cornerRadius: 14)
-                .stroke(Color.white.opacity(0.10), lineWidth: 1))
+                .stroke(Color.brandTextPrimary.opacity(0.10), lineWidth: 1))
               .padding(.horizontal, 16)
               .padding(.top, 8)
 
@@ -138,8 +138,8 @@ struct AnglerForecastView: View {
                   Text(showFullInterpretation
                     ? data.interpretation
                     : AnglerForecastView.firstWords(of: data.interpretation, count: 75))
-                    .foregroundColor(.white.opacity(0.95))
-                    .font(.subheadline)
+                    .foregroundColor(.brandTextPrimary.opacity(0.95))
+                    .font(.brandSubheadline)
                     .fixedSize(horizontal: false, vertical: true)
 
                   Button(action: {
@@ -147,20 +147,20 @@ struct AnglerForecastView: View {
                   }) {
                     HStack(spacing: 6) {
                       Text(showFullInterpretation ? "See less" : "Show more")
-                        .font(.footnote.weight(.semibold))
+                        .font(.brandFootnote.weight(.semibold))
                         .underline()
                       Image(systemName: showFullInterpretation ? "chevron.up" : "chevron.down")
-                        .font(.caption.weight(.bold))
+                        .font(.brandCaption.weight(.bold))
                     }
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(.brandTextPrimary.opacity(0.9))
                   }
                   .padding(.top, -2)
                 }
                 .padding(14)
-                .background(Color.white.opacity(0.06))
+                .background(Color.brandStrokeSubtle)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .overlay(RoundedRectangle(cornerRadius: 14)
-                  .stroke(Color.white.opacity(0.10), lineWidth: 1))
+                  .stroke(Color.brandTextPrimary.opacity(0.10), lineWidth: 1))
                 .padding(.horizontal, 16)
               }
 
@@ -179,7 +179,7 @@ struct AnglerForecastView: View {
           .refreshable { await fetchForecast() }
         } else {
           Text("No forecast available.")
-            .foregroundColor(.gray)
+            .foregroundColor(.brandTextSecondary)
         }
       }
     }
@@ -290,8 +290,8 @@ private struct ForecastDayRow5Col: View {
   var body: some View {
     HStack(spacing: 8) {
       Text(Self.fmtDay(day.date))
-        .font(.footnote.weight(.semibold))
-        .foregroundColor(.white)
+        .font(.brandFootnote.weight(.semibold))
+        .foregroundColor(.brandTextPrimary)
         .frame(width: 90, alignment: .leading)
         .lineLimit(1)
         .minimumScaleFactor(0.8)
@@ -307,8 +307,8 @@ private struct ForecastDayRow5Col: View {
         .frame(width: 34, alignment: .leading)
 
       Text(Self.formatTempPair(max: day.maxTemp, min: day.minTemp))
-        .font(.footnote.monospacedDigit())
-        .foregroundColor(.white)
+        .font(.brandFootnote.monospacedDigit())
+        .foregroundColor(.brandTextPrimary)
         .frame(width: 56, alignment: .trailing)
         .lineLimit(1)
 
@@ -317,8 +317,8 @@ private struct ForecastDayRow5Col: View {
         Text(Self.formatNumber(day.precipitation, suffix: "mm"))
           .monospacedDigit()
       }
-      .font(.footnote)
-      .foregroundColor(.white.opacity(0.95))
+      .font(.brandFootnote)
+      .foregroundColor(.brandTextPrimary.opacity(0.95))
       .frame(width: 60, alignment: .trailing)
       .lineLimit(1)
 
@@ -327,18 +327,18 @@ private struct ForecastDayRow5Col: View {
         Text(Self.formatNumber(day.windSpeed, suffix: "km/h"))
           .monospacedDigit()
       }
-      .font(.footnote)
-      .foregroundColor(.white.opacity(0.95))
+      .font(.brandFootnote)
+      .foregroundColor(.brandTextPrimary.opacity(0.95))
       .frame(width: 72, alignment: .trailing)
       .lineLimit(1)
     }
     .padding(.vertical, 8)
     .padding(.horizontal, 10)
-    .background(Color.white.opacity(0.06))
+    .background(Color.brandStrokeSubtle)
     .clipShape(RoundedRectangle(cornerRadius: 12))
     .overlay(
       RoundedRectangle(cornerRadius: 12)
-        .stroke(Color.white.opacity(0.10), lineWidth: 1)
+        .stroke(Color.brandTextPrimary.opacity(0.10), lineWidth: 1)
     )
   }
 

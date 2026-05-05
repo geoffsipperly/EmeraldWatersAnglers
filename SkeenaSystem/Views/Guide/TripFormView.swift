@@ -333,17 +333,17 @@ struct TripFormView: View {
 
   var body: some View {
     ZStack(alignment: .bottom) {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
 
       List {
         Section { communitySection }
-          .listRowBackground(Color.black)
+          .listRowBackground(Color.brandBackground)
 
         Section { tripDatesSection }
-          .listRowBackground(Color.black)
+          .listRowBackground(Color.brandBackground)
 
         Section { anglersSection }
-          .listRowBackground(Color.black)
+          .listRowBackground(Color.brandBackground)
       }
       .listStyle(.insetGrouped)
       .modifier(HideListBackgroundIfAvailable())
@@ -366,7 +366,7 @@ struct TripFormView: View {
           if vm.isSaving { ProgressView() } else { Text("Save") }
         }
         .buttonStyle(.borderedProminent)
-        .tint(vm.isValid && !vm.isSaving ? .blue : Color.gray.opacity(0.5))
+        .tint(vm.isValid && !vm.isSaving ? .blue : Color.brandTextSecondary.opacity(0.5))
         .disabled(!vm.isValid || vm.isSaving)
         .accessibilityIdentifier("createTripToolbarButton")
       }
@@ -417,7 +417,7 @@ struct TripFormView: View {
   private var communitySection: some View {
     Section {
       HStack {
-        Text("Community").foregroundColor(.blue)
+        Text("Community").foregroundColor(.brandAccent)
         Spacer()
         Text(CommunityService.shared.activeCommunityName)
           .foregroundColor(.secondary)
@@ -427,13 +427,13 @@ struct TripFormView: View {
       // Lodge picker hidden – auto-selected via defaultLodgeId()
 
       HStack {
-        Text("Trip Name").foregroundColor(.blue)
+        Text("Trip Name").foregroundColor(.brandAccent)
         Spacer()
         TextField("Trip Name", text: $vm.tripName)
           .multilineTextAlignment(.trailing)
           .textInputAutocapitalization(.words)
           .disableAutocorrection(true)
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
           .onChange(of: vm.tripName) { newValue in
             if newValue.count > 25 { vm.tripName = String(newValue.prefix(25)) }
           }
@@ -441,25 +441,25 @@ struct TripFormView: View {
       }
       if vm.tripName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
         Text("Required")
-          .font(.caption)
-          .foregroundColor(.red)
+          .font(.brandCaption)
+          .foregroundColor(.brandError)
           .frame(maxWidth: .infinity, alignment: .trailing)
       }
 
       HStack(alignment: .firstTextBaseline) {
-        Text("Guide Name").foregroundColor(.blue)
+        Text("Guide Name").foregroundColor(.brandAccent)
         Spacer()
         TextField("Guide Name", text: $vm.guideName)
           .multilineTextAlignment(.trailing)
           .textInputAutocapitalization(.words)
           .disableAutocorrection(true)
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
           .accessibilityIdentifier("guideNameTextField")
       }
       if vm.guideName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
         Text("Required")
-          .font(.caption)
-          .foregroundColor(.red)
+          .font(.brandCaption)
+          .foregroundColor(.brandError)
           .frame(maxWidth: .infinity, alignment: .trailing)
       }
     }
@@ -469,30 +469,30 @@ struct TripFormView: View {
     Section {
       Button { showStartPicker = true } label: {
         HStack {
-          Text("Trip Start Date").foregroundColor(.blue)
+          Text("Trip Start Date").foregroundColor(.brandAccent)
           Image(systemName: "calendar")
           Spacer()
           Text(vm.startDate.formatted(date: .abbreviated, time: .omitted))
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
         }
       }
       .accessibilityIdentifier("startDateRow")
 
       Button { showEndPicker = true } label: {
         HStack {
-          Text("Trip End Date").foregroundColor(.blue)
+          Text("Trip End Date").foregroundColor(.brandAccent)
           Image(systemName: "calendar.badge.plus")
           Spacer()
           Text(vm.endDate.formatted(date: .abbreviated, time: .omitted))
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
         }
       }
       .accessibilityIdentifier("endDateRow")
 
       if vm.endDate < vm.startDate {
         Text("End date must be ≥ start date")
-          .font(.caption)
-          .foregroundColor(.red)
+          .font(.brandCaption)
+          .foregroundColor(.brandError)
           .frame(maxWidth: .infinity, alignment: .trailing)
       }
     }
@@ -502,10 +502,10 @@ struct TripFormView: View {
     Section {
       Picker(selection: $vm.clientCount) {
         ForEach(1 ... maxAnglers, id: \.self) { n in
-          Text("\(n)").foregroundColor(.white).tag(n)
+          Text("\(n)").foregroundColor(.brandTextPrimary).tag(n)
         }
       } label: {
-        Text("Number of Anglers").foregroundColor(.blue)
+        Text("Number of Anglers").foregroundColor(.brandAccent)
       }
       .pickerStyle(.menu)
       .tint(.white)
@@ -529,7 +529,7 @@ struct TripFormView: View {
   private func anglerHeaderRow(for index: Int) -> some View {
     HStack {
       Text("Angler \(index + 1)")
-        .font(.subheadline)
+        .font(.brandSubheadline)
         .fontWeight(.semibold)
         .foregroundColor(.secondary)
       Spacer()
@@ -544,7 +544,7 @@ struct TripFormView: View {
         .disableAutocorrection(true)
         .accessibilityIdentifier("anglerNameField_\(index + 1)")
       if vm.clients[index].name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-        Text("Required").font(.caption).foregroundColor(.red)
+        Text("Required").font(.brandCaption).foregroundColor(.brandError)
       }
 
       TextField("Member Number", text: vm.licenseNumberBinding(for: index))
@@ -553,7 +553,7 @@ struct TripFormView: View {
         .keyboardType(.asciiCapable)
         .accessibilityIdentifier("memberIdField_\(index + 1)")
       if vm.clients[index].licenseNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-        Text("Required").font(.caption).foregroundColor(.red)
+        Text("Required").font(.brandCaption).foregroundColor(.brandError)
       }
 
       // Lookup button
@@ -564,14 +564,14 @@ struct TripFormView: View {
           if vm.clients[index].isLookingUp {
             ProgressView()
               .scaleEffect(0.7)
-              .tint(.blue)
+              .tint(.brandAccent)
           } else {
             Image(systemName: "magnifyingglass")
           }
           Text("Look Up Angler")
-            .font(.subheadline.weight(.medium))
+            .font(.brandSubheadline.weight(.medium))
         }
-        .foregroundColor(.blue)
+        .foregroundColor(.brandAccent)
       }
       .buttonStyle(.plain)
       .disabled(vm.clients[index].isLookingUp ||
@@ -580,8 +580,8 @@ struct TripFormView: View {
 
       if let error = vm.clients[index].lookupError {
         Text(error)
-          .font(.caption)
-          .foregroundColor(.orange)
+          .font(.brandCaption)
+          .foregroundColor(.brandWarning)
       }
 
       // Show licences if populated via lookup (gated by entitlement)
@@ -600,28 +600,28 @@ struct TripFormView: View {
   private var candidatePickerSheet: some View {
     NavigationStack {
       ZStack {
-        Color.black.ignoresSafeArea()
+        Color.brandBackground.ignoresSafeArea()
         List(vm.candidateProfiles) { profile in
           Button {
             vm.pickCandidate(profile)
           } label: {
             VStack(alignment: .leading, spacing: 4) {
               Text(profile.anglerName)
-                .font(.headline)
-                .foregroundColor(.white)
+                .font(.brandHeadline)
+                .foregroundColor(.brandTextPrimary)
               Text("# \(profile.memberId)")
-                .font(.caption)
-                .foregroundColor(.gray)
+                .font(.brandCaption)
+                .foregroundColor(.brandTextSecondary)
               if CommunityService.shared.activeCommunityConfig.flag("E_MANAGE_LICENSES"),
                  !profile.classifiedWatersLicenses.isEmpty {
                 Text("\(profile.classifiedWatersLicenses.count) licence(s)")
-                  .font(.caption2)
-                  .foregroundColor(.blue)
+                  .font(.brandCaption2)
+                  .foregroundColor(.brandAccent)
               }
             }
             .padding(.vertical, 4)
           }
-          .listRowBackground(Color.black)
+          .listRowBackground(Color.brandBackground)
         }
         .listStyle(.plain)
       }
@@ -630,7 +630,7 @@ struct TripFormView: View {
       .toolbar {
         ToolbarItem(placement: .navigationBarTrailing) {
           Button("Cancel") { vm.showCandidatePicker = false }
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
         }
       }
     }
@@ -641,7 +641,7 @@ struct TripFormView: View {
   private func licencesList(for index: Int) -> some View {
     if vm.clients[index].licences.isEmpty {
       Text("No licences scanned yet.")
-        .font(.caption)
+        .font(.brandCaption)
         .foregroundColor(.secondary)
     } else {
       ForEach(vm.clients[index].licences) { lic in
@@ -651,16 +651,16 @@ struct TripFormView: View {
           HStack(spacing: 8) {
             if let from = lic.validFrom {
               Text("From: \(from.formatted(date: .abbreviated, time: .omitted))")
-                .font(.caption)
+                .font(.brandCaption)
             }
             if let to = lic.validTo {
               Text("To: \(to.formatted(date: .abbreviated, time: .omitted))")
-                .font(.caption)
+                .font(.brandCaption)
             }
           }
           if !lic.guideName.isEmpty || !lic.vendor.isEmpty {
             Text([lic.guideName, lic.vendor].filter { !$0.isEmpty }.joined(separator: " • "))
-              .font(.caption)
+              .font(.brandCaption)
               .foregroundColor(.secondary)
           }
         }
@@ -835,12 +835,12 @@ private struct DatePickerSheet: View {
   var body: some View {
     NavigationView {
       ZStack {
-        Color.black.ignoresSafeArea()
+        Color.brandBackground.ignoresSafeArea()
         VStack {
           DatePicker("", selection: $date, in: range, displayedComponents: .date)
             .datePickerStyle(.graphical)
             .labelsHidden()
-            .tint(.blue)
+            .tint(.brandAccent)
             .padding()
           Spacer()
         }
@@ -855,7 +855,7 @@ private struct DatePickerSheet: View {
         }
         ToolbarItem(placement: .navigationBarTrailing) {
           Button(action: { dismiss() }) { Text("Done") }
-            .tint(.blue)
+            .tint(.brandAccent)
         }
       }
     }

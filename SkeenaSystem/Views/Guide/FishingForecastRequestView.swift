@@ -103,14 +103,14 @@ struct FishingForecastRequestView: View {
           if allWaterSources.isEmpty {
             VStack(spacing: 12) {
               Image(systemName: "mappin.slash")
-                .font(.title)
-                .foregroundColor(.gray)
+                .font(.brandTitle)
+                .foregroundColor(.brandTextSecondary)
               Text("No locations configured")
-                .font(.headline)
-                .foregroundColor(.white)
+                .font(.brandHeadline)
+                .foregroundColor(.brandTextPrimary)
               Text("Please contact your community administrator.")
-                .font(.subheadline)
-                .foregroundColor(.gray)
+                .font(.brandSubheadline)
+                .foregroundColor(.brandTextSecondary)
                 .multilineTextAlignment(.center)
             }
             .padding(.vertical, 40)
@@ -122,12 +122,12 @@ struct FishingForecastRequestView: View {
                 Spacer()
                 HStack(spacing: 12) {
                   Text("Level")
-                    .font(.caption2)
-                    .foregroundColor(.gray)
+                    .font(.brandCaption2)
+                    .foregroundColor(.brandTextSecondary)
                     .frame(width: 70, alignment: .center)
                   Text("Temp")
-                    .font(.caption2)
-                    .foregroundColor(.gray)
+                    .font(.brandCaption2)
+                    .foregroundColor(.brandTextSecondary)
                     .frame(width: 70, alignment: .center)
                 }
                 // Match chevron + padding space
@@ -150,8 +150,8 @@ struct FishingForecastRequestView: View {
           // Station note (from xcconfig) — only show when locations are configured
           if !allWaterSources.isEmpty, let notes = Bundle.main.object(forInfoDictionaryKey: "FORECAST_NOTES") as? String, !notes.isEmpty {
             Text(notes)
-              .font(.caption2)
-              .foregroundColor(.gray)
+              .font(.brandCaption2)
+              .foregroundColor(.brandTextSecondary)
               .multilineTextAlignment(.center)
               .padding(.horizontal, 24)
           }
@@ -163,11 +163,11 @@ struct FishingForecastRequestView: View {
             } label: {
               HStack(spacing: 6) {
                 Image(systemName: "cloud.sun.rain")
-                  .font(.subheadline)
+                  .font(.brandSubheadline)
                 Text("Get extended forecast")
-                  .font(.subheadline.weight(.medium))
+                  .font(.brandSubheadline.weight(.medium))
               }
-              .foregroundColor(.blue)
+              .foregroundColor(.brandAccent)
             }
             .buttonStyle(.plain)
           }
@@ -175,8 +175,8 @@ struct FishingForecastRequestView: View {
           // Error (if any)
           if let err = errorText {
             Text(err)
-              .font(.caption)
-              .foregroundColor(.red.opacity(0.9))
+              .font(.brandCaption)
+              .foregroundColor(.brandError.opacity(0.9))
               .multilineTextAlignment(.center)
               .padding(.horizontal, 20)
           }
@@ -202,8 +202,8 @@ struct FishingForecastRequestView: View {
     HStack(spacing: 0) {
       // River name — left-justified
       Text(name)
-        .font(.subheadline.weight(.semibold))
-        .foregroundColor(.white)
+        .font(.brandSubheadline.weight(.semibold))
+        .foregroundColor(.brandTextPrimary)
         .lineLimit(1)
 
       Spacer(minLength: 12)
@@ -216,8 +216,8 @@ struct FishingForecastRequestView: View {
               .frame(width: 70)
           } else {
             Text("--")
-              .font(.caption)
-              .foregroundColor(.gray.opacity(0.5))
+              .font(.brandCaption)
+              .foregroundColor(.brandTextSecondary.opacity(0.5))
               .frame(width: 70)
           }
           if let temp = condition.waterTempC {
@@ -225,8 +225,8 @@ struct FishingForecastRequestView: View {
               .frame(width: 70)
           } else {
             Text("--")
-              .font(.caption)
-              .foregroundColor(.gray.opacity(0.5))
+              .font(.brandCaption)
+              .foregroundColor(.brandTextSecondary.opacity(0.5))
               .frame(width: 70)
           }
         }
@@ -238,17 +238,17 @@ struct FishingForecastRequestView: View {
 
       // Disclosure chevron
       Image(systemName: "chevron.right")
-        .font(.caption)
-        .foregroundColor(.gray)
+        .font(.brandCaption)
+        .foregroundColor(.brandTextSecondary)
         .padding(.leading, 12)
     }
     .padding(.horizontal, 16)
     .padding(.vertical, 14)
-    .background(isLoading ? Color.white.opacity(0.08) : Color.black)
+    .background(isLoading ? Color.brandSurface : Color.brandBackground)
     .clipShape(RoundedRectangle(cornerRadius: 10))
     .overlay(
       RoundedRectangle(cornerRadius: 10)
-        .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+        .stroke(Color.brandStrokeStrong, lineWidth: 0.5)
     )
     .overlay {
       if isLoading {
@@ -262,14 +262,14 @@ struct FishingForecastRequestView: View {
   private func metricLabel(value: String, unit: String, icon: String) -> some View {
     HStack(spacing: 3) {
       Image(systemName: icon)
-        .font(.caption2)
-        .foregroundColor(.gray)
+        .font(.brandCaption2)
+        .foregroundColor(.brandTextSecondary)
       Text(value)
-        .font(.caption.monospacedDigit())
-        .foregroundColor(.white)
+        .font(.brandCaption.monospacedDigit())
+        .foregroundColor(.brandTextPrimary)
       Text(unit)
-        .font(.caption2)
-        .foregroundColor(.gray)
+        .font(.brandCaption2)
+        .foregroundColor(.brandTextSecondary)
     }
   }
 

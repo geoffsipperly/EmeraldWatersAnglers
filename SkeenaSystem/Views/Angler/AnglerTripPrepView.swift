@@ -113,18 +113,18 @@ struct AnglerTripPrepView: View {
   private func prepRow(icon: String, title: String) -> some View {
     HStack(spacing: 12) {
       Image(systemName: icon)
-        .font(.title3.weight(.semibold))
+        .font(.brandTitle3.weight(.semibold))
         .frame(width: 40, height: 40)
-        .background(Color.white.opacity(0.10))
+        .background(Color.brandTextPrimary.opacity(0.10))
         .clipShape(RoundedRectangle(cornerRadius: 10))
-      Text(title).font(.headline).foregroundColor(.white)
+      Text(title).font(.brandHeadline).foregroundColor(.brandTextPrimary)
       Spacer()
-      Image(systemName: "chevron.right").foregroundColor(.white.opacity(0.6)).font(.subheadline.weight(.semibold))
+      Image(systemName: "chevron.right").foregroundColor(.brandTextPrimary.opacity(0.6)).font(.brandSubheadline.weight(.semibold))
     }
     .padding(.vertical, 12)
     .padding(.horizontal, 12)
-    .background(Color.white.opacity(0.08))
+    .background(Color.brandSurface)
     .clipShape(RoundedRectangle(cornerRadius: 14))
-    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.12), lineWidth: 1))
+    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.brandStroke, lineWidth: 1))
   }
 }

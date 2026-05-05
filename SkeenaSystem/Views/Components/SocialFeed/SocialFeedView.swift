@@ -102,7 +102,7 @@ struct SocialFeedView: View {
                 toggleLike(post.id)
               }
               Divider()
-                .background(Color.white.opacity(0.12))
+                .background(Color.brandStroke)
             }
           }
         }
@@ -113,8 +113,8 @@ struct SocialFeedView: View {
       ToolbarItem(placement: .navigationBarTrailing) {
         Button(action: {}) {
           Image(systemName: "plus.app")
-            .font(.title3)
-            .foregroundColor(.white)
+            .font(.brandTitle3)
+            .foregroundColor(.brandTextPrimary)
         }
       }
     }
@@ -141,15 +141,15 @@ private struct SocialPostCard: View {
       // Header — avatar + username
       HStack(spacing: 10) {
         Image(systemName: post.avatarSystemName)
-          .font(.title2)
-          .foregroundColor(.white.opacity(0.7))
+          .font(.brandTitle2)
+          .foregroundColor(.brandTextPrimary.opacity(0.7))
         Text(post.username)
-          .font(.subheadline.weight(.semibold))
-          .foregroundColor(.white)
+          .font(.brandSubheadline.weight(.semibold))
+          .foregroundColor(.brandTextPrimary)
         Spacer()
         Text(post.timeAgo)
-          .font(.caption)
-          .foregroundColor(.gray)
+          .font(.brandCaption)
+          .foregroundColor(.brandTextSecondary)
       }
       .padding(.horizontal, 14)
       .padding(.vertical, 10)
@@ -180,24 +180,24 @@ private struct SocialPostCard: View {
       HStack(spacing: 18) {
         Button(action: onLike) {
           Image(systemName: isLiked ? "heart.fill" : "heart")
-            .font(.title3)
+            .font(.brandTitle3)
             .foregroundColor(isLiked ? .red : .white)
         }
         .buttonStyle(.plain)
 
         Image(systemName: "bubble.right")
-          .font(.title3)
-          .foregroundColor(.white)
+          .font(.brandTitle3)
+          .foregroundColor(.brandTextPrimary)
 
         Image(systemName: "paperplane")
-          .font(.title3)
-          .foregroundColor(.white)
+          .font(.brandTitle3)
+          .foregroundColor(.brandTextPrimary)
 
         Spacer()
 
         Image(systemName: "bookmark")
-          .font(.title3)
-          .foregroundColor(.white)
+          .font(.brandTitle3)
+          .foregroundColor(.brandTextPrimary)
       }
       .padding(.horizontal, 14)
       .padding(.top, 10)
@@ -205,20 +205,20 @@ private struct SocialPostCard: View {
       // Likes count
       let adjustedLikes = isLiked ? post.likesCount + 1 : post.likesCount
       Text("\(adjustedLikes) likes")
-        .font(.subheadline.weight(.semibold))
-        .foregroundColor(.white)
+        .font(.brandSubheadline.weight(.semibold))
+        .foregroundColor(.brandTextPrimary)
         .padding(.horizontal, 14)
         .padding(.top, 4)
 
       // Caption
       HStack(spacing: 0) {
         Text(post.username)
-          .font(.subheadline.weight(.semibold))
-          .foregroundColor(.white)
+          .font(.brandSubheadline.weight(.semibold))
+          .foregroundColor(.brandTextPrimary)
         Text(" ")
         Text(post.caption)
-          .font(.subheadline)
-          .foregroundColor(.white.opacity(0.9))
+          .font(.brandSubheadline)
+          .foregroundColor(.brandTextPrimary.opacity(0.9))
       }
       .padding(.horizontal, 14)
       .padding(.top, 2)
@@ -227,8 +227,8 @@ private struct SocialPostCard: View {
       // Comments link
       if post.commentsCount > 0 {
         Text("View all \(post.commentsCount) comments")
-          .font(.subheadline)
-          .foregroundColor(.gray)
+          .font(.brandSubheadline)
+          .foregroundColor(.brandTextSecondary)
           .padding(.horizontal, 14)
           .padding(.top, 4)
       }
@@ -253,7 +253,7 @@ private struct FeedScopeToggle: View {
         showMadThinker = false
       }
     }
-    .background(Color.white.opacity(0.08), in: Capsule())
+    .background(Color.brandSurface, in: Capsule())
     .padding(.horizontal, 40)
   }
 
@@ -263,11 +263,11 @@ private struct FeedScopeToggle: View {
       withAnimation(.easeInOut(duration: 0.2)) { action() }
     } label: {
       Text(label)
-        .font(.subheadline.weight(.semibold))
+        .font(.brandSubheadline.weight(.semibold))
         .foregroundColor(isSelected ? .black : .white.opacity(0.6))
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
-        .background(isSelected ? Color.white : Color.clear, in: Capsule())
+        .background(isSelected ? Color.brandTextPrimary : Color.clear, in: Capsule())
         .contentShape(Capsule())
     }
     .buttonStyle(.plain)

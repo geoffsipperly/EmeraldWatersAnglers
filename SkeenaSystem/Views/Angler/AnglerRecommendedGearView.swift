@@ -100,7 +100,7 @@ struct AnglerRecommendedGearView: View {
   // MARK: - Body
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
 
       VStack(spacing: 12) {
         // Header
@@ -111,12 +111,12 @@ struct AnglerRecommendedGearView: View {
               .shadow(radius: 4)
             VStack(alignment: .leading, spacing: 2) {
               Text("Recommended Gear")
-                .font(.title2)
+                .font(.brandTitle2)
                 .fontWeight(.bold)
-                .foregroundColor(.white)
+                .foregroundColor(.brandTextPrimary)
               Text(CommunityService.shared.activeCommunityConfig.resolvedForecastLocation ?? "Location not configured")
-                .font(.subheadline)
-                .foregroundColor(.gray)
+                .font(.brandSubheadline)
+                .foregroundColor(.brandTextSecondary)
             }
             Spacer()
           }
@@ -124,7 +124,7 @@ struct AnglerRecommendedGearView: View {
         }
         .padding(.top, 12)
 
-        Divider().background(Color.white.opacity(0.08))
+        Divider().background(Color.brandSurface)
 
         // Content
         ScrollView {
@@ -133,19 +133,19 @@ struct AnglerRecommendedGearView: View {
               VStack(alignment: .leading, spacing: 10) {
                 if section.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, let desc = section.description {
                   Text(desc)
-                    .font(.title3.weight(.semibold))
-                    .foregroundColor(.white)
+                    .font(.brandTitle3.weight(.semibold))
+                    .foregroundColor(.brandTextPrimary)
                     .padding(.horizontal, 16)
                 } else {
                   Text(section.title)
-                    .font(.title3.weight(.semibold))
-                    .foregroundColor(Color.blue)
+                    .font(.brandTitle3.weight(.semibold))
+                    .foregroundColor(.brandAccent)
                     .padding(.horizontal, 16)
 
                   if let desc = section.description {
                     Text(desc)
-                      .foregroundColor(.white)
-                      .font(.body)
+                      .foregroundColor(.brandTextPrimary)
+                      .font(.brandBody)
                       .padding(.horizontal, 16)
                   }
                 }
@@ -155,18 +155,18 @@ struct AnglerRecommendedGearView: View {
                     HStack(alignment: .top, spacing: 12) {
                       // bullet
                       Circle()
-                        .fill(Color.white.opacity(0.85))
+                        .fill(Color.brandTextPrimary.opacity(0.85))
                         .frame(width: 8, height: 8)
                         .padding(.top, 6)
 
                       VStack(alignment: .leading, spacing: 4) {
                         Text(item.title)
-                          .foregroundColor(.white)
-                          .font(.body) // slightly smaller than the section header
+                          .foregroundColor(.brandTextPrimary)
+                          .font(.brandBody) // slightly smaller than the section header
                         if let subtitle = item.subtitle {
                           Text(subtitle)
-                            .foregroundColor(.gray)
-                            .font(.caption)
+                            .foregroundColor(.brandTextSecondary)
+                            .font(.brandCaption)
                         }
                       }
                       Spacer()
@@ -182,25 +182,25 @@ struct AnglerRecommendedGearView: View {
               Button(action: { withAnimation { showOptional.toggle() } }) {
                 HStack {
                   Text("See optional gear")
-                    .font(.title3.weight(.semibold))
-                    .foregroundColor(Color.blue)
+                    .font(.brandTitle3.weight(.semibold))
+                    .foregroundColor(.brandAccent)
                   Spacer()
                   Image(systemName: showOptional ? "chevron.up" : "chevron.down")
-                    .foregroundColor(.white)
-                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.brandTextPrimary)
+                    .font(.brandSubheadline.weight(.semibold))
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-                .background(Color.white.opacity(0.08))
+                .background(Color.brandSurface)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12), lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandStroke, lineWidth: 1))
               }
 
               if showOptional {
                 VStack(alignment: .leading, spacing: 10) {
                   Text("While the lodge carries spare rods, reels, flies and tippet for guests, some guest prefer to bring there own")
-                    .foregroundColor(.white)
-                    .font(.body)
+                    .foregroundColor(.brandTextPrimary)
+                    .font(.brandBody)
                     .padding(.horizontal, 16)
 
                   // Render optional content by reusing existing sections if present.

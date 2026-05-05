@@ -63,7 +63,7 @@ struct SplashVideoView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.brandBackground.ignoresSafeArea()
 
             if let player {
                 GeometryReader { geo in
@@ -92,11 +92,11 @@ struct SplashVideoView: View {
                     Spacer()
                     Button(action: finish) {
                         Text("Skip")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundColor(.white.opacity(0.85))
+                            .font(.brandSubheadline.weight(.medium))
+                            .foregroundColor(.brandTextPrimary.opacity(0.85))
                             .padding(.horizontal, 14)
                             .padding(.vertical, 7)
-                            .background(Color.white.opacity(0.15))
+                            .background(Color.brandStrokeStrong)
                             .clipShape(Capsule())
                     }
                     .padding(.trailing, 20)
@@ -107,7 +107,7 @@ struct SplashVideoView: View {
             }
 
             // Fade-to-black overlay
-            Color.black
+            Color.brandBackground
                 .ignoresSafeArea()
                 .opacity(fadeOverlayOpacity)
                 .allowsHitTesting(false)

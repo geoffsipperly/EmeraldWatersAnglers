@@ -10,7 +10,7 @@ private struct DarkTextEditor: UIViewRepresentable {
 
   func makeUIView(context: Context) -> UITextView {
     let tv = UITextView()
-    tv.backgroundColor = UIColor.white.withAlphaComponent(0.08)
+    tv.backgroundColor = UIColor.brandSurface
     tv.textColor = .white
     tv.font = UIFont.preferredFont(forTextStyle: .body)
     tv.isEditable = true
@@ -64,8 +64,8 @@ struct RecordObservationSheet: View {
     NavigationView {
       VStack(spacing: 16) {
         Text("Record a field observation")
-          .font(.headline)
-          .foregroundColor(.white)
+          .font(.brandHeadline)
+          .foregroundColor(.brandTextPrimary)
           .multilineTextAlignment(.center)
           .padding(.top, 8)
 
@@ -75,18 +75,18 @@ struct RecordObservationSheet: View {
           // Main record / pause / resume button
           ZStack {
             Circle()
-              .strokeBorder(Color.white.opacity(0.35), lineWidth: 2)
+              .strokeBorder(Color.brandTextPrimary.opacity(0.35), lineWidth: 2)
               .frame(width: 120, height: 120)
 
             Circle()
               .fill(recorder.isRecording && !recorder.isPaused
-                ? Color.red.opacity(0.7)
-                : Color.white.opacity(0.15))
+                ? Color.brandError.opacity(0.7)
+                : Color.brandStrokeStrong)
               .frame(width: 100, height: 100)
 
             Image(systemName: micButtonIcon)
               .font(.system(size: 36, weight: .bold))
-              .foregroundColor(.white)
+              .foregroundColor(.brandTextPrimary)
           }
           .onTapGesture { toggleRecording() }
 
@@ -94,16 +94,16 @@ struct RecordObservationSheet: View {
           if recorder.isRecording {
             ZStack {
               Circle()
-                .strokeBorder(Color.white.opacity(0.35), lineWidth: 2)
+                .strokeBorder(Color.brandTextPrimary.opacity(0.35), lineWidth: 2)
                 .frame(width: 64, height: 64)
 
               Circle()
-                .fill(Color.white.opacity(0.15))
+                .fill(Color.brandStrokeStrong)
                 .frame(width: 52, height: 52)
 
               Image(systemName: "stop.fill")
                 .font(.system(size: 20, weight: .bold))
-                .foregroundColor(.red)
+                .foregroundColor(.brandError)
             }
             .onTapGesture { stopRecording() }
           }
@@ -112,7 +112,7 @@ struct RecordObservationSheet: View {
 
         // Countdown
         Text(String(format: "%d:%02d", remainingSeconds / 60, remainingSeconds % 60))
-          .font(.headline)
+          .font(.brandHeadline)
           .foregroundColor(timerColor)
           .opacity(timerOpacity)
 
@@ -128,11 +128,11 @@ struct RecordObservationSheet: View {
                     ? "Transcript will appear here as you speak…"
                     : transcriptSnapshot
                 )
-                .font(.body)
-                .foregroundColor(.white.opacity(0.9))
+                .font(.brandBody)
+                .foregroundColor(.brandTextPrimary.opacity(0.9))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
-                .background(Color.white.opacity(0.08))
+                .background(Color.brandSurface)
                 .cornerRadius(12)
 
                 Color.clear
@@ -156,8 +156,8 @@ struct RecordObservationSheet: View {
           if !recorder.isRecording && hasRecordedAudio {
             VStack(alignment: .leading, spacing: 4) {
               Text("Tap to edit transcript")
-                .font(.caption)
-                .foregroundColor(.white.opacity(0.5))
+                .font(.brandCaption)
+                .foregroundColor(.brandTextPrimary.opacity(0.5))
               DarkTextEditor(text: $transcriptSnapshot)
                 .frame(maxHeight: 340)
             }
@@ -167,8 +167,8 @@ struct RecordObservationSheet: View {
 
         if let error = errorMessage {
           Text(error)
-            .font(.footnote)
-            .foregroundColor(.red)
+            .font(.brandFootnote)
+            .foregroundColor(.brandError)
             .multilineTextAlignment(.center)
             .padding(.horizontal)
         }
@@ -184,23 +184,23 @@ struct RecordObservationSheet: View {
           }
           .frame(maxWidth: .infinity)
           .padding()
-          .background(Color.white.opacity(0.12))
+          .background(Color.brandStroke)
           .cornerRadius(12)
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
 
           Button("Save") {
             saveObservation()
           }
           .frame(maxWidth: .infinity)
           .padding()
-          .background(Color.blue)
+          .background(Color.brandAccent)
           .cornerRadius(12)
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
           .disabled(recorder.currentTempURL() == nil)
         }
       }
       .padding()
-      .background(Color.black.ignoresSafeArea())
+      .background(Color.brandBackground.ignoresSafeArea())
       .navigationBarHidden(true)
     }
     .onAppear {

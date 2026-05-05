@@ -55,7 +55,7 @@ struct LoginView: View {
           // Need an account?
           HStack(spacing: 6) {
             Text("Need an account?")
-              .foregroundColor(.gray)
+              .foregroundColor(.brandTextSecondary)
 
             Button {
               showRegistration = true
@@ -64,11 +64,11 @@ struct LoginView: View {
                 Image(systemName: "person.badge.plus")
                 Text("Create one")
               }
-              .font(.footnote.weight(.semibold))
+              .font(.brandFootnote.weight(.semibold))
               .padding(.horizontal, 10)
               .padding(.vertical, 6)
-              .background(Color.blue)
-              .foregroundColor(.white)
+              .background(Color.brandAccent)
+              .foregroundColor(.brandTextPrimary)
               .clipShape(Capsule())
             }
             .accessibilityIdentifier("createAccountButton")
@@ -83,8 +83,8 @@ struct LoginView: View {
               .autocorrectionDisabled()
               .textContentType(.username)
               .padding()
-              .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
-              .foregroundColor(.white)
+              .background(Color.brandSurface, in: RoundedRectangle(cornerRadius: 12))
+              .foregroundColor(.brandTextPrimary)
               .focused($focusedField, equals: .email)
               .submitLabel(.next)
               .onSubmit { focusedField = .password }
@@ -93,8 +93,8 @@ struct LoginView: View {
             SecureField("Password", text: $password)
               .textContentType(.password)
               .padding()
-              .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
-              .foregroundColor(.white)
+              .background(Color.brandSurface, in: RoundedRectangle(cornerRadius: 12))
+              .foregroundColor(.brandTextPrimary)
               .focused($focusedField, equals: .password)
               .submitLabel(.go)
               .onSubmit { Task { await loginTapped() } }
@@ -102,16 +102,16 @@ struct LoginView: View {
 
             if let err = errorText {
               Text(err)
-                .font(.footnote)
-                .foregroundColor(.red)
+                .font(.brandFootnote)
+                .foregroundColor(.brandError)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityIdentifier("loginErrorLabel")
             }
 
             if let info = passwordResetInfo {
               Text(info)
-                .font(.footnote)
-                .foregroundColor(.green)
+                .font(.brandFootnote)
+                .foregroundColor(.brandSuccess)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityIdentifier("passwordResetInfoLabel")
             }
@@ -124,8 +124,8 @@ struct LoginView: View {
               }
               .frame(maxWidth: .infinity)
               .padding()
-              .background(isFormValid ? Color.blue : Color.white.opacity(0.15))
-              .foregroundColor(.white)
+              .background(isFormValid ? Color.brandAccent : Color.brandStrokeStrong)
+              .foregroundColor(.brandTextPrimary)
               .cornerRadius(12)
               .animation(.easeInOut(duration: 0.2), value: isFormValid)
             }
@@ -152,9 +152,9 @@ struct LoginView: View {
               Task { await resetPasswordTapped() }
             } label: {
               Text("Forgot password?")
-                .font(.footnote)
+                .font(.brandFootnote)
                 .underline()
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundColor(.brandTextPrimary.opacity(0.8))
             }
             .padding(.top, 4)
           }
@@ -165,8 +165,8 @@ struct LoginView: View {
           // Footer
           VStack(spacing: 8) {
             Text("Powered by Mad Thinker, Inc 2026")
-              .font(.footnote)
-              .foregroundColor(.gray.opacity(0.8))
+              .font(.brandFootnote)
+              .foregroundColor(.brandTextSecondary.opacity(0.8))
               .multilineTextAlignment(.center)
               .padding(.top, 4)
           }
@@ -175,7 +175,7 @@ struct LoginView: View {
         }
         .padding(.top, 8)
       }
-      .background(Color.black.ignoresSafeArea())
+      .background(Color.brandBackground.ignoresSafeArea())
       .navigationBarTitleDisplayMode(.inline)
       .navigationTitle("")
       .onTapGesture {
@@ -204,12 +204,12 @@ struct LoginView: View {
       if isBetaRelease {
         HStack {
           Text("Pilot")
-            .font(.caption.weight(.semibold))
+            .font(.brandCaption.weight(.semibold))
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(Color.blue)
+            .background(Color.brandAccent)
             .clipShape(Capsule())
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
             .shadow(radius: 2)
             .padding(.leading, 12)
             .padding(.top, 12)

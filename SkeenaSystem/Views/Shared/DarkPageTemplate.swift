@@ -168,15 +168,15 @@ struct LegacyNavBarStyle: ViewModifier {
   private static let applyOnce: Void = {
     let appearance = UINavigationBarAppearance()
     appearance.configureWithOpaqueBackground()
-    appearance.backgroundColor = UIColor.systemGray6
-    appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
-    appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
+    appearance.backgroundColor = .brandNavBar
+    appearance.titleTextAttributes = [.foregroundColor: UIColor.brandTextPrimary]
+    appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.brandTextPrimary]
 
     let navBar = UINavigationBar.appearance()
     navBar.standardAppearance = appearance
     navBar.scrollEdgeAppearance = appearance
     navBar.compactAppearance = appearance
-    navBar.tintColor = .white
+    navBar.tintColor = .brandTextPrimary
   }()
 
   func body(content: Content) -> some View {
@@ -197,7 +197,7 @@ struct VisibleToolbarBackground: ViewModifier {
       return AnyView(
         content
           .toolbarBackground(.visible, for: .navigationBar)
-          .toolbarBackground(Color(UIColor.systemGray6), for: .navigationBar)
+          .toolbarBackground(Color.brandNavBar, for: .navigationBar)
           .toolbarColorScheme(.dark, for: .navigationBar)
       )
     } else {
@@ -221,16 +221,16 @@ struct AppHeader: View {
 
       if let name = config.displayName, !name.isEmpty {
         Text(name)
-          .font(.title2.weight(.bold))
-          .foregroundColor(.white)
+          .font(.brandTitle2.weight(.bold))
+          .foregroundColor(.brandTextPrimary)
           .multilineTextAlignment(.center)
           .padding(.top, 8)
       }
 
       if let tag = config.tagline, !tag.isEmpty {
         Text(tag)
-          .font(.subheadline)
-          .foregroundColor(.gray)
+          .font(.brandSubheadline)
+          .foregroundColor(.brandTextSecondary)
           .multilineTextAlignment(.center)
           .padding(.top, 4)
           .padding(.horizontal, 20)
@@ -242,8 +242,8 @@ struct AppHeader: View {
             Spacer()
             Button(action: onMapTapped) {
               Image(systemName: "map")
-                .font(.title3)
-                .foregroundColor(.blue)
+                .font(.brandTitle3)
+                .foregroundColor(.brandAccent)
             }
             .buttonStyle(.plain)
             .padding(.trailing, 20)
@@ -254,8 +254,8 @@ struct AppHeader: View {
 
       if let subtitle {
         Text(subtitle)
-          .font(.title3.weight(.semibold))
-          .foregroundColor(.white)
+          .font(.brandTitle3.weight(.semibold))
+          .foregroundColor(.brandTextPrimary)
           .multilineTextAlignment(.center)
           .padding(.top, 16)
       }
@@ -281,15 +281,15 @@ struct ToolbarTab: View {
       VStack(spacing: 4) {
         Image(systemName: icon)
           .font(.system(size: 22))
-          .foregroundColor(disabled ? .gray.opacity(0.4) : .white.opacity(0.85))
+          .foregroundColor(disabled ? .brandTextSecondary.opacity(0.4) : .brandTextPrimary.opacity(0.85))
           .overlay(alignment: .topTrailing) {
             if let count = badgeCount, count > 0 {
               Image(systemName: "arrow.up.circle.fill")
                 .font(.system(size: 12, weight: .bold))
-                .foregroundColor(.blue)
+                .foregroundColor(.brandAccent)
                 .background(
                   Circle()
-                    .fill(Color(UIColor.systemGray6))
+                    .fill(Color.brandNavBar)
                     .frame(width: 14, height: 14)
                 )
                 .offset(x: 8, y: -4)
@@ -297,8 +297,8 @@ struct ToolbarTab: View {
             }
           }
         Text(label)
-          .font(.caption2)
-          .foregroundColor(disabled ? .gray.opacity(0.4) : .gray)
+          .font(.brandCaption2)
+          .foregroundColor(disabled ? .brandTextSecondary.opacity(0.4) : .brandTextSecondary)
       }
       .frame(maxWidth: .infinity)
     }
@@ -330,7 +330,7 @@ struct BottomToolbar<Content: View>: View {
     VStack(spacing: 0) {
       // Top border
       Rectangle()
-        .fill(Color.white.opacity(0.12))
+        .fill(Color.brandStroke)
         .frame(height: 0.5)
 
       // Toolbar icons
@@ -340,7 +340,7 @@ struct BottomToolbar<Content: View>: View {
       .padding(.top, 8)
       .padding(.bottom, 4)
     }
-    .background(Color(UIColor.systemGray6))
+    .background(Color.brandNavBar)
   }
 }
 
@@ -386,13 +386,13 @@ struct DarkPageTemplate<Content: View, Toolbar: View>: View {
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
       content
     }
     .navigationBarTitleDisplayMode(.inline)
     .modifier(VisibleToolbarBackground())
     .applyLegacyNavBarStyle()
-    .foregroundColor(.white)
+    .foregroundColor(.brandTextPrimary)
     .preferredColorScheme(.dark)
     .if(toolbar != nil) { view in
       view.safeAreaInset(edge: .bottom) {

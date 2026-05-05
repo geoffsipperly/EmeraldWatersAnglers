@@ -22,7 +22,7 @@ struct CommunityPickerView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.brandBackground.ignoresSafeArea()
 
             VStack(spacing: 24) {
                 // Logout button — upper right
@@ -31,11 +31,11 @@ struct CommunityPickerView: View {
                     Button(action: logoutTapped) {
                         HStack(spacing: 6) {
                             Image(systemName: "person.crop.circle.badge.xmark")
-                                .font(.title3.weight(.semibold))
+                                .font(.brandTitle3.weight(.semibold))
                             Text("Log out")
-                                .font(.footnote.weight(.semibold))
+                                .font(.brandFootnote.weight(.semibold))
                         }
-                        .foregroundColor(.white)
+                        .foregroundColor(.brandTextPrimary)
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("logoutCapsule")
@@ -50,8 +50,8 @@ struct CommunityPickerView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12))
 
                 Text("Select Your Community")
-                    .font(.title2.weight(.bold))
-                    .foregroundColor(.white)
+                    .font(.brandTitle2.weight(.bold))
+                    .foregroundColor(.brandTextPrimary)
 
                 // Community grid
                 LazyVGrid(columns: columns, spacing: 20) {
@@ -94,25 +94,25 @@ struct CommunityPickerView: View {
         return VStack(spacing: 10) {
             // Name area — fixed height so role badges align across tiles
             Text(membership.communities.name)
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(.white)
+                .font(.brandSubheadline.weight(.semibold))
+                .foregroundColor(.brandTextPrimary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(height: 40, alignment: .bottom)
 
             Text(membership.role.capitalized)
-                .font(.caption2.weight(.medium))
-                .foregroundColor(.black)
+                .font(.brandCaption2.weight(.medium))
+                .foregroundColor(.brandTextOnLight)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 3)
-                .background(Color.white.opacity(0.85), in: Capsule())
+                .background(Color.brandTextPrimary.opacity(0.85), in: Capsule())
 
             if isDefault {
                 HStack(spacing: 4) {
                     Image(systemName: "star.fill")
-                        .font(.caption2)
+                        .font(.brandCaption2)
                     Text("Default")
-                        .font(.caption2.weight(.medium))
+                        .font(.brandCaption2.weight(.medium))
                 }
                 .foregroundColor(.yellow)
             }
@@ -121,10 +121,10 @@ struct CommunityPickerView: View {
         .padding(.vertical, 16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(isDefault ? Color.blue.opacity(0.12) : Color.white.opacity(0.06))
+                .fill(isDefault ? Color.brandAccent.opacity(0.12) : Color.brandStrokeSubtle)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(isDefault ? Color.blue.opacity(0.4) : Color.clear, lineWidth: 1)
+                        .stroke(isDefault ? Color.brandAccent.opacity(0.4) : Color.clear, lineWidth: 1)
                 )
         )
     }
@@ -145,20 +145,20 @@ struct CommunityPickerView: View {
     private var joinCommunityTile: some View {
         VStack(spacing: 10) {
             Image(systemName: "plus.circle")
-                .font(.title2)
-                .foregroundColor(.blue)
+                .font(.brandTitle2)
+                .foregroundColor(.brandAccent)
 
             Text("Join Community")
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(.blue)
+                .font(.brandSubheadline.weight(.semibold))
+                .foregroundColor(.brandAccent)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(Color.blue.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [6]))
-                .background(Color.blue.opacity(0.04), in: RoundedRectangle(cornerRadius: 16))
+                .strokeBorder(Color.brandAccent.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [6]))
+                .background(Color.brandAccent.opacity(0.04), in: RoundedRectangle(cornerRadius: 16))
         )
     }
 }

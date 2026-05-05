@@ -68,8 +68,8 @@ struct ExploreView: View {
   private var masterclassesSection: some View {
     VStack(alignment: .leading, spacing: 10) {
       Text("Masterclasses")
-        .font(.subheadline.weight(.bold))
-        .foregroundColor(.white)
+        .font(.brandSubheadline.weight(.bold))
+        .foregroundColor(.brandTextPrimary)
         .padding(.horizontal, 16)
 
       ScrollView(.horizontal, showsIndicators: false) {
@@ -103,14 +103,14 @@ struct ExploreView: View {
           Spacer()
           HStack(alignment: .bottom) {
             Text(item.title)
-              .font(.subheadline.weight(.bold))
-              .foregroundColor(.white)
+              .font(.brandSubheadline.weight(.bold))
+              .foregroundColor(.brandTextPrimary)
               .lineLimit(2)
               .multilineTextAlignment(.leading)
             Spacer()
             Image(systemName: "play.circle.fill")
-              .font(.title)
-              .foregroundColor(.white.opacity(0.9))
+              .font(.brandTitle)
+              .foregroundColor(.brandTextPrimary.opacity(0.9))
           }
           .padding(12)
         }
@@ -138,7 +138,7 @@ struct ExploreView: View {
         placeholderArt
         Text("\(item.id)")
           .font(.system(size: 64, weight: .heavy, design: .rounded))
-          .foregroundColor(.white.opacity(0.18))
+          .foregroundColor(.brandTextPrimary.opacity(0.18))
       }
     }
   }
@@ -148,8 +148,8 @@ struct ExploreView: View {
   private var recommendedSection: some View {
     VStack(alignment: .leading, spacing: 10) {
       Text("Recommended")
-        .font(.subheadline.weight(.bold))
-        .foregroundColor(.white)
+        .font(.brandSubheadline.weight(.bold))
+        .foregroundColor(.brandTextPrimary)
         .padding(.horizontal, 16)
 
       ScrollView(.horizontal, showsIndicators: false) {
@@ -183,14 +183,14 @@ struct ExploreView: View {
           Spacer()
           HStack(alignment: .bottom) {
             Text(link.name)
-              .font(.subheadline.weight(.bold))
-              .foregroundColor(.white)
+              .font(.brandSubheadline.weight(.bold))
+              .foregroundColor(.brandTextPrimary)
               .lineLimit(2)
               .multilineTextAlignment(.leading)
             Spacer()
             Image(systemName: "play.circle.fill")
-              .font(.title)
-              .foregroundColor(.white.opacity(0.9))
+              .font(.brandTitle)
+              .foregroundColor(.brandTextPrimary.opacity(0.9))
           }
           .padding(12)
         }

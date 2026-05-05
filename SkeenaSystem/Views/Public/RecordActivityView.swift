@@ -45,7 +45,7 @@ struct RecordActivityView: View {
 
           // Section divider
           Rectangle()
-            .fill(Color.white.opacity(0.12))
+            .fill(Color.brandStroke)
             .frame(height: 0.5)
             .padding(.vertical, 4)
 
@@ -73,17 +73,17 @@ struct RecordActivityView: View {
             ], id: \.1) { icon, title, description in
               HStack(alignment: .top, spacing: 10) {
                 Image(systemName: icon)
-                  .font(.caption)
-                  .foregroundColor(.white.opacity(0.5))
+                  .font(.brandCaption)
+                  .foregroundColor(.brandTextPrimary.opacity(0.5))
                   .frame(width: 16, alignment: .center)
                   .padding(.top, 1)
                 VStack(alignment: .leading, spacing: 2) {
                   Text(title)
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(.white)
+                    .font(.brandCaption.weight(.semibold))
+                    .foregroundColor(.brandTextPrimary)
                   Text(description)
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.55))
+                    .font(.brandCaption)
+                    .foregroundColor(.brandTextPrimary.opacity(0.55))
                 }
               }
             }
@@ -148,15 +148,15 @@ struct RecordActivityView: View {
   private func actionTile(icon: String, label: String) -> some View {
     VStack(spacing: 6) {
       Image(systemName: icon)
-        .font(.title3)
-        .foregroundColor(.blue)
+        .font(.brandTitle3)
+        .foregroundColor(.brandAccent)
       Text(label)
-        .font(.caption.weight(.semibold))
-        .foregroundColor(.blue)
+        .font(.brandCaption.weight(.semibold))
+        .foregroundColor(.brandAccent)
         .lineLimit(1)
     }
     .frame(maxWidth: .infinity, minHeight: 70)
-    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+    .background(Color.brandSurface, in: RoundedRectangle(cornerRadius: 16))
   }
 
   private func noCatchTile(eventType: NoCatchEventType) -> some View {
@@ -170,14 +170,14 @@ struct RecordActivityView: View {
     }()
     return VStack(spacing: 6) {
       Image(systemName: icon)
-        .font(.title3)
-        .foregroundColor(.white)
+        .font(.brandTitle3)
+        .foregroundColor(.brandTextPrimary)
       Text(savedEventType == eventType ? "Saved!" : eventType.displayName)
-        .font(.caption.weight(.semibold))
-        .foregroundColor(.white)
+        .font(.brandCaption.weight(.semibold))
+        .foregroundColor(.brandTextPrimary)
         .lineLimit(1)
     }
     .frame(maxWidth: .infinity, minHeight: 70)
-    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+    .background(Color.brandSurface, in: RoundedRectangle(cornerRadius: 16))
   }
 }

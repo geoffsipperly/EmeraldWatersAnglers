@@ -42,7 +42,7 @@ struct EnvelopeBarcodeScanner: View {
 
   var body: some View {
     ZStack(alignment: .bottom) {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
 
       scannerArea
         .ignoresSafeArea()
@@ -51,7 +51,7 @@ struct EnvelopeBarcodeScanner: View {
         Spacer()
 
         Text(statusText)
-          .font(.subheadline.weight(.medium))
+          .font(.brandSubheadline.weight(.medium))
           .foregroundColor(statusIsError ? .red : .white)
           .multilineTextAlignment(.center)
           .padding(.horizontal, 24)
@@ -62,20 +62,20 @@ struct EnvelopeBarcodeScanner: View {
         HStack(spacing: 12) {
           Button(action: onManualEntry) {
             Label("Type instead", systemImage: "keyboard")
-              .font(.subheadline.weight(.semibold))
+              .font(.brandSubheadline.weight(.semibold))
               .frame(maxWidth: .infinity)
               .padding(.vertical, 12)
-              .foregroundColor(.white)
-              .background(Color.white.opacity(0.18), in: RoundedRectangle(cornerRadius: 10))
+              .foregroundColor(.brandTextPrimary)
+              .background(Color.brandTextPrimary.opacity(0.18), in: RoundedRectangle(cornerRadius: 10))
           }
 
           Button(action: onCancel) {
             Text("Cancel")
-              .font(.subheadline.weight(.semibold))
+              .font(.brandSubheadline.weight(.semibold))
               .frame(maxWidth: .infinity)
               .padding(.vertical, 12)
-              .foregroundColor(.white)
-              .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+              .foregroundColor(.brandTextPrimary)
+              .background(Color.brandStroke, in: RoundedRectangle(cornerRadius: 10))
           }
         }
         .padding(.horizontal, 24)
@@ -100,14 +100,14 @@ struct EnvelopeBarcodeScanner: View {
       VStack(spacing: 12) {
         Image(systemName: "barcode.viewfinder")
           .font(.system(size: 64))
-          .foregroundColor(.white.opacity(0.7))
+          .foregroundColor(.brandTextPrimary.opacity(0.7))
         Text("Camera scanning is unavailable on this device.")
-          .font(.headline)
-          .foregroundColor(.white)
+          .font(.brandHeadline)
+          .foregroundColor(.brandTextPrimary)
           .multilineTextAlignment(.center)
         Text("Tap \"Type instead\" to enter the envelope ID manually.")
-          .font(.subheadline)
-          .foregroundColor(.white.opacity(0.7))
+          .font(.brandSubheadline)
+          .foregroundColor(.brandTextPrimary.opacity(0.7))
           .multilineTextAlignment(.center)
       }
       .padding(32)

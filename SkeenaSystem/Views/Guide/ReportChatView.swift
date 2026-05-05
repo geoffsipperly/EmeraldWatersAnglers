@@ -68,7 +68,7 @@ struct ReportChatView: View {
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
 
       if directToChat && !showChatFullScreen {
         // Show nothing while auto-transitioning to the chat screen
@@ -224,20 +224,20 @@ struct ReportChatView: View {
     }) {
       HStack {
         Image(systemName: isSoloMode ? "person.fill.checkmark" : "person.fill")
-          .font(.subheadline)
+          .font(.brandSubheadline)
           .foregroundColor(isSoloMode ? .green : .white.opacity(0.7))
         Text(isSoloMode ? "Fishing Solo" : "Fishing Solo?")
-          .font(.subheadline)
+          .font(.brandSubheadline)
           .foregroundColor(isSoloMode ? .green : .white)
         Spacer()
         if isSoloMode {
           Image(systemName: "checkmark.circle.fill")
-            .foregroundColor(.green)
+            .foregroundColor(.brandSuccess)
         }
       }
       .padding()
       .frame(maxWidth: .infinity, alignment: .leading)
-      .background(isSoloMode ? Color.green.opacity(0.15) : Color.white.opacity(0.08))
+      .background(isSoloMode ? Color.brandSuccess.opacity(0.15) : Color.brandSurface)
       .cornerRadius(16)
       .padding(.horizontal)
     }
@@ -285,8 +285,8 @@ struct ReportChatView: View {
               .tint(.white)
           } else {
             Image(systemName: "chevron.down")
-              .font(.footnote)
-              .foregroundColor(.white.opacity(0.7))
+              .font(.brandFootnote)
+              .foregroundColor(.brandTextPrimary.opacity(0.7))
           }
         }
       }
@@ -294,7 +294,7 @@ struct ReportChatView: View {
     }
     .padding()
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(Color.white.opacity(0.08))
+    .background(Color.brandSurface)
     .cornerRadius(16)
     .padding(.horizontal)
   }
@@ -325,8 +325,8 @@ struct ReportChatView: View {
                 .minimumScaleFactor(0.85)
               Spacer(minLength: 4)
               Image(systemName: "chevron.down")
-                .font(.footnote)
-                .foregroundColor(.white.opacity(0.7))
+                .font(.brandFootnote)
+                .foregroundColor(.brandTextPrimary.opacity(0.7))
             }
           }
         }
@@ -334,7 +334,7 @@ struct ReportChatView: View {
     }
     .padding()
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(Color.white.opacity(0.08))
+    .background(Color.brandSurface)
     .cornerRadius(16)
     .padding(.horizontal)
   }
@@ -372,14 +372,14 @@ struct ReportChatView: View {
             HStack {
               Text(currentLicenceText())
                 .font(isPlaceholder ? valueFontPlaceholder : valueFontSelected)
-                .foregroundColor(.white)
+                .foregroundColor(.brandTextPrimary)
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .minimumScaleFactor(0.8)
               Spacer(minLength: 4)
               Image(systemName: "chevron.down")
-                .font(.footnote)
-                .foregroundColor(.white.opacity(0.7))
+                .font(.brandFootnote)
+                .foregroundColor(.brandTextPrimary.opacity(0.7))
             }
           }
         }
@@ -387,7 +387,7 @@ struct ReportChatView: View {
     }
     .padding()
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(Color.white.opacity(0.08))
+    .background(Color.brandSurface)
     .cornerRadius(16)
     .padding(.horizontal)
   }
@@ -399,12 +399,12 @@ struct ReportChatView: View {
       HStack {
         Spacer()
         Text("Next")
-          .font(.headline)
-          .foregroundColor(.white)
+          .font(.brandHeadline)
+          .foregroundColor(.brandTextPrimary)
           .padding(.vertical, 12)
         Spacer()
       }
-      .background(Color.blue)
+      .background(Color.brandAccent)
       .cornerRadius(14)
       .padding(.horizontal)
     }
@@ -978,7 +978,7 @@ private struct CatchChatFullScreenView: View {
             }
         }
     }
-    .background(Color.black.ignoresSafeArea())
+    .background(Color.brandBackground.ignoresSafeArea())
     .preferredColorScheme(.dark)
     .onChange(of: viewModel.saveRequested) { newValue in
       if newValue {
@@ -998,12 +998,12 @@ private struct CatchChatFullScreenView: View {
           onCatchSaved()
         }
       }) {
-        Text("OK").foregroundColor(.white)
+        Text("OK").foregroundColor(.brandTextPrimary)
       }
     } message: {
       Text("Your catch has been saved locally.")
     }
-    .tint(.blue)
+    .tint(.brandAccent)
   }
 }
 

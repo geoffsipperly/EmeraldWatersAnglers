@@ -91,7 +91,7 @@ struct FishingForecastResultView: View {
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
 
       VStack(spacing: 12) {
         ScrollView {
@@ -129,11 +129,11 @@ struct FishingForecastResultView: View {
       ToolbarItem(placement: .principal) {
         VStack(spacing: 2) {
           Text(result.river)
-            .font(.headline)
+            .font(.brandHeadline)
             .foregroundColor(.primary)
 
           Text("Using Station: \(result.stationId)")
-            .font(.subheadline)
+            .font(.brandSubheadline)
             .foregroundColor(.secondary)
         }
       }
@@ -147,7 +147,7 @@ struct FishingForecastResultView: View {
             showFisheryMap = true
           } label: {
             Image(systemName: "map")
-              .foregroundColor(.white)
+              .foregroundColor(.brandTextPrimary)
           }
           .accessibilityIdentifier("conditionsRecallMapButton")
         }
@@ -162,7 +162,7 @@ struct FishingForecastResultView: View {
             showTactics = true
           } label: {
             Image(systemName: "lightbulb")
-              .foregroundColor(.white)
+              .foregroundColor(.brandTextPrimary)
           }
           .accessibilityIdentifier("getTacticsButton")
         }
@@ -179,7 +179,7 @@ struct FishingForecastResultView: View {
       dayCard(label: "Tomorrow", day: result.weather.nextDay, isToday: false)
     }
     .padding(8)
-    .background(Color.white.opacity(0.06))
+    .background(Color.brandStrokeSubtle)
     .clipShape(RoundedRectangle(cornerRadius: 12))
     .accessibilityIdentifier("weatherSection")
   }
@@ -187,11 +187,11 @@ struct FishingForecastResultView: View {
   private func dayCard(label: String, day: RiverConditionsResponse.DayBlock, isToday: Bool) -> some View {
     VStack(spacing: 6) {
       Text(label)
-        .font(.caption).bold()
+        .font(.brandCaption).bold()
         .foregroundColor(isToday ? .blue : .white)
 
       Text(formattedDate(day.date))
-        .font(.caption2)
+        .font(.brandCaption2)
         .foregroundColor(isToday ? .blue.opacity(0.9) : .gray)
 
       VStack(spacing: 3) {
@@ -202,15 +202,15 @@ struct FishingForecastResultView: View {
     }
     .padding(8)
     .frame(maxWidth: .infinity)
-    .background(Color.white.opacity(0.04))
+    .background(Color.brandSurfaceMuted)
     .clipShape(RoundedRectangle(cornerRadius: 10))
   }
 
   private func rowMetric(_ label: String, _ value: String, highlight: Bool) -> some View {
     HStack {
-      Text(label).font(.caption2).foregroundColor(.gray)
+      Text(label).font(.brandCaption2).foregroundColor(.brandTextSecondary)
       Spacer()
-      Text(value).font(.footnote).foregroundColor(highlight ? .blue : .white)
+      Text(value).font(.brandFootnote).foregroundColor(highlight ? .blue : .white)
     }
   }
 
@@ -219,7 +219,7 @@ struct FishingForecastResultView: View {
   private func tideWaveCard(tides: RiverConditionsResponse.TidesBlock) -> some View {
     VStack(alignment: .leading, spacing: 6) {
       Text("Tide Heights")
-        .font(.subheadline).foregroundColor(.white)
+        .font(.brandSubheadline).foregroundColor(.brandTextPrimary)
 
       TideWaveGraph(
         previousHigh: tides.previousHigh,
@@ -231,7 +231,7 @@ struct FishingForecastResultView: View {
       .frame(height: 140)
     }
     .padding(8)
-    .background(Color.white.opacity(0.06))
+    .background(Color.brandStrokeSubtle)
     .clipShape(RoundedRectangle(cornerRadius: 10))
     .accessibilityIdentifier("tidesWaveSection")
   }
@@ -241,21 +241,21 @@ struct FishingForecastResultView: View {
   private func tidesTextBlocks(tides: RiverConditionsResponse.TidesBlock) -> some View {
     VStack(alignment: .leading, spacing: 8) {
       VStack(alignment: .leading, spacing: 6) {
-        Text("High").font(.subheadline).bold().foregroundColor(.white)
+        Text("High").font(.brandSubheadline).bold().foregroundColor(.brandTextPrimary)
         tideRow(title: "Previous", point: tides.previousHigh, highlight: false)
         tideRow(title: "Next", point: tides.nextHigh, highlight: true)
       }
       .padding(8)
-      .background(Color.white.opacity(0.06))
+      .background(Color.brandStrokeSubtle)
       .clipShape(RoundedRectangle(cornerRadius: 10))
 
       VStack(alignment: .leading, spacing: 6) {
-        Text("Low").font(.subheadline).bold().foregroundColor(.white)
+        Text("Low").font(.brandSubheadline).bold().foregroundColor(.brandTextPrimary)
         tideRow(title: "Previous", point: tides.previousLow, highlight: false)
         tideRow(title: "Next", point: tides.nextLow, highlight: false)
       }
       .padding(8)
-      .background(Color.white.opacity(0.06))
+      .background(Color.brandStrokeSubtle)
       .clipShape(RoundedRectangle(cornerRadius: 10))
     }
   }
@@ -268,23 +268,23 @@ struct FishingForecastResultView: View {
 
     return HStack(spacing: 6) {
       Text(title)
-        .font(.caption2)
-        .foregroundColor(.gray)
+        .font(.brandCaption2)
+        .foregroundColor(.brandTextSecondary)
         .frame(width: 62, alignment: .leading)
 
       HStack(spacing: 6) {
         Text(dateText)
-        Text("•").foregroundColor(.gray)
+        Text("•").foregroundColor(.brandTextSecondary)
         Text(timeText).monospacedDigit()
       }
-      .font(.footnote)
+      .font(.brandFootnote)
       .foregroundColor(highlight ? .blue : .white)
       .frame(width: tideDateColWidth, alignment: .leading)
 
       Spacer(minLength: 0)
 
       Text("\(number(displayTideM(point.heightM))) \(tideHeightUnit)")
-        .font(.footnote).bold()
+        .font(.brandFootnote).bold()
         .foregroundColor(highlight ? .blue : .white)
         .frame(alignment: .trailing)
     }
@@ -310,7 +310,7 @@ struct FishingForecastResultView: View {
       }
     }
     .padding(8)
-    .background(Color.white.opacity(0.06))
+    .background(Color.brandStrokeSubtle)
     .clipShape(RoundedRectangle(cornerRadius: 10))
   }
 
@@ -319,8 +319,8 @@ struct FishingForecastResultView: View {
     let levels = result.waterLevels
     if levels.isEmpty {
       Text("Water level data unavailable")
-        .font(.footnote)
-        .foregroundColor(.gray)
+        .font(.brandFootnote)
+        .foregroundColor(.brandTextSecondary)
         .accessibilityIdentifier("waterLevelUnavailable")
         .frame(maxWidth: .infinity, alignment: .leading)
     } else {
@@ -352,8 +352,8 @@ struct FishingForecastResultView: View {
       }
     } else {
       Text("Water temperature data unavailable")
-        .font(.footnote)
-        .foregroundColor(.gray)
+        .font(.brandFootnote)
+        .foregroundColor(.brandTextSecondary)
         .accessibilityIdentifier("waterTempUnavailable")
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -365,8 +365,8 @@ struct FishingForecastResultView: View {
 
   private func currentConditionsHeadline(value: String) -> some View {
     Text("Current conditions: \(value)")
-      .font(.caption)
-      .foregroundColor(.gray)
+      .font(.brandCaption)
+      .foregroundColor(.brandTextSecondary)
   }
 
   /// One date label per local-TZ calendar day, centered horizontally beneath
@@ -383,8 +383,8 @@ struct FishingForecastResultView: View {
           let centerIdx = Double(r.firstIndex + r.lastIndex) / 2.0
           let xFrac = denominator == 0 ? 0.5 : centerIdx / denominator
           Text(r.label)
-            .font(.caption2)
-            .foregroundColor(.gray)
+            .font(.brandCaption2)
+            .foregroundColor(.brandTextSecondary)
             .position(x: geo.size.width * CGFloat(xFrac), y: 8)
         }
       }
@@ -426,8 +426,8 @@ struct FishingForecastResultView: View {
 
   private var footer: some View {
     Text("Powered by Mad Thinker™ 2026")
-      .font(.footnote)
-      .foregroundColor(.gray.opacity(0.8))
+      .font(.brandFootnote)
+      .foregroundColor(.brandTextSecondary.opacity(0.8))
       .multilineTextAlignment(.center)
       .padding(.top, 6)
   }
@@ -570,7 +570,7 @@ private struct TideWaveGraph: View {
             fillPath.addLine(to: CGPoint(x: first.x, y: h - 2))
             fillPath.closeSubpath()
           }
-          context.fill(fillPath, with: .color(Color.blue.opacity(0.12)))
+          context.fill(fillPath, with: .color(Color.brandAccent.opacity(0.12)))
 
           context.stroke(wave, with: .color(.blue), lineWidth: 2)
 
@@ -580,7 +580,7 @@ private struct TideWaveGraph: View {
             let color: Color = isHigh ? .blue : .teal
             let dotRect = CGRect(x: p.x - 5, y: p.y - 5, width: 10, height: 10)
             context.fill(Path(ellipseIn: dotRect), with: .color(color))
-            context.stroke(Path(ellipseIn: dotRect), with: .color(Color.black.opacity(0.85)), lineWidth: 1)
+            context.stroke(Path(ellipseIn: dotRect), with: .color(Color.brandScrim.opacity(0.85)), lineWidth: 1)
           }
         }
 
@@ -651,11 +651,11 @@ private struct TideWaveGraph: View {
     if i == 1 || i == 2 { offsetY += isHigh ? -8 : 8 }
 
     return Text(text)
-      .font(.caption2)
+      .font(.brandCaption2)
       .foregroundColor(color)
       .padding(.horizontal, 6)
       .padding(.vertical, 3)
-      .background(Color.black.opacity(0.5))
+      .background(Color.brandScrim.opacity(0.5))
       .clipShape(RoundedRectangle(cornerRadius: 5))
       .position(
         x: clamp(p.x, 24, w - 24),
@@ -732,7 +732,7 @@ private struct WaterLevelSparkline: View {
             path.addLine(to: CGPoint(x: pts.last!.x, y: h))
             path.closeSubpath()
           }
-          .fill(Color.white.opacity(0.08))
+          .fill(Color.brandSurface)
         }
 
         Path { path in
@@ -742,11 +742,11 @@ private struct WaterLevelSparkline: View {
             path.addLine(to: p)
           }
         }
-        .stroke(Color.blue, lineWidth: 2)
+        .stroke(Color.brandAccent, lineWidth: 2)
 
         if let last = pts.last {
           Circle()
-            .fill(Color.blue)
+            .fill(Color.brandAccent)
             .frame(width: 7, height: 7)
             .position(last)
         }
@@ -790,7 +790,7 @@ private struct WaterTemperatureSparkline: View {
             path.addLine(to: CGPoint(x: pts.last!.x, y: h))
             path.closeSubpath()
           }
-          .fill(Color.white.opacity(0.08))
+          .fill(Color.brandSurface)
         }
 
         Path { path in

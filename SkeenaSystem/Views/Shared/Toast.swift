@@ -8,8 +8,8 @@ struct Toast: View {
     Text(message)
       .padding(.horizontal, 16)
       .padding(.vertical, 10)
-      .background(Color.black.opacity(0.85))
-      .foregroundColor(.white)
+      .background(Color.brandScrim.opacity(0.85))
+      .foregroundColor(.brandTextPrimary)
       .cornerRadius(12)
       .shadow(radius: 4)
   }

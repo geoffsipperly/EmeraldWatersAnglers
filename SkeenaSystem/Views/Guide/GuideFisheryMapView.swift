@@ -203,7 +203,7 @@ struct GuideFisheryMapView: View {
     .padding(.horizontal, 12)
     .padding(.top, 10)
     .padding(.bottom, 10)
-    .background(Color.white.opacity(0.04))
+    .background(Color.brandSurfaceMuted)
   }
 
   private var allCheckbox: some View {
@@ -215,12 +215,12 @@ struct GuideFisheryMapView: View {
           .font(.system(size: 14, weight: .semibold))
           .foregroundColor(showAll ? .blue : .white.opacity(0.7))
         Text("All")
-          .font(.caption.weight(.semibold))
-          .foregroundColor(.white)
+          .font(.brandCaption.weight(.semibold))
+          .foregroundColor(.brandTextPrimary)
       }
       .padding(.horizontal, 10)
       .padding(.vertical, 7)
-      .background(Color.white.opacity(0.10), in: Capsule())
+      .background(Color.brandTextPrimary.opacity(0.10), in: Capsule())
     }
     .buttonStyle(.plain)
     .accessibilityIdentifier("fisheryMapAllCheckbox")
@@ -244,15 +244,15 @@ struct GuideFisheryMapView: View {
         Image(systemName: "calendar")
           .font(.system(size: 12, weight: .semibold))
         Text(timeWindow.label)
-          .font(.caption.weight(.semibold))
+          .font(.brandCaption.weight(.semibold))
           .lineLimit(1)
         Image(systemName: "chevron.down")
           .font(.system(size: 10, weight: .semibold))
       }
-      .foregroundColor(.white)
+      .foregroundColor(.brandTextPrimary)
       .padding(.horizontal, 12)
       .padding(.vertical, 7)
-      .background(Color.white.opacity(0.10), in: Capsule())
+      .background(Color.brandTextPrimary.opacity(0.10), in: Capsule())
       // Keep the capsule wide enough for the longest label ("Last 30 days")
       // so the surrounding HStack can't squeeze the text onto two lines.
       .fixedSize(horizontal: true, vertical: false)
@@ -268,28 +268,28 @@ struct GuideFisheryMapView: View {
   private var currentConditionsReadout: some View {
     if currentWaterTempC == nil && currentWaterLevelFt == nil {
       Text("Current conditions unavailable")
-        .font(.caption2)
-        .foregroundColor(.white.opacity(0.7))
+        .font(.brandCaption2)
+        .foregroundColor(.brandTextPrimary.opacity(0.7))
     } else {
       VStack(alignment: .trailing, spacing: 2) {
         HStack(spacing: 6) {
           if let t = currentWaterTempC {
             Text("Now: \(formatTemp(t))")
-              .font(.caption.weight(.semibold))
-              .foregroundColor(.white)
+              .font(.brandCaption.weight(.semibold))
+              .foregroundColor(.brandTextPrimary)
           }
           if let l = currentWaterLevelFt {
             Text("·")
-              .font(.caption)
-              .foregroundColor(.white.opacity(0.5))
+              .font(.brandCaption)
+              .foregroundColor(.brandTextPrimary.opacity(0.5))
             Text(formatLevel(l))
-              .font(.caption.weight(.semibold))
-              .foregroundColor(.white)
+              .font(.brandCaption.weight(.semibold))
+              .foregroundColor(.brandTextPrimary)
           }
         }
         Text(showAll ? "Showing all pins" : "Pins within ±10%")
-          .font(.caption2)
-          .foregroundColor(.white.opacity(0.7))
+          .font(.brandCaption2)
+          .foregroundColor(.brandTextPrimary.opacity(0.7))
       }
       .accessibilityIdentifier("fisheryMapCurrentConditions")
     }
@@ -301,7 +301,7 @@ struct GuideFisheryMapView: View {
   private var mapPane: some View {
     if !hasLoaded {
       ZStack {
-        Color.black
+        Color.brandBackground
         ProgressView().tint(.white)
       }
     } else {
@@ -323,7 +323,7 @@ struct GuideFisheryMapView: View {
           ProgressView()
             .tint(.white)
             .padding(8)
-            .background(Color.black.opacity(0.55), in: Circle())
+            .background(Color.brandScrim.opacity(0.55), in: Circle())
             .padding(10)
         }
 
@@ -331,11 +331,11 @@ struct GuideFisheryMapView: View {
           VStack {
             Spacer()
             Text(showAll ? "No reports for this fishery" : "No reports within ±10% of current conditions")
-              .font(.subheadline.weight(.semibold))
-              .foregroundColor(.white)
+              .font(.brandSubheadline.weight(.semibold))
+              .foregroundColor(.brandTextPrimary)
               .padding(.horizontal, 14)
               .padding(.vertical, 8)
-              .background(Color.black.opacity(0.6), in: Capsule())
+              .background(Color.brandScrim.opacity(0.6), in: Capsule())
               .accessibilityIdentifier("fisheryMapEmptyState")
             Spacer()
           }
@@ -352,7 +352,7 @@ struct GuideFisheryMapView: View {
       Spacer()
     }
     .padding(.vertical, 8)
-    .background(Color.white.opacity(0.04))
+    .background(Color.brandSurfaceMuted)
   }
 
   // MARK: - Fetch

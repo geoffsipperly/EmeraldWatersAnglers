@@ -216,8 +216,8 @@ struct AnglerLandingView: View {
           HStack(spacing: 12) {
             Button(action: { goToManageAccount = true }) {
               Image(systemName: "person.circle")
-                .font(.title3.weight(.semibold))
-                .foregroundColor(.white)
+                .font(.brandTitle3.weight(.semibold))
+                .foregroundColor(.brandTextPrimary)
             }
             CommunitySwitcherChevron()
           }
@@ -226,9 +226,9 @@ struct AnglerLandingView: View {
           Button(action: logoutTapped) {
             HStack(spacing: 6) {
               Image(systemName: "person.crop.circle.badge.xmark")
-                .font(.subheadline)
+                .font(.brandSubheadline)
               Text("Log out")
-                .font(.caption)
+                .font(.brandCaption)
             }
           }
           .accessibilityIdentifier("logoutCapsule")
@@ -299,7 +299,7 @@ struct AnglerLandingView: View {
       ZStack(alignment: .trailing) {
         if showTripPrep {
           // Dimmed backdrop
-          Color.black.opacity(0.45)
+          Color.brandScrim.opacity(0.45)
             .ignoresSafeArea()
             .onTapGesture { withAnimation(.easeInOut) { showTripPrep = false } }
 
@@ -311,7 +311,7 @@ struct AnglerLandingView: View {
           .environmentObject(auth)
           .preferredColorScheme(.dark)
           .frame(maxWidth: .infinity, maxHeight: .infinity)
-          .background(Color.black)
+          .background(Color.brandBackground)
           .transition(.move(edge: .trailing))
         }
       }
@@ -329,8 +329,8 @@ struct AnglerLandingView: View {
         VStack(spacing: 0) {
           // User name — left aligned
           Text("\(auth.currentFirstName ?? "") \(auth.currentLastName ?? "")")
-            .font(.caption.weight(.semibold))
-            .foregroundColor(.white)
+            .font(.brandCaption.weight(.semibold))
+            .foregroundColor(.brandTextPrimary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 20)
 
@@ -341,8 +341,8 @@ struct AnglerLandingView: View {
           // Community display name
           if let name = communityService.activeCommunityConfig.displayName, !name.isEmpty {
             Text(name)
-              .font(.title2.weight(.bold))
-              .foregroundColor(.white)
+              .font(.brandTitle2.weight(.bold))
+              .foregroundColor(.brandTextPrimary)
               .multilineTextAlignment(.center)
               .padding(.top, -20)
           }
@@ -350,8 +350,8 @@ struct AnglerLandingView: View {
           // Community tagline
           if let tagline = communityService.activeCommunityConfig.tagline, !tagline.isEmpty {
             Text(tagline)
-              .font(.subheadline)
-              .foregroundColor(.gray)
+              .font(.brandSubheadline)
+              .foregroundColor(.brandTextSecondary)
               .multilineTextAlignment(.center)
               .padding(.top, -16)
               .padding(.horizontal, 20)
@@ -365,37 +365,37 @@ struct AnglerLandingView: View {
           HStack(spacing: 0) {
             Text(liveWeather?.locationName ?? "\u{2013}")
               .font(.system(size: 11, weight: .semibold))
-              .foregroundColor(.white)
+              .foregroundColor(.brandTextPrimary)
               .lineLimit(1)
               .frame(maxWidth: .infinity, alignment: .leading)
 
             HStack(spacing: 3) {
               Image(systemName: liveWeather?.icon ?? "thermometer")
-                .font(.caption)
+                .font(.brandCaption)
                 .foregroundColor(weatherIconColor(liveWeather?.icon))
               Text(liveWeather.map { "\(communityService.activeCommunityConfig.temperature(Double($0.temp)))\(communityService.activeCommunityConfig.tempUnit)" } ?? "\u{2013}")
-                .font(.caption.weight(.bold))
-                .foregroundColor(.white)
+                .font(.brandCaption.weight(.bold))
+                .foregroundColor(.brandTextPrimary)
             }
             .frame(width: 56, alignment: .center)
 
             HStack(spacing: 3) {
               Image(systemName: "wind")
-                .font(.caption2)
-                .foregroundColor(.gray)
+                .font(.brandCaption2)
+                .foregroundColor(.brandTextSecondary)
               Text(liveWeather.map { "\($0.windDir) \(communityService.activeCommunityConfig.windSpeed(Double($0.windSpeed)))" } ?? "\u{2013}")
-                .font(.caption2.weight(.medium))
-                .foregroundColor(.white)
+                .font(.brandCaption2.weight(.medium))
+                .foregroundColor(.brandTextPrimary)
             }
             .frame(width: 56, alignment: .center)
 
             HStack(spacing: 3) {
               Image(systemName: "barometer")
-                .font(.caption2)
-                .foregroundColor(.gray)
+                .font(.brandCaption2)
+                .foregroundColor(.brandTextSecondary)
               Text(liveWeather.map { "\($0.pressureVal)" } ?? "\u{2013}")
-                .font(.caption2.weight(.medium))
-                .foregroundColor(.white)
+                .font(.brandCaption2.weight(.medium))
+                .foregroundColor(.brandTextPrimary)
               Image(systemName: liveWeather?.pressureTrend.sfSymbol ?? "minus")
                 .font(.system(size: 8))
                 .foregroundColor(pressureTrendColor(liveWeather?.pressureTrend))
@@ -409,7 +409,7 @@ struct AnglerLandingView: View {
           // Hourly strip
           if let hourly = liveWeather?.hourly, !hourly.isEmpty {
             Rectangle()
-              .fill(Color.white.opacity(0.12))
+              .fill(Color.brandStroke)
               .frame(height: 0.5)
               .padding(.horizontal, 14)
 
@@ -418,7 +418,7 @@ struct AnglerLandingView: View {
                 VStack(alignment: .center, spacing: 2) {
                   Text(slot.hour)
                     .font(.system(size: 9))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.brandTextSecondary)
                   Image(systemName: slot.icon)
                     .resizable()
                     .scaledToFit()
@@ -426,7 +426,7 @@ struct AnglerLandingView: View {
                     .foregroundColor(weatherIconColor(slot.icon))
                   Text("\(communityService.activeCommunityConfig.temperature(Double(slot.temp)))\u{00B0}")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.brandTextPrimary)
                   Text(slot.precipChance > 0 ? "\(slot.precipChance)%" : " ")
                     .font(.system(size: 9))
                     .foregroundColor(.cyan)
@@ -438,26 +438,26 @@ struct AnglerLandingView: View {
             .padding(.vertical, 6)
           }
         }
-        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+        .background(Color.brandSurface, in: RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal, 16)
 
         // ── Fisheries Conditions ───────────────────────────────────────
         Button { navPath.append(AnglerDestination.conditions) } label: {
           HStack(spacing: 8) {
             Image(systemName: "water.waves")
-              .font(.caption)
-              .foregroundColor(.white)
+              .font(.brandCaption)
+              .foregroundColor(.brandTextPrimary)
             Text("Fisheries Conditions")
-              .font(.caption.weight(.semibold))
-              .foregroundColor(.white)
+              .font(.brandCaption.weight(.semibold))
+              .foregroundColor(.brandTextPrimary)
             Spacer()
             Image(systemName: "chevron.right")
-              .font(.caption.weight(.semibold))
-              .foregroundColor(.white.opacity(0.4))
+              .font(.brandCaption.weight(.semibold))
+              .foregroundColor(.brandTextPrimary.opacity(0.4))
           }
           .padding(.horizontal, 16)
           .padding(.vertical, 10)
-          .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+          .background(Color.brandSurface, in: RoundedRectangle(cornerRadius: 14))
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 16)
@@ -466,7 +466,7 @@ struct AnglerLandingView: View {
 
         // Section divider
         Rectangle()
-          .fill(Color.white.opacity(0.12))
+          .fill(Color.brandStroke)
           .frame(height: 0.5)
           .padding(.vertical, 2)
 
@@ -476,14 +476,14 @@ struct AnglerLandingView: View {
             // Header row — "Your recent activity" + map icon
             HStack(alignment: .center) {
               Text("Your recent activity")
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(.white)
+                .font(.brandSubheadline.weight(.semibold))
+                .foregroundColor(.brandTextPrimary)
               Spacer()
               if E_CATCH_MAP {
                 Button { goToCatchMap = true } label: {
                   Image(systemName: "map")
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.7))
+                    .font(.brandSubheadline)
+                    .foregroundColor(.brandTextPrimary.opacity(0.7))
                 }
                 .buttonStyle(.plain)
               }
@@ -496,8 +496,8 @@ struct AnglerLandingView: View {
                 .frame(maxWidth: .infinity)
             } else if sortedReports.isEmpty {
               Text("No catch reports yet.")
-                .foregroundColor(.gray)
-                .font(.subheadline)
+                .foregroundColor(.brandTextSecondary)
+                .font(.brandSubheadline)
                 .padding(.vertical, 14)
                 .padding(.horizontal, 16)
             } else {
@@ -519,8 +519,8 @@ struct AnglerLandingView: View {
         // Error banner
         if let err = errorText {
           Text(err)
-            .foregroundColor(.red)
-            .font(.footnote)
+            .foregroundColor(.brandError)
+            .font(.brandFootnote)
             .multilineTextAlignment(.center)
             .padding(.horizontal, 16)
         }
@@ -544,18 +544,18 @@ struct AnglerLandingView: View {
       AsyncImage(url: r.photoURL) { phase in
         switch phase {
         case .empty:
-          ZStack { Color.white.opacity(0.08); ProgressView().tint(.white) }
+          ZStack { Color.brandSurface; ProgressView().tint(.white) }
         case let .success(img):
           img.resizable().scaledToFill()
         case .failure:
           ZStack {
-            Color.white.opacity(0.08)
+            Color.brandSurface
             Image(systemName: "photo")
-              .font(.largeTitle)
-              .foregroundColor(.white.opacity(0.3))
+              .font(.brandLargeTitle)
+              .foregroundColor(.brandTextPrimary.opacity(0.3))
           }
         @unknown default:
-          Color.white.opacity(0.08)
+          Color.brandSurface
         }
       }
       .frame(width: 140, height: 140)
@@ -564,19 +564,19 @@ struct AnglerLandingView: View {
       HStack {
         VStack(alignment: .leading, spacing: 1) {
           Text(r.displayLocation)
-            .font(.caption2.weight(.semibold))
-            .foregroundColor(.white)
+            .font(.brandCaption2.weight(.semibold))
+            .foregroundColor(.brandTextPrimary)
             .lineLimit(1)
           Text(Self.fmtDate(r.createdAt))
-            .font(.caption2)
-            .foregroundColor(.gray)
+            .font(.brandCaption2)
+            .foregroundColor(.brandTextSecondary)
             .lineLimit(1)
         }
         Spacer()
       }
       .padding(.horizontal, 8)
       .padding(.vertical, 5)
-      .background(Color.white.opacity(0.06))
+      .background(Color.brandStrokeSubtle)
     }
     .frame(width: 140)
     .clipShape(RoundedRectangle(cornerRadius: 10))

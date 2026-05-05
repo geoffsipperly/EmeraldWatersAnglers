@@ -21,11 +21,11 @@ struct CommunityToolbarButton: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "person.3")
-                    .font(.subheadline)
+                    .font(.brandSubheadline)
                 Image(systemName: "chevron.down")
-                    .font(.caption2)
+                    .font(.brandCaption2)
             }
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $showSwitcher) {
@@ -48,11 +48,11 @@ struct CommunitySwitcherChevron: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "person.3")
-                    .font(.subheadline)
+                    .font(.brandSubheadline)
                 Image(systemName: "chevron.down")
-                    .font(.caption2)
+                    .font(.brandCaption2)
             }
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $showSwitcher) {
@@ -72,7 +72,7 @@ struct CommunitySwitcherSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.black.ignoresSafeArea()
+                Color.brandBackground.ignoresSafeArea()
 
                 ScrollView {
                     VStack(spacing: 12) {
@@ -85,25 +85,25 @@ struct CommunitySwitcherSheet: View {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(membership.communities.name)
-                                            .font(.headline)
-                                            .foregroundColor(.white)
+                                            .font(.brandHeadline)
+                                            .foregroundColor(.brandTextPrimary)
                                         Text(membership.role.capitalized)
-                                            .font(.caption)
-                                            .foregroundColor(.gray)
+                                            .font(.brandCaption)
+                                            .foregroundColor(.brandTextSecondary)
                                     }
                                     Spacer()
                                     if isActive {
                                         Image(systemName: "checkmark.circle.fill")
-                                            .foregroundColor(.blue)
+                                            .foregroundColor(.brandAccent)
                                     }
                                 }
                                 .padding()
                                 .background(
                                     RoundedRectangle(cornerRadius: 12)
-                                        .fill(isActive ? Color.blue.opacity(0.15) : Color.white.opacity(0.08))
+                                        .fill(isActive ? Color.brandAccent.opacity(0.15) : Color.brandSurface)
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 12)
-                                                .stroke(isActive ? Color.blue.opacity(0.5) : Color.clear, lineWidth: 1)
+                                                .stroke(isActive ? Color.brandAccent.opacity(0.5) : Color.clear, lineWidth: 1)
                                         )
                                 )
                             }
@@ -119,12 +119,12 @@ struct CommunitySwitcherSheet: View {
                                 HStack {
                                     Image(systemName: "star.circle")
                                     Text("Update Default Community")
-                                        .font(.subheadline.weight(.semibold))
+                                        .font(.brandSubheadline.weight(.semibold))
                                 }
-                                .foregroundColor(.blue)
+                                .foregroundColor(.brandAccent)
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
+                                .background(Color.brandSurfaceMuted, in: RoundedRectangle(cornerRadius: 12))
                             }
                             .buttonStyle(.plain)
                         }
@@ -136,12 +136,12 @@ struct CommunitySwitcherSheet: View {
                             HStack {
                                 Image(systemName: "plus.circle")
                                 Text(communityService.hasMultipleCommunities ? "Join Another Community" : "Join a Community")
-                                    .font(.subheadline.weight(.semibold))
+                                    .font(.brandSubheadline.weight(.semibold))
                             }
-                            .foregroundColor(.blue)
+                            .foregroundColor(.brandAccent)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
+                            .background(Color.brandSurfaceMuted, in: RoundedRectangle(cornerRadius: 12))
                         }
                         .buttonStyle(.plain)
                     }
@@ -153,7 +153,7 @@ struct CommunitySwitcherSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
-                        .foregroundColor(.white)
+                        .foregroundColor(.brandTextPrimary)
                 }
             }
             .sheet(isPresented: $showJoinCommunity) {

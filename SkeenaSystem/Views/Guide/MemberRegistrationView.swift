@@ -96,15 +96,15 @@ struct MemberRegistrationView: View {
     content
       .padding(.horizontal, 10)
       .frame(height: 40) // compact height
-      .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
-      .foregroundColor(.white)
+      .background(Color.brandSurface, in: RoundedRectangle(cornerRadius: 10))
+      .foregroundColor(.brandTextPrimary)
   }
 
   // MARK: - Body
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
       mainContent
     }
     .toolbar {
@@ -119,8 +119,8 @@ struct MemberRegistrationView: View {
           }
         }) {
           Image(systemName: "chevron.left")
-            .font(.title3.weight(.semibold))
-            .foregroundColor(.white)
+            .font(.brandTitle3.weight(.semibold))
+            .foregroundColor(.brandTextPrimary)
         }
       }
     }
@@ -156,13 +156,13 @@ struct MemberRegistrationView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
 
       Text("Do you have a community code and member number?")
-        .font(.title3.weight(.semibold))
-        .foregroundColor(.white)
+        .font(.brandTitle3.weight(.semibold))
+        .foregroundColor(.brandTextPrimary)
         .multilineTextAlignment(.center)
 
       Text("These would have been shared with you by your guide or community admin.")
-        .font(.subheadline)
-        .foregroundColor(.gray)
+        .font(.brandSubheadline)
+        .foregroundColor(.brandTextSecondary)
         .multilineTextAlignment(.center)
         .padding(.horizontal, 32)
 
@@ -174,11 +174,11 @@ struct MemberRegistrationView: View {
             Image(systemName: "ticket")
             Text("Yes, I have both")
           }
-          .font(.subheadline.weight(.semibold))
+          .font(.brandSubheadline.weight(.semibold))
           .frame(maxWidth: .infinity)
           .frame(height: 48)
-          .background(Color.blue, in: RoundedRectangle(cornerRadius: 12))
-          .foregroundColor(.white)
+          .background(Color.brandAccent, in: RoundedRectangle(cornerRadius: 12))
+          .foregroundColor(.brandTextPrimary)
         }
         .accessibilityIdentifier("hasCodeButton")
 
@@ -189,11 +189,11 @@ struct MemberRegistrationView: View {
             Image(systemName: "person.badge.plus")
             Text("No, continue without one")
           }
-          .font(.subheadline.weight(.semibold))
+          .font(.brandSubheadline.weight(.semibold))
           .frame(maxWidth: .infinity)
           .frame(height: 48)
-          .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
-          .foregroundColor(.white)
+          .background(Color.brandStroke, in: RoundedRectangle(cornerRadius: 12))
+          .foregroundColor(.brandTextPrimary)
         }
         .accessibilityIdentifier("noCodeButton")
       }
@@ -251,22 +251,22 @@ struct MemberRegistrationView: View {
         HStack {
           if isBusy { ProgressView() }
           Text(isBusy ? "Registering…" : "Register")
-            .font(.headline.bold())
+            .font(.brandHeadline.bold())
         }
         .frame(maxWidth: .infinity)
         .frame(height: 44)
         .background(
           RoundedRectangle(cornerRadius: 12)
-            .fill(canRegisterInvite ? Color.blue : Color.blue.opacity(0.4))
+            .fill(canRegisterInvite ? Color.brandAccent : Color.brandAccent.opacity(0.4))
         )
-        .foregroundColor(.white)
+        .foregroundColor(.brandTextPrimary)
         .padding(.horizontal)
       }
       .disabled(!canRegisterInvite)
       .padding(.bottom, 10)
     }
     .padding(.top, 4)
-    .background(Color.black.ignoresSafeArea(edges: .bottom))
+    .background(Color.brandBackground.ignoresSafeArea(edges: .bottom))
   }
 
   // MARK: - Full Registration Path (existing)
@@ -320,10 +320,10 @@ struct MemberRegistrationView: View {
     if !communityCode.isEmpty {
       HStack(spacing: 4) {
         Image(systemName: isCommunityCodeValid ? "checkmark.circle.fill" : "xmark.circle.fill")
-          .font(.caption2)
+          .font(.brandCaption2)
           .foregroundColor(isCommunityCodeValid ? .green : .red)
         Text(isCommunityCodeValid ? "Valid code format" : "Must be 6 alphanumeric characters")
-          .font(.caption2)
+          .font(.brandCaption2)
           .foregroundColor(isCommunityCodeValid ? .green : .red)
       }
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -344,10 +344,10 @@ struct MemberRegistrationView: View {
     if !memberNumber.isEmpty {
       HStack(spacing: 4) {
         Image(systemName: isMemberNumberValid ? "checkmark.circle.fill" : "xmark.circle.fill")
-          .font(.caption2)
+          .font(.brandCaption2)
           .foregroundColor(isMemberNumberValid ? .green : .red)
         Text(isMemberNumberValid ? "Valid member number" : "Enter the 9-char code from your invite email")
-          .font(.caption2)
+          .font(.brandCaption2)
           .foregroundColor(isMemberNumberValid ? .green : .red)
       }
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -408,10 +408,10 @@ struct MemberRegistrationView: View {
     if !email.isEmpty {
       HStack(spacing: 4) {
         Image(systemName: isEmailValid ? "checkmark.circle.fill" : "xmark.circle.fill")
-          .font(.caption2)
+          .font(.brandCaption2)
           .foregroundColor(isEmailValid ? .green : .red)
         Text(isEmailValid ? "Valid email" : "Enter a valid email address")
-          .font(.caption2)
+          .font(.brandCaption2)
           .foregroundColor(isEmailValid ? .green : .red)
       }
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -435,8 +435,8 @@ struct MemberRegistrationView: View {
     // Password requirements — always visible
     VStack(alignment: .leading, spacing: 2) {
       Text("Password must contain:")
-        .font(.caption2)
-        .foregroundColor(.gray)
+        .font(.brandCaption2)
+        .foregroundColor(.brandTextSecondary)
       passwordRequirement("At least 8 characters", met: hasMinLength)
       passwordRequirement("One uppercase letter", met: hasUppercase)
       passwordRequirement("One lowercase letter", met: hasLowercase)
@@ -461,10 +461,10 @@ struct MemberRegistrationView: View {
     if !confirm.isEmpty {
       HStack(spacing: 4) {
         Image(systemName: passwordsMatch ? "checkmark.circle.fill" : "xmark.circle.fill")
-          .font(.caption2)
+          .font(.brandCaption2)
           .foregroundColor(passwordsMatch ? .green : .red)
         Text(passwordsMatch ? "Passwords match" : "Passwords do not match")
-          .font(.caption2)
+          .font(.brandCaption2)
           .foregroundColor(passwordsMatch ? .green : .red)
       }
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -475,11 +475,11 @@ struct MemberRegistrationView: View {
   private func passwordRequirement(_ text: String, met: Bool) -> some View {
     HStack(spacing: 4) {
       Image(systemName: met ? "checkmark.circle.fill" : "circle")
-        .font(.caption2)
+        .font(.brandCaption2)
         .foregroundColor(met ? .green : .gray)
         .frame(width: 12)
       Text(text)
-        .font(.caption2)
+        .font(.brandCaption2)
         .foregroundColor(met ? .green : .gray)
     }
   }
@@ -488,18 +488,18 @@ struct MemberRegistrationView: View {
   private var policyAgreementText: some View {
     VStack(spacing: 2) {
       Text("By clicking Register, you agree to our")
-        .font(.caption)
-        .foregroundColor(.gray)
+        .font(.brandCaption)
+        .foregroundColor(.brandTextSecondary)
       HStack(spacing: 4) {
         Link("Privacy Policy", destination: LegalURLs.privacyPolicy)
-          .font(.caption.weight(.semibold))
-          .foregroundColor(.blue)
+          .font(.brandCaption.weight(.semibold))
+          .foregroundColor(.brandAccent)
         Text("and")
-          .font(.caption)
-          .foregroundColor(.gray)
+          .font(.brandCaption)
+          .foregroundColor(.brandTextSecondary)
         Link("Acceptable Use Policy", destination: LegalURLs.acceptableUsePolicy)
-          .font(.caption.weight(.semibold))
-          .foregroundColor(.blue)
+          .font(.brandCaption.weight(.semibold))
+          .foregroundColor(.brandAccent)
       }
     }
     .multilineTextAlignment(.center)
@@ -510,8 +510,8 @@ struct MemberRegistrationView: View {
   private var errorView: some View {
     if let err = errorText {
       Text(err)
-        .foregroundColor(.red)
-        .font(.footnote)
+        .foregroundColor(.brandError)
+        .font(.brandFootnote)
         .multilineTextAlignment(.center)
         .padding(.horizontal)
     }
@@ -528,15 +528,15 @@ struct MemberRegistrationView: View {
         HStack {
           if isBusy { ProgressView() }
           Text(isBusy ? "Registering…" : "Register")
-            .font(.headline.bold())
+            .font(.brandHeadline.bold())
         }
         .frame(maxWidth: .infinity)
         .frame(height: 44)
         .background(
           RoundedRectangle(cornerRadius: 12)
-            .fill(canRegister ? Color.blue : Color.blue.opacity(0.4))
+            .fill(canRegister ? Color.brandAccent : Color.brandAccent.opacity(0.4))
         )
-        .foregroundColor(.white)
+        .foregroundColor(.brandTextPrimary)
         .padding(.horizontal)
       }
       .disabled(!canRegister)
@@ -544,7 +544,7 @@ struct MemberRegistrationView: View {
       .padding(.bottom, 10)
     }
     .padding(.top, 4)
-    .background(Color.black.ignoresSafeArea(edges: .bottom))
+    .background(Color.brandBackground.ignoresSafeArea(edges: .bottom))
   }
 
   // MARK: - Actions

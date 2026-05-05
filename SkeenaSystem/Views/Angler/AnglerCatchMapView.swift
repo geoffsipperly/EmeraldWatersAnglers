@@ -80,13 +80,13 @@ struct AnglerCatchMapView: View {
         VStack(spacing: 12) {
           Image(systemName: "map")
             .font(.system(size: 48))
-            .foregroundColor(.gray)
+            .foregroundColor(.brandTextSecondary)
           Text("No catch locations available")
-            .font(.headline)
-            .foregroundColor(.gray)
+            .font(.brandHeadline)
+            .foregroundColor(.brandTextSecondary)
           Text("Catches with GPS coordinates will appear here.")
-            .font(.subheadline)
-            .foregroundColor(.gray.opacity(0.7))
+            .font(.brandSubheadline)
+            .foregroundColor(.brandTextSecondary.opacity(0.7))
         }
       } else {
         mapContent

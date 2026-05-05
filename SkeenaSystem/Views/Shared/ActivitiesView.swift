@@ -117,7 +117,7 @@ struct ActivitiesView: View {
       .overlay {
         if isUploading {
           ZStack {
-            Color.black.opacity(0.6).ignoresSafeArea()
+            Color.brandScrim.opacity(0.6).ignoresSafeArea()
 
             VStack(spacing: 20) {
               ProgressView()
@@ -126,18 +126,18 @@ struct ActivitiesView: View {
                 .tint(.white)
 
               Text(uploadPhase)
-                .font(.headline)
-                .foregroundColor(.white)
+                .font(.brandHeadline)
+                .foregroundColor(.brandTextPrimary)
                 .multilineTextAlignment(.center)
 
               ProgressView(value: uploadProgress, total: 1.0)
                 .progressViewStyle(.linear)
-                .tint(.blue)
+                .tint(.brandAccent)
                 .frame(width: 200)
 
               Text("\(Int(uploadProgress * 100))%")
-                .font(.caption)
-                .foregroundColor(.gray)
+                .font(.brandCaption)
+                .foregroundColor(.brandTextSecondary)
             }
             .padding(32)
             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))

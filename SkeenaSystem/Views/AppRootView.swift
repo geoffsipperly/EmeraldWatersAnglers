@@ -27,7 +27,7 @@ struct AppRootView: View {
         } else if !communityService.hasFetchedMemberships {
           // Wait for community memberships to load before routing
           ZStack {
-            Color.black.ignoresSafeArea()
+            Color.brandBackground.ignoresSafeArea()
             VStack(spacing: 16) {
               Image("MadThinkerLogo")
                 .resizable()
@@ -67,7 +67,7 @@ struct AppRootView: View {
           // would flash GuideLandingView for non-guide roles and fire
           // extraneous onAppear work (weather fetch, trip sync, etc.).
           ZStack {
-            Color.black.ignoresSafeArea()
+            Color.brandBackground.ignoresSafeArea()
             ProgressView().tint(.white)
           }
         }
