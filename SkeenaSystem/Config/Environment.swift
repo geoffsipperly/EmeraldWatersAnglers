@@ -54,6 +54,7 @@ public final class AppEnvironment {
     public var overrideDefaultMapLongitude: Double?
     public var overrideImageCompressionQuality: Double?
     public var overrideFishDetectMinConfidence: Double?
+    public var overrideFishDefaultGirthRatio: Double?
     public var overridePersonDetectMinConfidence: Double?
     public var overrideHeuristicDiagFracStrength: Double?
     public var overrideFishBoxScaleFactor: Double?
@@ -441,6 +442,13 @@ public final class AppEnvironment {
         if let v = overrideFishDetectMinConfidence { return Float(v) }
         if let s = stringFromInfo("FISH_DETECT_MIN_CONFIDENCE"), let v = Float(s) { return v }
         return 0.08
+    }
+
+    /// Default girth-to-length ratio used when no species-specific ratio is available.
+    public var fishDefaultGirthRatio: Double {
+        if let v = overrideFishDefaultGirthRatio { return v }
+        if let s = stringFromInfo("FISH_DEFAULT_GIRTH_RATIO"), let v = Double(s) { return v }
+        return 0.5
     }
 
     /// Minimum confidence threshold for the person detection box to be used as

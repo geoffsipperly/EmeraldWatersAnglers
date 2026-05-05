@@ -2,8 +2,8 @@
 // FishWeightEstimator.swift — Pure-calculation utility for estimating fish weight from length.
 //
 // Uses the standard fisheries formula: Weight (lbs) = Length (in) x Girth (in)^2 / Divisor
-// When girth is unknown: Girth = Length x 0.58
-// Simplified: Weight = Length^3 x 0.3364 / Divisor
+// When girth is unknown: Girth = Length x FISH_DEFAULT_GIRTH_RATIO (xcconfig, default 0.5)
+// Simplified: Weight = Length^3 x ratio^2 / Divisor
 //
 // Divisor lookup follows a cascading hierarchy:
 //   1. River + species match (e.g. "Babine" + "steelhead" -> 690)
@@ -19,7 +19,7 @@ struct FishWeightEstimate {
   let weightLbs: Double
   let divisor: Int
   let divisorSource: String       // e.g. "Babine River steelhead", "General steelhead", "Default"
-  let girthRatio: Double          // species-specific or 0.58 default
+  let girthRatio: Double          // species-specific or FISH_DEFAULT_GIRTH_RATIO default
   let girthRatioSource: String    // e.g. "Steelhead average", "Default (freshwater average)"
   let girthIsEstimated: Bool      // true = formula-derived, false = manually measured
 }
@@ -28,8 +28,8 @@ struct FishWeightEstimate {
 
 enum FishWeightEstimator {
 
-  /// Default girth-to-length ratio when species is unknown.
-  static let defaultGirthRatio: Double = 0.58
+  /// Default girth-to-length ratio when species is unknown (read from FISH_DEFAULT_GIRTH_RATIO xcconfig).
+  static var defaultGirthRatio: Double { AppEnvironment.shared.fishDefaultGirthRatio }
 
   /// General-purpose default divisor when species is unknown.
   static let defaultDivisor: Int = 800
@@ -112,51 +112,10 @@ enum FishWeightEstimator {
 
   // MARK: - Girth Ratio Lookup
 
-  /// Returns (girthRatio, humanReadableSource) for the given species.
-  /// Species-specific ratios reflect typical body proportions:
-  ///   - Salmon/steelhead: 0.57–0.60 (moderately deep-bodied)
-  ///   - Trout/char: 0.55–0.56 (slightly more slender)
-  ///   - Bass: 0.62 (deep, round body)
-  ///   - Pike: 0.46 (very elongated body)
-  ///   - Default: 0.58 (freshwater average)
+  /// Returns (girthRatio, humanReadableSource). All species use FISH_DEFAULT_GIRTH_RATIO.
   static func lookupGirthRatio(species: String?) -> (Double, String) {
-    let normalizedSpecies = normalizeSpecies(species)
-
-    if let speciesKey = normalizedSpecies,
-       let entry = speciesGirthRatios[speciesKey] {
-      return (entry.ratio, entry.source)
-    }
-
-    return (defaultGirthRatio, "Default (freshwater average)")
+    return (defaultGirthRatio, "Configured default")
   }
-
-  private struct GirthRatioEntry {
-    let ratio: Double
-    let source: String
-  }
-
-  /// Species-level girth-to-length ratios based on typical body proportions.
-  private static let speciesGirthRatios: [String: GirthRatioEntry] = [
-    "steelhead":        GirthRatioEntry(ratio: 0.58, source: "Steelhead average"),
-    "chinook":          GirthRatioEntry(ratio: 0.60, source: "Chinook salmon — deeper-bodied species"),
-    "coho":             GirthRatioEntry(ratio: 0.57, source: "Coho salmon average"),
-    "atlantic salmon":  GirthRatioEntry(ratio: 0.57, source: "Atlantic salmon average"),
-    "rainbow":          GirthRatioEntry(ratio: 0.56, source: "Rainbow trout — slender body"),
-    "rainbow trout":    GirthRatioEntry(ratio: 0.56, source: "Rainbow trout — slender body"),
-    "brown trout":      GirthRatioEntry(ratio: 0.56, source: "Brown trout — slender body"),
-    "brook trout":      GirthRatioEntry(ratio: 0.55, source: "Brook trout — slender body"),
-    "brook":            GirthRatioEntry(ratio: 0.55, source: "Brook trout — slender body"),
-    "cutthroat":        GirthRatioEntry(ratio: 0.55, source: "Cutthroat trout — slender body"),
-    "cutthroat trout":  GirthRatioEntry(ratio: 0.55, source: "Cutthroat trout — slender body"),
-    "arctic char":      GirthRatioEntry(ratio: 0.55, source: "Arctic char — slender body"),
-    "articchar":        GirthRatioEntry(ratio: 0.55, source: "Arctic char — slender body"),
-    "grayling":         GirthRatioEntry(ratio: 0.52, source: "Grayling — slender, streamlined body"),
-    "largemouth bass":  GirthRatioEntry(ratio: 0.62, source: "Largemouth bass — deep, round body"),
-    "smallmouth bass":  GirthRatioEntry(ratio: 0.60, source: "Smallmouth bass — deep body"),
-    "northern pike":    GirthRatioEntry(ratio: 0.46, source: "Northern pike — elongated body"),
-    "sea-run trout":    GirthRatioEntry(ratio: 0.56, source: "Sea-run trout average"),
-    "sea run trout":    GirthRatioEntry(ratio: 0.56, source: "Sea-run trout average"),
-  ]
 
   // MARK: - Species Normalization
 

@@ -58,6 +58,8 @@
 	<string>$(E_SELF_ASSESSMENT)</string>
 	<key>FISH_BOX_SCALE_FACTOR</key>
 	<string>$(FISH_BOX_SCALE_FACTOR)</string>
+	<key>FISH_DEFAULT_GIRTH_RATIO</key>
+	<string>$(FISH_DEFAULT_GIRTH_RATIO)</string>
 	<key>FISH_DETECT_MIN_CONFIDENCE</key>
 	<string>$(FISH_DETECT_MIN_CONFIDENCE)</string>
 	<key>FISH_ESTIMATE_HIGH_FACTOR</key>

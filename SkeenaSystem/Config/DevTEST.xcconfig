@@ -16,7 +16,7 @@ LOG_LEVEL = debug
 // Comma-separated log category allowlist. Empty = all categories.
 // Valid: auth, network, trip, ui, catch, ml, persistence, audio, angler,
 //        location, upload, weather, observation, community, map, research
-LOG_CATEGORIES = catch, ml
+LOG_CATEGORIES = auth, community
 BETA_RELEASE = true
 
 // ──────────────────────────────────────────────
@@ -129,6 +129,7 @@ SPECIES_RUNNER_UP_MIN_PROB = 0.15
 // MARK: - Length Detection ML Calibration (Fallback)
 // ──────────────────────────────────────────────
 FISH_DETECT_MIN_CONFIDENCE = 0.08
+FISH_DEFAULT_GIRTH_RATIO = 0.5
 FISH_BOX_SCALE_FACTOR = 0.59
 FISH_PIXELS_PER_INCH = 11.7
 FISH_MIN_LENGTH_INCHES = 10.0

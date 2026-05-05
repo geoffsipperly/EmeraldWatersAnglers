@@ -75,13 +75,13 @@ struct GuideLandingMapView: View {
   // MARK: - Initial viewport
 
   private var initialViewport: Viewport {
-    // Center on most recent report
-    if let latest = annotations.sorted(by: { $0.date > $1.date }).first {
-      return .camera(center: latest.coordinate, zoom: 9, bearing: 0, pitch: 0)
-    }
-    // Fallback to user's current GPS location
+    // Center on user's GPS location (matches weather conditions location)
     if let loc = userLocation {
       return .camera(center: loc, zoom: 9, bearing: 0, pitch: 0)
+    }
+    // Fallback to most recent report
+    if let latest = annotations.sorted(by: { $0.date > $1.date }).first {
+      return .camera(center: latest.coordinate, zoom: 9, bearing: 0, pitch: 0)
     }
     // Fallback to community geography
     let config = CommunityService.shared.activeCommunityConfig
@@ -176,7 +176,7 @@ struct GuideLandingMapLegend: View {
             .frame(width: 8, height: 8)
           Text(label)
             .font(.system(size: 10))
-            .foregroundColor(.white.opacity(0.7))
+            .foregroundColor(.brandTextPrimary.opacity(0.7))
         }
       }
     }
