@@ -92,6 +92,22 @@ struct CommunityConfig: Codable, Equatable {
     /// Length unit label
     var lengthUnit: String { isImperial ? "in" : "cm" }
 
+    /// °C → °F (or passthrough for metric), preserving decimals. Use this when
+    /// the call site needs to format the value itself (e.g. `"%.1f"`); use
+    /// `temperature(_:) -> Int` when a rounded integer is fine.
+    func displayTempC(_ celsius: Double) -> Double {
+        isImperial ? celsius * 9.0 / 5.0 + 32.0 : celsius
+    }
+
+    /// Backend always sends water level in feet. Convert to meters for metric
+    /// communities; passthrough for imperial.
+    func displayLevelFt(_ feet: Double) -> Double {
+        isImperial ? feet : feet * 0.3048
+    }
+
+    /// Water-level unit label
+    var waterLevelUnit: String { isImperial ? "ft" : "m" }
+
     // MARK: - Entitlement accessor with xcconfig fallback
 
     /// Returns the backend entitlement value if present, otherwise falls back to

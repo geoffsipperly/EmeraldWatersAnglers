@@ -208,12 +208,19 @@ struct FishingForecastRequestView: View {
 
       Spacer(minLength: 12)
 
-      // Metrics from batch response (or loading placeholder)
+      // Metrics from batch response (or loading placeholder). Backend always
+      // returns water level in feet and temperature in °C; we display in the
+      // units configured for the active community.
       if let condition = batchConditions[name] {
+        let community = CommunityService.shared.activeCommunityConfig
         HStack(spacing: 12) {
           if let level = condition.waterLevelFt {
-            metricLabel(value: String(format: "%.2f", level), unit: "ft", icon: "water.waves")
-              .frame(width: 70)
+            metricLabel(
+              value: String(format: "%.2f", community.displayLevelFt(level)),
+              unit: community.waterLevelUnit,
+              icon: "water.waves"
+            )
+            .frame(width: 70)
           } else {
             Text("--")
               .font(.brandCaption)
@@ -221,8 +228,12 @@ struct FishingForecastRequestView: View {
               .frame(width: 70)
           }
           if let temp = condition.waterTempC {
-            metricLabel(value: String(format: "%.1f", temp), unit: "\u{00B0}C", icon: "thermometer.medium")
-              .frame(width: 70)
+            metricLabel(
+              value: String(format: "%.1f", community.displayTempC(temp)),
+              unit: community.tempUnit,
+              icon: "thermometer.medium"
+            )
+            .frame(width: 70)
           } else {
             Text("--")
               .font(.brandCaption)

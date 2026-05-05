@@ -1,7 +1,7 @@
 # Mad Thinker Platform API Reference
 
 **Version:** 2026-05-01
-**Generated:** 2026-05-05T20:30:09.688Z
+**Generated:** 2026-05-05T21:13:45.883Z
 
 ## Key Concepts
 
