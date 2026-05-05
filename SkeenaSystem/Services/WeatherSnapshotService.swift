@@ -156,11 +156,22 @@ enum WeatherSnapshotService {
     return dirs[idx]
   }
 
-  /// Formats "2026-03-31T14:00" → "2 PM"
+  /// Formats "2026-03-31T14:00" or "2026-03-31 14:00" → "2pm".
+  /// The backend has shipped both ISO-8601 (`T`) and space-separated forms;
+  /// fall back gracefully to the bare time string ("14:00") if the AM/PM
+  /// formatter can't parse, and never to the full date+time (which the
+  /// hourly forecast column word-wraps unreadably).
   static func hourLabel(from isoDateTime: String) -> String {
-    let parts = isoDateTime.split(separator: "T")
-    guard parts.count == 2 else { return isoDateTime }
-    let timePart = String(parts[1].prefix(5)) // "14:00"
+    let separator: Character = isoDateTime.contains("T") ? "T" : " "
+    let parts = isoDateTime.split(separator: separator, maxSplits: 1)
+    let timePart: String
+    if parts.count == 2 {
+      timePart = String(parts[1].prefix(5)) // "14:00"
+    } else {
+      // Couldn't split — show whatever 5-char time-shaped suffix we have
+      // rather than dumping the whole date string into the column.
+      timePart = String(isoDateTime.suffix(5))
+    }
     if let date = DateFormatting.hour24.date(from: timePart) {
       return DateFormatting.hourAMPM.string(from: date).lowercased()
     }
