@@ -16,6 +16,14 @@
           {
             "key" : "PUBLIC_FLOW_SKIP_REGISTRATION",
             "value" : "0"
+          },
+          {
+            "key" : "RESEARCHER_FLOW_EMAIL",
+            "value" : "geoff@madthinkerfishtech.com"
+          },
+          {
+            "key" : "RESEARCHER_FLOW_PASSWORD",
+            "value" : "Fatbikesk123"
           }
         ]
       }
@@ -23,11 +31,12 @@
   ],
   "defaultOptions" : {
     "testTimeoutsEnabled" : true,
-    "defaultTestExecutionTimeAllowance" : 120
+    "defaultTestExecutionTimeAllowance" : 360
   },
   "testTargets" : [
     {
       "selectedTests" : [
+        "MLTrainingOptOutUploadTests",
         "PublicUserAPITests"
       ],
       "target" : {
@@ -38,7 +47,16 @@
     },
     {
       "selectedTests" : [
-        "PublicUserFlowTests"
+        "CommunityTests",
+        "ExploreTests",
+        "FisheriesConditionsTests",
+        "HomeTests",
+        "OnboardingTests",
+        "PrivacyTests",
+        "ProfileTests",
+        "PublicUserFlowTests",
+        "RecordActivityTests",
+        "ResearcherUserFlowTests"
       ],
       "target" : {
         "containerPath" : "container:SkeenaSystem.xcodeproj",
