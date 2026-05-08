@@ -39,6 +39,7 @@ enum ChatCapsuleAction: Equatable {
   case selectSex(sex: String?)          // "Male" | "Female" | nil (Unknown)
   case keepAsBiCatch                    // user confirmed Bi-catch; keep species unknown
   case confirmIdentificationSummary     // final recap → advance to length
+  case editLocationFromSummary          // identification summary "Edit location" — re-enter location, then return to summary
   case confirmMeasurement               // generic "confirm current measurement" (length/girth)
   // Pre-analysis (researcher/conservation entry points)
   case recordCatch                      // "What would you like to record?" → catch
@@ -198,6 +199,13 @@ final class CatchChatViewModel: ObservableObject {
     case confirmSummary        // final recap before advancing to length
   }
   private var identificationSubStep: IdentificationSubStep = .none
+
+  /// Set when the user invokes Edit Location from the identification summary.
+  /// `postLocationEntryStep` normally advances to species on completion — when
+  /// this flag is true, the location-entry handlers jump straight back to the
+  /// summary instead so the user doesn't have to re-confirm species, lifecycle,
+  /// and sex they already approved.
+  private var pendingLocationEditReturnsToSummary: Bool = false
 
   /// Saved analyzer result — the `speciesAlternatives` (top-1 + up to 2
   /// runners-up) get re-used when re-entering the species sub-step after a
@@ -612,7 +620,13 @@ final class CatchChatViewModel: ObservableObject {
     }
     identificationSubStep = .confirmLocation
 
-    let msg = appendAssistant("I matched your location to **\(river)**.\n§\nIs that right?")
+    let primary: String
+    if let gps = flow.gpsLocationText, !gps.isEmpty {
+      primary = "I matched your location to **\(river)** (\(gps))."
+    } else {
+      primary = "I matched your location to **\(river)**."
+    }
+    let msg = appendAssistant("\(primary)\n§\nIs that right?")
     capsulesAnchorMessageID = msg.id
     chatCapsules = [
       ChatCapsule(id: "loc-confirm", label: "Yes",   color: .green, confidence: nil, action: .confirmLocation),
@@ -620,16 +634,27 @@ final class CatchChatViewModel: ObservableObject {
     ]
   }
 
-  /// Prompt the user to type a location or Skip. Used both when no GPS match
-  /// came through (afterReject = false) and after the user rejected an
-  /// auto-matched location (afterReject = true) — wording shifts accordingly.
+  /// Prompt the user to type a location or Skip. Three variants:
+  ///  • `afterReject` — user rejected an auto-matched river; ask for a correction.
+  ///  • GPS available but unmatched — show the raw coords and ask for the fishery name.
+  ///  • No GPS at all — tell the user location services may be off, offer manual entry.
   private func postLocationEntryStep(afterReject: Bool) {
     identificationSubStep = .enterLocation
 
-    let intro = afterReject
-      ? "No problem."
-      : "I couldn't match your location from GPS."
-    let msg = appendAssistant("\(intro)\n§\nType the correct location below, or tap Skip.")
+    let primary: String
+    let secondary: String
+    if afterReject {
+      primary = "No problem."
+      secondary = "Type the correct location below, or tap Skip."
+    } else if let gps = researcherFlow?.gpsLocationText, !gps.isEmpty {
+      primary = "GPS: \(gps)"
+      secondary = "Type the fishery below, or tap Skip."
+    } else {
+      primary = "Location not detected. Check that location services are on."
+      secondary = "Enter manually (e.g. Babine River) or tap Skip."
+    }
+
+    let msg = appendAssistant("\(primary)\n§\n\(secondary)")
     capsulesAnchorMessageID = msg.id
     chatCapsules = [
       ChatCapsule(id: "loc-skip", label: "Skip", color: .grey, confidence: nil, action: .skipLocation)
@@ -651,7 +676,7 @@ final class CatchChatViewModel: ObservableObject {
       } else {
         suffix = ""
       }
-      summary = "Species: **\(species)**\(suffix)"
+      summary = "Species: **\(species)\(suffix)**"
     } else {
       summary = "Species: **Unknown**"
     }
@@ -795,6 +820,8 @@ final class CatchChatViewModel: ObservableObject {
     var lines: [String] = ["Perfect, specimen attributes are:"]
     if let river = flow.riverName, !river.isEmpty {
       lines.append("• Location: \(river)")
+    } else if let gps = flow.gpsLocationText, !gps.isEmpty {
+      lines.append("• Location: \(gps)")
     } else {
       lines.append("• Location: —")
     }
@@ -822,7 +849,14 @@ final class CatchChatViewModel: ObservableObject {
         color: .green,
         confidence: nil,
         action: .confirmIdentificationSummary
-      )
+      ),
+      ChatCapsule(
+        id: "summary-edit-location",
+        label: "Edit location",
+        color: .grey,
+        confidence: nil,
+        action: .editLocationFromSummary
+      ),
     ]
   }
 
@@ -887,8 +921,25 @@ final class CatchChatViewModel: ObservableObject {
       postLocationEntryStep(afterReject: true)
 
     case .skipLocation:
-      // Leave riverName nil (user declined to supply); jump to species.
-      postSpeciesStep()
+      // Leave riverName nil (user declined to supply). When this entry was
+      // launched from the summary's Edit Location capsule, jump back there;
+      // otherwise advance to species as normal.
+      if pendingLocationEditReturnsToSummary {
+        pendingLocationEditReturnsToSummary = false
+        postIdentificationSummaryStep()
+      } else {
+        postSpeciesStep()
+      }
+
+    case .editLocationFromSummary:
+      // Clear the current river name and re-open the location entry step.
+      // When the user submits (or skips), the location-entry handlers route
+      // back to the summary instead of advancing to species — the rest of
+      // identification has already been confirmed.
+      flow.riverName = nil
+      flow.riverNameWasCorrected = true
+      pendingLocationEditReturnsToSummary = true
+      postLocationEntryStep(afterReject: true)
 
     case .selectSpecies(let key):
       applySpeciesSelection(key: key)
@@ -1264,10 +1315,17 @@ final class CatchChatViewModel: ObservableObject {
         flow.riverName = trimmed
         flow.riverNameWasCorrected = true
       }
-      // Whether the user typed something or not, advance.
+      // Whether the user typed something or not, advance. When the entry was
+      // launched from the summary's Edit Location capsule, return to the
+      // summary instead of marching back through species/lifecycle/sex.
       chatCapsules = []
       capsulesAnchorMessageID = nil
-      postSpeciesStep()
+      if pendingLocationEditReturnsToSummary {
+        pendingLocationEditReturnsToSummary = false
+        postIdentificationSummaryStep()
+      } else {
+        postSpeciesStep()
+      }
       return
 
     case .confirmSpecies, .enterBiCatchSpecies:
@@ -1974,14 +2032,24 @@ final class CatchChatViewModel: ObservableObject {
     }
 
     // Prefer the flow's river name if the user corrected it during the
-    // identification step; otherwise use the ML-detected value. GPS
-    // latitude/longitude continue to be read from `currentLocation` below
-    // and are never overwritten by chat edits — the user's river correction
-    // only affects the human-readable label, not the coordinates.
+    // identification step; otherwise use the ML-detected value. When the
+    // user explicitly rejected/skipped the location, trust the flow's nil
+    // exclusively — falling back to the ML name would resurrect a value the
+    // user just discarded. GPS latitude/longitude continue to be read from
+    // `currentLocation` below and are never overwritten by chat edits.
     let flowRiverRaw = researcherFlow?.riverName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     let analysisRiverRaw = cleanedField(analysis.riverName ?? "")
-    let cleanedRiverRaw = !flowRiverRaw.isEmpty ? flowRiverRaw : analysisRiverRaw
-    let finalRiver = cleanedRiverRaw.isEmpty ? unresolvedLocationLabel() : cleanedRiverRaw
+    let userTouchedLocation = researcherFlow?.riverNameWasCorrected ?? false
+    let cleanedRiverRaw: String
+    if userTouchedLocation {
+      cleanedRiverRaw = flowRiverRaw
+    } else {
+      cleanedRiverRaw = !flowRiverRaw.isEmpty ? flowRiverRaw : analysisRiverRaw
+    }
+    // Empty after the above means no name was ever supplied — upload nil so
+    // the backend records the absence cleanly. GPS still travels via
+    // latitude/longitude below.
+    let finalRiver: String? = cleanedRiverRaw.isEmpty ? nil : cleanedRiverRaw
 
     let (species, stage) = splitSpecies(analysis.species)
     let sexValueRaw = stripLeadingLabel(analysis.sex, label: "sex")

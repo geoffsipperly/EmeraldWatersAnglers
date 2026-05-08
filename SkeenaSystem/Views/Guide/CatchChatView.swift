@@ -776,7 +776,7 @@ struct CatchChatView: View {
         // ResearcherCatchFlowManager — not just researchers.
         researcherBubble(text)
       } else {
-        Text(text)
+        Text(predictionStyledText(text))
           .font(.brandSubheadline)
           .foregroundColor(.brandTextPrimary)
           .padding(.horizontal, 12)
@@ -794,11 +794,11 @@ struct CatchChatView: View {
     let secondary = parts.count > 1 ? parts.dropFirst().joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines) : nil
 
     return VStack(alignment: .leading, spacing: 6) {
-      Text(primary)
+      Text(predictionStyledText(primary))
         .font(.brandSubheadline)
         .foregroundColor(.brandTextPrimary)
       if let secondary, !secondary.isEmpty {
-        Text(secondary)
+        Text(predictionStyledText(secondary))
           .font(.brandCaption)
           .foregroundColor(.brandTextSecondary)
       }
@@ -825,12 +825,12 @@ struct CatchChatView: View {
         .font(.brandSubheadline.weight(.semibold))
         .foregroundColor(.brandAccent)
       if !body.isEmpty {
-        Text(body)
+        Text(predictionStyledText(body))
           .font(.brandSubheadline)
           .foregroundColor(.brandTextPrimary)
       }
       if isResearcherMode, let supporting, !supporting.isEmpty {
-        Text(supporting)
+        Text(predictionStyledText(supporting))
           .font(.brandCaption)
           .foregroundColor(.brandTextSecondary)
       }
@@ -839,6 +839,38 @@ struct CatchChatView: View {
     .padding(.vertical, 8)
     .background(Color.brandStroke)
     .cornerRadius(16)
+  }
+
+  /// Strips `**…**` markers from a chat message and colors the wrapped runs in
+  /// `.brandAccent` (blue) so model predictions visually pop without showing
+  /// literal asterisks. Text outside markers inherits the bubble's default
+  /// `foregroundColor`. Unmatched openers are passed through verbatim so a
+  /// message that happens to contain `**` doesn't get truncated.
+  private func predictionStyledText(_ raw: String) -> AttributedString {
+    var result = AttributedString()
+    var remaining = Substring(raw)
+    while let openRange = remaining.range(of: "**") {
+      let prefix = remaining[..<openRange.lowerBound]
+      if !prefix.isEmpty {
+        result += AttributedString(String(prefix))
+      }
+      let afterOpen = remaining[openRange.upperBound...]
+      if let closeRange = afterOpen.range(of: "**") {
+        let inner = String(afterOpen[..<closeRange.lowerBound])
+        var styled = AttributedString(inner)
+        styled.foregroundColor = .brandAccent
+        result += styled
+        remaining = afterOpen[closeRange.upperBound...]
+      } else {
+        // Unmatched opener — preserve the literal characters so we never eat content.
+        result += AttributedString("**" + String(afterOpen))
+        remaining = Substring("")
+      }
+    }
+    if !remaining.isEmpty {
+      result += AttributedString(String(remaining))
+    }
+    return result
   }
 }
 

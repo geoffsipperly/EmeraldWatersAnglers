@@ -590,12 +590,14 @@ final class ResearcherCatchFlowManager: ObservableObject {
   func identificationSummary() -> String {
     var lines: [String] = []
 
-    // Only show the location line when the analyzer matched a named river or
-    // water body. When we only have raw GPS (no match), hide the line from
-    // the confirmation prompt — the coordinates still flow into the final
-    // summary and the upload payload via `gpsLocationText` / `currentLocation`.
+    // Prefer the named river/water-body. When the analyzer couldn't match a
+    // name but we have a GPS fix, surface the coordinates so the user can
+    // sanity-check the location anyway. Hide the line entirely only when
+    // both are missing.
     if let r = riverName, !r.isEmpty {
       lines.append("Location: \(r)")
+    } else if let gps = gpsLocationText, !gps.isEmpty {
+      lines.append("Location: \(gps)")
     }
 
     if let s = species, !s.isEmpty {
@@ -684,14 +686,14 @@ final class ResearcherCatchFlowManager: ObservableObject {
   func finalAnalysisText() -> String {
     var lines: [String] = ["Final Analysis"]
 
-    // Location: show the confirmed river/water-body name, or an em-dash when
-    // the user skipped it. We intentionally do NOT fall back to displaying
-    // raw GPS coordinates here — the user chose not to name a location, so
-    // surfacing lat/lon as "Location" is misleading. GPS still flows into
-    // the upload payload via `currentLocation` on the snapshot path,
-    // independent of this display string.
+    // Location: prefer the confirmed river/water-body name. When the user
+    // skipped naming one but we still have a GPS fix, surface the raw
+    // coordinates so the report isn't blank. Falls back to an em-dash only
+    // when neither is available.
     if let r = riverName, !r.isEmpty {
       lines.append("Location: \(r)")
+    } else if let gps = gpsLocationText, !gps.isEmpty {
+      lines.append("Location: \(gps)")
     } else {
       lines.append("Location: —")
     }

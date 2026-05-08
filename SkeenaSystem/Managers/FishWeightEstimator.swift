@@ -2,7 +2,7 @@
 // FishWeightEstimator.swift — Pure-calculation utility for estimating fish weight from length.
 //
 // Uses the standard fisheries formula: Weight (lbs) = Length (in) x Girth (in)^2 / Divisor
-// When girth is unknown: Girth = Length x FISH_DEFAULT_GIRTH_RATIO (xcconfig, default 0.5)
+// When girth is unknown: Girth = Length x FISH_DEFAULT_GIRTH_RATIO (xcconfig, default 0.52)
 // Simplified: Weight = Length^3 x ratio^2 / Divisor
 //
 // Divisor lookup follows a cascading hierarchy:
