@@ -194,6 +194,17 @@ struct CatchChatView: View {
     // deploys to iOS 16.6 (the two-param variant is iOS 17+).
     .onChange(of: viewModel.requestVoiceNoteSheet) { requested in
       if requested {
+        // UI-test bypass: simulator has no microphone, so we never present
+        // the recording sheet. Instead, build a synthetic LocalVoiceNote
+        // (with a tiny stub audio file so the upload pipeline's
+        // `data.isEmpty` guard passes) and attach it directly. The voice
+        // memo data still flows through VoiceNoteStore → catch JSON →
+        // upload payload, end-to-end.
+        if Self.isUITestingActive {
+          Self.injectUITestFixtureVoiceNote(into: viewModel)
+          viewModel.requestVoiceNoteSheet = false
+          return
+        }
         showVoiceNoteSheet = true
         viewModel.requestVoiceNoteSheet = false
       }
@@ -484,6 +495,55 @@ struct CatchChatView: View {
     let signedLat = (latRef.uppercased() == "S") ? -lat : lat
     let signedLon = (lonRef.uppercased() == "W") ? -lon : lon
     return CLLocation(latitude: signedLat, longitude: signedLon)
+  }
+
+  // MARK: - UI test voice-memo bypass
+
+  /// True whenever the test runner has launched the app with `-uiTesting`.
+  /// Used by the voice-note path to swap the AVFoundation recording sheet
+  /// for a synthetic note on the simulator (no real microphone exists).
+  private static var isUITestingActive: Bool {
+    CommandLine.arguments.contains("-uiTesting")
+  }
+
+  /// Build a `LocalVoiceNote` with synthetic audio + transcript and
+  /// attach it to the in-flight catch through the same `attachVoiceNote`
+  /// path the real recording sheet uses. The voice memo file gets written
+  /// under `Documents/VoiceNotes/note_<uuid>.m4a` exactly where
+  /// `UploadCatchReport.loadVoiceMemo` expects it.
+  ///
+  /// Audio bytes are intentionally synthetic — `loadVoiceMemo` validates
+  /// non-emptiness only (no format check), so a 32-byte stub satisfies
+  /// the upload pipeline. The transcript is hardcoded but recognizable
+  /// from a backend row check.
+  private static func injectUITestFixtureVoiceNote(into viewModel: CatchChatViewModel) {
+    let stubAudioBytes: [UInt8] = [
+      // Minimal MP4/M4A "ftyp" box header — won't actually play but
+      // satisfies any naive "looks like an m4a" sniffing on the wire.
+      0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70,
+      0x4D, 0x34, 0x41, 0x20, 0x00, 0x00, 0x00, 0x00,
+      0x4D, 0x34, 0x41, 0x20, 0x69, 0x73, 0x6F, 0x6D,
+      0x6D, 0x70, 0x34, 0x32, 0x00, 0x00, 0x00, 0x00,
+    ]
+    let tmpURL = FileManager.default.temporaryDirectory
+      .appendingPathComponent("uitest_voice_\(UUID().uuidString).m4a")
+    do {
+      try Data(stubAudioBytes).write(to: tmpURL)
+    } catch {
+      AppLogging.log("UI-test voice bypass: failed to write stub audio: \(error)", level: .warn, category: .audio)
+      return
+    }
+    let note = VoiceNoteStore.shared.addNew(
+      audioTempURL: tmpURL,
+      transcript: "UI test integration voice memo",
+      language: "en-US",
+      onDevice: true,
+      sampleRate: 24000,
+      location: nil,
+      duration: 1.5
+    )
+    AppLogging.log("UI-test voice bypass: injected note id=\(note.id.uuidString)", level: .info, category: .audio)
+    viewModel.attachVoiceNote(note)
   }
 
   private func scrollToBottom(proxy: ScrollViewProxy) {

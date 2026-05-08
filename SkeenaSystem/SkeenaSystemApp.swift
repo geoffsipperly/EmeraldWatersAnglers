@@ -99,6 +99,7 @@ struct SkeenaSystemApp: App {
           "FarmedReports",        // FarmedReportStore (no-catch marks)
           "Observations",         // ObservationStore
           "CatchPhotos",          // PhotoStore (catch + head photos)
+          "VoiceNotes",           // VoiceNoteStore (synthetic UI-test memos)
         ]
         for name in roots {
           let url = docs.appendingPathComponent(name, isDirectory: true)

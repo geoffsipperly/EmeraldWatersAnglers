@@ -39,14 +39,24 @@ final class ResearcherUploadIntegrationTests: ResearcherCatchFlowTestBase {
 
     // MARK: - Tests (alphabetical order is the run order — keep `test0N_` prefixes)
 
-    /// Catch #1 — typed location at the loc-skip step (Babine River).
+    /// Catch #1 — typed location at the loc-skip step (Babine River) +
+    /// attached voice memo. The voice memo flows through the
+    /// `-uiTesting` bypass in CatchChatView (no real microphone) and
+    /// gets uploaded as part of the catch's `voiceMemo` payload.
     func test01_recordCatchWithTypedLocation() throws {
-        try runScenario_typeLocationWhenGPSCantMatch(label: "Phase2_TypedLocation")
+        try runScenario_typeLocationWhenGPSCantMatch(
+            label: "Phase2_TypedLocation",
+            attachVoiceMemo: true
+        )
     }
 
-    /// Catch #2 — length override (ML+5"), girth accepted as-is.
+    /// Catch #2 — length override (ML+5"), girth accepted + attached
+    /// voice memo. Same bypass mechanism as test01.
     func test02_recordCatchWithLengthOverride() throws {
-        try runScenario_modifyLengthAcceptGirth(label: "Phase2_LengthOverride")
+        try runScenario_modifyLengthAcceptGirth(
+            label: "Phase2_LengthOverride",
+            attachVoiceMemo: true
+        )
     }
 
     /// Catch #3 — final-summary edit (location patched to "Bitterroot River").
@@ -91,26 +101,27 @@ final class ResearcherUploadIntegrationTests: ResearcherCatchFlowTestBase {
                       "Activities tab button should be visible on landing")
         activitiesBtn.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
 
-        // Confirm that the prior 5 record tests really did leave 5 rows.
-        let rowsPredicate = NSPredicate(format: "identifier BEGINSWITH 'catchReportRow_'")
-        let rows = app.descendants(matching: .any).matching(rowsPredicate)
-        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 15),
-                      "Activities should show at least one accumulated report")
-        let preUploadCount = rows.count
-        XCTAssertGreaterThanOrEqual(
-            preUploadCount, 5,
-            "Expected ≥5 pending reports from prior tests; found \(preUploadCount). " +
-            "Did one of test01-test05 fail or get skipped?"
-        )
-        attachScreenshot(named: "Phase2_BeforeUpload_\(preUploadCount)Rows")
-
         // Capture each pending row's (reportId, displayedSpecies) BEFORE
         // the upload — the post-upload sectioning may shuffle UI order
         // and we want the "what the app showed the user" snapshot as our
         // ground truth for the backend cross-check.
+        //
+        // Each row appears twice in the AX hierarchy (NavigationLink
+        // wrapper + content), so `rows.count` overstates by 2x; the
+        // dedup happens inside the helper and `expected.count` is the
+        // real per-report count.
+        let rowsPredicate = NSPredicate(format: "identifier BEGINSWITH 'catchReportRow_'")
+        let rows = app.descendants(matching: .any).matching(rowsPredicate)
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 15),
+                      "Activities should show at least one accumulated report")
         let expected = capturePendingReportSnapshot(rows: rows)
-        XCTAssertEqual(expected.count, preUploadCount,
-                       "Should be able to parse a (reportId, species) snapshot from every pending row")
+        XCTAssertGreaterThanOrEqual(
+            expected.count, 5,
+            "Expected ≥5 pending reports from prior tests; found " +
+            "\(expected.count) (after dedup). Did one of test01-test05 " +
+            "fail or get skipped?"
+        )
+        attachScreenshot(named: "Phase2_BeforeUpload_\(expected.count)Rows")
 
         // Tap the upload toolbar button (`arrow.up.circle`).
         let uploadBtn = app.buttons["arrow.up.circle"]
@@ -138,7 +149,7 @@ final class ResearcherUploadIntegrationTests: ResearcherCatchFlowTestBase {
         XCTAssertTrue(uploadedChip.waitForExistence(timeout: 30),
                       "At least one row should show 'Uploaded' status after the upload completes")
 
-        attachScreenshot(named: "Phase2_AfterUpload_\(preUploadCount)Rows")
+        attachScreenshot(named: "Phase2_AfterUpload_\(expected.count)Rows")
 
         try assertReportsLandedInSupabase(expected: expected)
     }
@@ -160,14 +171,21 @@ final class ResearcherUploadIntegrationTests: ResearcherCatchFlowTestBase {
     /// Walk each pending `catchReportRow_*` and grab the report UUID
     /// (from the identifier) plus the visible species text. Done BEFORE
     /// the upload so we don't race the post-upload section reshuffle.
+    ///
+    /// Each row appears twice in the AX hierarchy on iOS — once as the
+    /// `NavigationLink` wrapper and once as its content — so we dedup
+    /// by reportId to avoid double-counting (and double-asserting).
     private func capturePendingReportSnapshot(rows: XCUIElementQuery) -> [ExpectedReport] {
         var snapshot: [ExpectedReport] = []
+        var seenIds = Set<String>()
+        let prefix = "catchReportRow_"
         for i in 0..<rows.count {
             let row = rows.element(boundBy: i)
             let identifier = row.identifier
-            let prefix = "catchReportRow_"
             guard identifier.hasPrefix(prefix) else { continue }
             let reportId = String(identifier.dropFirst(prefix.count))
+            guard !seenIds.contains(reportId) else { continue }
+            seenIds.insert(reportId)
 
             // The species label is the row's first static text (see
             // `CatchReportRow.body` — `speciesText` is the headline).
@@ -192,21 +210,33 @@ final class ResearcherUploadIntegrationTests: ResearcherCatchFlowTestBase {
     /// Skips cleanly with `XCTSkip` if the env vars aren't set, leaving
     /// the in-app upload portion of the test as the only verification.
     private func assertReportsLandedInSupabase(expected: [ExpectedReport]) throws {
-        let creds = ProcessInfo.processInfo.environment
-        guard creds["SUPABASE_TEST_URL"] != nil,
-              creds["SUPABASE_TEST_KEY"] != nil
-        else {
+        // Source priority: SkeenaSystem/Config/Secrets.xcconfig
+        // (gitignored, developer-local) > shell-exported env vars (CI).
+        let xcconfig = SupabaseTestClient.readSecretsXcconfig()
+        let env = ProcessInfo.processInfo.environment
+        let urlPresent = !((xcconfig["SUPABASE_TEST_URL"] ?? env["SUPABASE_TEST_URL"] ?? "").isEmpty)
+        let keyPresent = !((xcconfig["SUPABASE_TEST_KEY"] ?? env["SUPABASE_TEST_KEY"] ?? "").isEmpty)
+        let missing = [
+            urlPresent ? nil : "SUPABASE_TEST_URL",
+            keyPresent ? nil : "SUPABASE_TEST_KEY",
+        ].compactMap { $0 }
+        if !missing.isEmpty {
+            // Gitignored Secrets.xcconfig is the primary path; env vars
+            // are the CI fallback. Skip cleanly so the in-app upload
+            // assertion still runs even without backend credentials.
             throw XCTSkip(
-                "Supabase row-level assertions skipped — export " +
-                "SUPABASE_TEST_URL and SUPABASE_TEST_KEY before " +
-                "running xcodebuild test. Uploaded \(expected.count) " +
-                "reports via the app; the in-app completion alert was " +
-                "the only verification this run."
+                "Supabase row-level assertions skipped — missing: " +
+                "\(missing.joined(separator: ", ")). Add them to " +
+                "SkeenaSystem/Config/Secrets.xcconfig (gitignored) or " +
+                "export as env vars. Uploaded \(expected.count) reports " +
+                "via the app; the in-app completion alert was the only " +
+                "verification this run."
             )
         }
 
         let client = try SupabaseTestClient.fromEnvironment()
         var failures: [String] = []
+        var rowsWithVoiceMemo = 0
 
         for report in expected {
             let rows: [[String: Any]]
@@ -222,6 +252,17 @@ final class ResearcherUploadIntegrationTests: ResearcherCatchFlowTestBase {
                 continue
             }
             let row = rows[0]
+
+            // Voice memo. The upload base64-encodes the audio, posts
+            // it to the catch-photos storage bucket, and stores the
+            // resulting public URL in the row's `voice_memo_url`
+            // column — same pattern as `photo_url` / `head_photo_url`
+            // in the catch_reports schema. We only assert non-empty
+            // here; HEAD-checking the URL resolves is a future
+            // tightening.
+            if let value = row["voice_memo_url"] as? String, !value.isEmpty {
+                rowsWithVoiceMemo += 1
+            }
 
             // Species column. Supabase column names are snake_case; the
             // upload payload calls it just `species`. If the schema ever
@@ -239,6 +280,19 @@ final class ResearcherUploadIntegrationTests: ResearcherCatchFlowTestBase {
             failures.isEmpty,
             "Supabase row checks failed (\(failures.count)/\(expected.count)):\n" +
             failures.joined(separator: "\n")
+        )
+
+        // Tests 01 + 02 attach a synthetic voice memo via the
+        // -uiTesting bypass — both should land in catch_reports with
+        // a populated voice_memo_url column. Anything less means the
+        // upload pipeline dropped the memo on the floor.
+        XCTAssertGreaterThanOrEqual(
+            rowsWithVoiceMemo, 2,
+            "Expected ≥2 uploaded rows to carry a non-empty " +
+            "voice_memo_url (test01 + test02 attach one each); only " +
+            "\(rowsWithVoiceMemo) of \(expected.count) rows did. " +
+            "Likely the upload pipeline didn't carry the voiceMemo " +
+            "payload through, or the storage upload silently failed."
         )
     }
 }

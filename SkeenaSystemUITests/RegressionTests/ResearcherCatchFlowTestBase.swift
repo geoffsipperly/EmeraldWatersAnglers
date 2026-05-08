@@ -341,16 +341,24 @@ class ResearcherCatchFlowTestBase: XCTestCase {
         XCTAssertTrue(chat.researcherFinalConfirmButton.waitForExistence(timeout: 30))
     }
 
-    /// Tap No to study, No to sample, Maybe later to voice memo so the
-    /// flow reaches the saveRequested → confirmation cover state.
-    func declineAllResearchPrompts() throws {
+    /// Tap No to study, No to sample, then handle the voice-memo prompt.
+    /// By default the prompt is declined ("Maybe later" via `voice-skip`);
+    /// when `attachVoiceMemo: true` is passed, taps `voice-yes` instead so
+    /// the `-uiTesting` voice-memo bypass injects a synthetic note. Either
+    /// path advances the flow to the saveRequested → confirmation cover.
+    func declineAllResearchPrompts(attachVoiceMemo: Bool = false) throws {
         XCTAssertTrue(chat.tapCapsule("cap-no", timeout: 30),
                       "Study Yes/No capsules should appear")
         _ = chat.capsule("cap-no").waitForNonExistence(timeout: 5)
         XCTAssertTrue(chat.tapCapsule("cap-no", timeout: 30),
                       "Sample Yes/No capsules should appear after study=No")
-        XCTAssertTrue(chat.tapCapsule("voice-skip", timeout: 30),
-                      "Voice-memo capsules should appear after sample=No")
+        if attachVoiceMemo {
+            XCTAssertTrue(chat.tapCapsule("voice-yes", timeout: 30),
+                          "Voice-memo Yes capsule should appear after sample=No")
+        } else {
+            XCTAssertTrue(chat.tapCapsule("voice-skip", timeout: 30),
+                          "Voice-memo capsules should appear after sample=No")
+        }
     }
 
     /// Walks the post-chat confirmation flow (Confirm full-screen → "Catch
@@ -402,7 +410,12 @@ class ResearcherCatchFlowTestBase: XCTestCase {
     /// research prompts, and asserts the saved row carries the typed
     /// location. Phase 1 covers the path; Phase 2 reuses to seed an
     /// upload candidate with a deliberately user-typed river name.
-    func runScenario_typeLocationWhenGPSCantMatch(label: String = "TypedLocation") throws {
+    ///
+    /// When `attachVoiceMemo: true`, the voice-memo step taps "Yes" and
+    /// the `-uiTesting` voice bypass injects a synthetic note that lands
+    /// in the saved report's `voiceMemo` payload at upload time.
+    func runScenario_typeLocationWhenGPSCantMatch(label: String = "TypedLocation",
+                                                  attachVoiceMemo: Bool = false) throws {
         executionTimeAllowance = 300
         _ = try signInAndReachHomeLanding()
         dismissSavePasswordPrompt()
@@ -413,7 +426,7 @@ class ResearcherCatchFlowTestBase: XCTestCase {
                       "Should be able to type a location at the loc-skip prompt")
 
         try acceptIdentificationAndMeasurements()
-        try declineAllResearchPrompts()
+        try declineAllResearchPrompts(attachVoiceMemo: attachVoiceMemo)
         try confirmAndAssertCatchInActivities(label: label,
                                               expectedLength: nil,
                                               expectedGirth: nil)
@@ -429,7 +442,12 @@ class ResearcherCatchFlowTestBase: XCTestCase {
     /// Records a Steelhead catch where the user types a length override
     /// (ML+5") and accepts ML girth as-is. Verifies length and girth are
     /// independent inputs.
-    func runScenario_modifyLengthAcceptGirth(label: String = "LengthOverrideOnly") throws {
+    ///
+    /// When `attachVoiceMemo: true`, the voice-memo step taps "Yes" and
+    /// the `-uiTesting` voice bypass injects a synthetic note that lands
+    /// in the saved report's `voiceMemo` payload at upload time.
+    func runScenario_modifyLengthAcceptGirth(label: String = "LengthOverrideOnly",
+                                             attachVoiceMemo: Bool = false) throws {
         executionTimeAllowance = 300
         _ = try signInAndReachHomeLanding()
         dismissSavePasswordPrompt()
@@ -450,7 +468,7 @@ class ResearcherCatchFlowTestBase: XCTestCase {
                       "Girth-confirm capsule should appear after length is typed")
 
         XCTAssertTrue(chat.tap(chat.researcherFinalConfirmButton, timeout: 30))
-        try declineAllResearchPrompts()
+        try declineAllResearchPrompts(attachVoiceMemo: attachVoiceMemo)
         try confirmAndAssertCatchInActivities(label: label,
                                               expectedLength: overrideLength,
                                               expectedGirth: nil)

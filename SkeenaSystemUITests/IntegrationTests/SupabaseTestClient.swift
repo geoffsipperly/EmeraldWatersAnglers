@@ -43,20 +43,71 @@ struct SupabaseTestClient {
     let baseURL: URL
     let apiKey: String
 
-    /// Build from env vars. Throws a clear error if either is missing so
-    /// the test can `XCTSkip` with a useful message.
+    /// Build from `Secrets.xcconfig` (preferred) or environment variables
+    /// (CI fallback). Throws a clear error if neither path yields both
+    /// values so the test can `XCTSkip` with a useful message.
+    ///
+    /// `Secrets.xcconfig` is gitignored — the file existing locally is the
+    /// signal that the developer has opted into the integration tests.
+    /// CI environments without the file fall back to env vars.
     static func fromEnvironment() throws -> SupabaseTestClient {
+        let xcconfig = readSecretsXcconfig()
         let env = ProcessInfo.processInfo.environment
-        guard let urlString = env["SUPABASE_TEST_URL"], !urlString.isEmpty else {
-            throw ClientError.missingURL
-        }
-        guard let key = env["SUPABASE_TEST_KEY"], !key.isEmpty else {
-            throw ClientError.missingKey
-        }
+
+        let urlString = xcconfig["SUPABASE_TEST_URL"] ?? env["SUPABASE_TEST_URL"] ?? ""
+        guard !urlString.isEmpty else { throw ClientError.missingURL }
+
+        let key = xcconfig["SUPABASE_TEST_KEY"] ?? env["SUPABASE_TEST_KEY"] ?? ""
+        guard !key.isEmpty else { throw ClientError.missingKey }
+
         guard let url = URL(string: urlString) else {
             throw ClientError.badURL(urlString)
         }
         return SupabaseTestClient(baseURL: url, apiKey: key)
+    }
+
+    /// Read `SkeenaSystem/Config/Secrets.xcconfig` from the host
+    /// filesystem and parse the simple `KEY = VALUE` lines. Returns an
+    /// empty dictionary when the file isn't present (the gitignored file
+    /// is optional — CI may inject env vars instead).
+    ///
+    /// Path is resolved relative to `#file` (this source file's location)
+    /// so the test process can find the config without any build-system
+    /// plumbing. iOS Simulator processes can read host-filesystem paths,
+    /// same trick the photo-fixture bypass uses.
+    static func readSecretsXcconfig() -> [String: String] {
+        let configPath = #file
+            .replacingOccurrences(
+                of: "SkeenaSystemUITests/IntegrationTests/SupabaseTestClient.swift",
+                with: "SkeenaSystem/Config/Secrets.xcconfig"
+            )
+        guard let contents = try? String(contentsOfFile: configPath, encoding: .utf8) else {
+            return [:]
+        }
+        var settings: [String: String] = [:]
+        for raw in contents.components(separatedBy: .newlines) {
+            // xcconfig comments start with `//` BUT must be preceded by
+            // whitespace or sit at the start of the line — same rule
+            // Xcode's parser uses. Without that condition we'd truncate
+            // a value like "https://example.com" to "https:".
+            let trimmedHead = raw.trimmingCharacters(in: .whitespaces)
+            if trimmedHead.isEmpty || trimmedHead.hasPrefix("//") { continue }
+            var line = raw
+            if let range = line.range(of: " //") {
+                line = String(line[..<range.lowerBound])
+            }
+            line = line.trimmingCharacters(in: .whitespaces)
+            guard !line.isEmpty else { continue }
+
+            let parts = line.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+            guard parts.count == 2 else { continue }
+            let key = parts[0].trimmingCharacters(in: .whitespaces)
+            let value = parts[1].trimmingCharacters(in: .whitespaces)
+            if !key.isEmpty {
+                settings[key] = value
+            }
+        }
+        return settings
     }
 
     /// GET `/rest/v1/catch_reports?report_id=eq.<uuid>&select=*` and decode
