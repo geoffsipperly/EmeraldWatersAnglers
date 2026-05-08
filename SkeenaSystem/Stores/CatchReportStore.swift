@@ -437,25 +437,18 @@ nonisolated final class CatchReportStore: ObservableObject, @unchecked Sendable 
     }
 
     var loaded: [CatchReport] = []
-    var skippedCrossMember = 0
 
     for file in files where file.pathExtension.lowercased() == "json" {
       do {
         let data = try Data(contentsOf: file)
         let report = try decoder.decode(CatchReport.self, from: data)
 
-        // Defense in depth: refuse to surface reports whose stamped memberId
-        // doesn't match the bound scope. A divergence here means an upstream
-        // bug stamped the wrong id at write time (see ReportChatView's
-        // saveCatchReportIfPossible). Skip rather than delete so the file
-        // stays on disk for diagnosis / manual recovery.
-        let stamped = report.memberId.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let bound = boundMemberId, !stamped.isEmpty, stamped != bound {
-          skippedCrossMember += 1
-          AppLogging.log("[CatchReportStore] SKIPPING cross-member report \(file.lastPathComponent) — stamped='\(stamped)' bound='\(bound)'", level: .warn, category: .catch)
-          continue
-        }
-
+        // No defensive memberId-equality check here. `report.memberId` is the
+        // ANGLER who caught the fish — for guide-with-clients trips that's
+        // legitimately different from the store's bound (guide) scope. The
+        // `<memberId>/<communityId>/` directory layout itself partitions the
+        // data per guide, so any file under this directory belongs to this
+        // guide's local activity stream regardless of which angler is stamped.
         loaded.append(report)
       } catch {
         AppLogging.log("[CatchReportStore] Failed to decode \(file.lastPathComponent): \(error.localizedDescription)", level: .error, category: .catch)
@@ -464,10 +457,6 @@ nonisolated final class CatchReportStore: ObservableObject, @unchecked Sendable 
 
     // Sort newest first
     loaded.sort { $0.createdAt > $1.createdAt }
-
-    if skippedCrossMember > 0 {
-      AppLogging.log("[CatchReportStore] loadAll: skipped \(skippedCrossMember) cross-member orphan(s) in scope member=\(self.boundMemberId ?? "nil")", level: .warn, category: .catch)
-    }
     AppLogging.log("[CatchReportStore] loaded \(loaded.count) reports from scope member=\(self.boundMemberId ?? "nil") community=\(self.boundCommunityId ?? "nil")", level: .debug, category: .catch)
     for r in loaded {
       let uploadedAt = r.uploadedAt.map { ISO8601DateFormatter().string(from: $0) } ?? "nil"

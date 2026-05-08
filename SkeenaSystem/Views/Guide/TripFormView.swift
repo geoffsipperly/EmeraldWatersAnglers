@@ -726,6 +726,12 @@ struct TripFormView: View {
         let draft = vm.clients[i]
         let c = TripClient(context: context)
         c.name = draft.name
+        // The "Member Number" field on the angler form holds the angler's
+        // app-wide memberId. The draft struct's property is still named
+        // `licenseNumber` for now (separate cosmetic refactor), but the
+        // value is the memberId. Persist to both columns during the
+        // licenseNumber → memberId transition.
+        c.memberId = draft.licenseNumber
         c.licenseNumber = draft.licenseNumber
         c.trip = trip
 

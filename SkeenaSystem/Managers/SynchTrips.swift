@@ -461,6 +461,12 @@ public final class SynchTrips {
           let last = (a.lastName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
           let full = [first, last].filter { !$0.isEmpty }.joined(separator: " ")
           client.name = full.isEmpty ? nil : full
+          // The server's `memberId` is the angler's app-wide id (e.g. "MAD3EFR7M").
+          // Write to the new `memberId` column going forward, and keep the
+          // legacy `licenseNumber` column populated during transition so any
+          // older readers still resolve the right value. The schema changed in
+          // model v3; the legacy column will be retired in a follow-up.
+          client.memberId = a.memberId
           client.licenseNumber = a.memberId
 
           if let licenses = a.licenses {
@@ -514,6 +520,9 @@ public final class SynchTrips {
           let last = (a.lastName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
           let full = [first, last].filter { !$0.isEmpty }.joined(separator: " ")
           client.name = full.isEmpty ? nil : full
+          // See note in applyServerTripToLocal: write to both columns during
+          // the legacy → new field transition.
+          client.memberId = a.memberId
           client.licenseNumber = a.memberId
           if let licenses = a.licenses {
             for lic in licenses {
@@ -605,8 +614,13 @@ public final class SynchTrips {
     if let clients = localTrip.clients as? Set<TripClient> {
       for client in clients {
         var c: [String: Any] = [:]
-        let memberId = (client.licenseNumber ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        c["memberId"] = memberId
+        // Prefer the new `memberId` column. Fall back to the legacy
+        // `licenseNumber` column for trips persisted before model v3 added
+        // the dedicated attribute — those rows still hold the angler's
+        // memberId in the old field.
+        let resolvedMemberId = (client.memberId ?? client.licenseNumber ?? "")
+          .trimmingCharacters(in: .whitespacesAndNewlines)
+        c["memberId"] = resolvedMemberId
 
         var cwArray: [[String: Any]] = []
         if let rows = client.classifiedLicenses as? Set<ClassifiedWaterLicense> {

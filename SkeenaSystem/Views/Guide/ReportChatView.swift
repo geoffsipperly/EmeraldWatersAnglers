@@ -569,9 +569,14 @@ struct ReportChatView: View {
     trip.endDate = today
     trip.createdAt = Date()
 
-    // Create a TripClient for the guide themselves
+    // Create a TripClient for the guide themselves. In solo mode the guide
+    // IS the angler, so the TripClient's member id is the guide's auth id.
+    // Write to both columns during the licenseNumber → memberId transition
+    // (model v3 added the proper `memberId` attribute; legacy column kept
+    // populated for any older readers).
     let client = TripClient(context: context)
     client.name = guideName
+    client.memberId = memberId
     client.licenseNumber = memberId
     client.trip = trip
 
@@ -861,14 +866,26 @@ struct ReportChatView: View {
     // Resolve trip — solo mode creates/reuses a same-day trip automatically
     let trip: Trip? = isSoloMode ? findOrCreateSoloTrip() : selectedTrip
 
-    // Always source memberId from the authoritative auth state at save time.
-    // `vm.memberId` is seeded once when the chat opens and can drift from
-    // `AuthService.currentMemberId` if the user changes their member number
-    // (or the auto-rebind fires) mid-session — that drift previously caused
-    // reports to be written into the new member's directory while still
-    // stamped with the old member's id, producing cross-member rows in the
-    // Activities list.
-    let memberId = (AuthService.shared.currentMemberId ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    // Two distinct member ids are at play here:
+    //   • storeMemberId — the GUIDE's auth id, used to bind the local
+    //     CatchReportStore's on-disk scope. Always pulled from auth so the
+    //     guide's own Activities directory receives the report regardless of
+    //     who the catch belongs to. Sourced from auth (not vm.memberId) to
+    //     avoid drift if the guide changed their member number mid-session.
+    //   • recordOwnerMemberId — the id stamped on the CatchReport itself.
+    //     For solo trips the guide IS the angler, so this matches the guide's
+    //     auth id. For client trips this is the SELECTED angler's licence
+    //     number, populated into `vm.memberId` by handleClientChanged() from
+    //     the chosen TripClient. Falling back to the guide's id only when the
+    //     angler has no usable licence number — preferable to writing empty.
+    let storeMemberId = (AuthService.shared.currentMemberId ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    let recordOwnerMemberId: String = {
+      if isSoloMode {
+        return storeMemberId
+      }
+      let anglerId = vm.memberId.trimmingCharacters(in: .whitespacesAndNewlines)
+      return anglerId.isEmpty ? storeMemberId : anglerId
+    }()
     let cwlNumber = vm.classifiedWatersLicenseNumber
     let tripIdString = trip?.tripId?.uuidString
 
@@ -882,10 +899,12 @@ struct ReportChatView: View {
     let deviceDescription = "\(UIDevice.current.model) \(UIDevice.current.systemVersion)"
 
     // Fix: the Combine auto-rebind may not have fired yet — force a
-    // rebind so the store is scoped before we write.
-    if !CatchReportStore.shared.isBound, !memberId.isEmpty, communityId != nil {
+    // rebind so the store is scoped before we write. Always use the guide's
+    // auth id here, never the angler's — local file storage stays under the
+    // guide's directory regardless of who the catch belongs to.
+    if !CatchReportStore.shared.isBound, !storeMemberId.isEmpty, communityId != nil {
       AppLogging.log("[GuideSave] store unbound — forcing rebind before save", level: .debug, category: .catch)
-      CatchReportStore.shared.rebind(memberId: memberId, communityId: communityId)
+      CatchReportStore.shared.rebind(memberId: storeMemberId, communityId: communityId)
     }
 
     // Derive a human-readable trip name for v2 API (match catch display)
@@ -898,7 +917,7 @@ struct ReportChatView: View {
     }()
 
     CatchReportStore.shared.createFromChat(
-      memberId: memberId.isEmpty ? "Unknown" : memberId,
+      memberId: recordOwnerMemberId.isEmpty ? "Unknown" : recordOwnerMemberId,
       species: snapshot.species,
       sex: snapshot.sex,
       lengthInches: snapshot.lengthInches ?? 0,
@@ -1026,12 +1045,17 @@ private extension String {
   }
 }
 
+/// Resolve the angler's app-wide member id from a TripClient.
+/// Prefers the new `memberId` attribute (added in Core Data model v3); falls
+/// back to the legacy `licenseNumber` column — historically the memberId was
+/// stored there under a misleading name. Other keys cover earlier
+/// experimental schemas and any externally-shaped objects we might encounter.
 private func safeMemberId(from client: TripClient) -> String? {
   let attrs = client.entity.attributesByName
 
   let keys = [
-    "licenseNumber",
     "memberId",
+    "licenseNumber",
     "anglerNumber",
     "bcAnglerNumber",
     "anglerID",

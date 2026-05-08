@@ -128,6 +128,11 @@ final class TripSyncService {
         let last = (a.lastName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let full = [first, last].filter { !$0.isEmpty }.joined(separator: " ")
         client.name = full.isEmpty ? nil : full
+        // Mirror the dual-write done in SynchTrips.applyServerTripToLocal —
+        // the angler's app-wide memberId now lives on the proper `memberId`
+        // column (model v3); legacy `licenseNumber` column kept populated
+        // during the transition.
+        client.memberId = a.memberId
         client.licenseNumber = a.memberId
 
         if let licenses = a.licenses {

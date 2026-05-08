@@ -1059,6 +1059,50 @@ nonisolated enum RiverAtlas {
             // Mile 214 — Headwaters, Keechelus Lake outlet / dam, Cascade Mountains
             CLLocationCoordinate2D(latitude: 47.3270, longitude: -121.3300),
         ],
+
+        // ─────────────────────────────────────────────
+        // Quebec — Gaspé Peninsula
+        // ─────────────────────────────────────────────
+
+        // ~92 km (~57 mi) tidal Atlantic-salmon river flowing through the
+        // Chic-Choc Mountains into Baie des Chaleurs at New Richmond. The
+        // lower river bends NORTHEAST out of the mouth (toward Saint-Edgar)
+        // before splitting into east (Est) and west (Ouest) branches in the
+        // upper reaches. The spine follows the longer Est branch up to its
+        // headwaters near Mont-Albert in the Chic-Chocs; the Ouest branch
+        // (peak ~48.59, -65.91) is not separately mapped here but falls
+        // within the lookup radius of the main-stem upper points.
+        // Verified anchors come from OpenStreetMap waterway features and
+        // the GeoNames Saint-Edgar hamlet (WSC station 01BG010 sits at the
+        // road bridge there). Interpolated points are flagged in comments.
+        "Petite Cascapedia River": [
+            // Mile 0 — Mouth at Baie des Chaleurs, east of New Richmond near Henri A. Leblanc Bridge
+            CLLocationCoordinate2D(latitude: 48.1700, longitude: -65.8350),
+            // Mile 2 — Lower main stem segment (verified OSM)
+            CLLocationCoordinate2D(latitude: 48.1825, longitude: -65.8269),
+            // Mile 5 — Mid-lower river segment (verified OSM)
+            CLLocationCoordinate2D(latitude: 48.2059, longitude: -65.7914),
+            // Mile 7 — Lower main stem at the river's relation centroid (verified OSM)
+            CLLocationCoordinate2D(latitude: 48.2247, longitude: -65.7624),
+            // Mile 10 — Saint-Edgar village; WSC 01BG010 sits at the road bridge here (verified GeoNames)
+            CLLocationCoordinate2D(latitude: 48.2377, longitude: -65.7273),
+            // Mile 15 — Above Saint-Edgar, river continuing NE (interpolated between Saint-Edgar and east-branch anchor)
+            CLLocationCoordinate2D(latitude: 48.3050, longitude: -65.7100),
+            // Mile 20 — Mid-upper river approaching east/west fork (interpolated)
+            CLLocationCoordinate2D(latitude: 48.3800, longitude: -65.7000),
+            // Mile 25 — Approaching east-branch divergence (interpolated)
+            CLLocationCoordinate2D(latitude: 48.4400, longitude: -65.6950),
+            // Mile 28 — East branch (Petite rivière Cascapédia Est) lower segment (verified OSM)
+            CLLocationCoordinate2D(latitude: 48.4926, longitude: -65.6926),
+            // Mile 35 — East branch bending northwest into Chic-Chocs (interpolated)
+            CLLocationCoordinate2D(latitude: 48.5800, longitude: -65.7300),
+            // Mile 42 — East branch climbing toward Mont-Albert (interpolated)
+            CLLocationCoordinate2D(latitude: 48.6700, longitude: -65.7700),
+            // Mile 50 — East branch upper segment near Mont-Albert (verified OSM)
+            CLLocationCoordinate2D(latitude: 48.7882, longitude: -65.8010),
+            // Mile 57 — Headwaters in the Chic-Choc Mountains, ~700 m elevation (interpolated)
+            CLLocationCoordinate2D(latitude: 48.8400, longitude: -65.8200),
+        ],
     ]
 
     /// Default search radius (km) from any spine point to count as "on" a river.
