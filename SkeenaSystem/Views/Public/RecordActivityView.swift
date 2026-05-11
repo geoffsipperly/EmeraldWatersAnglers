@@ -31,12 +31,12 @@ struct RecordActivityView: View {
           // Action tiles — Record a Catch + Record Observation (blue)
           LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
             Button { goToAssistant = true } label: {
-              actionTile(icon: "square.and.pencil", label: "Record catch")
+              actionTile(icon: "square.and.pencil", label: "Catch")
             }
             .accessibilityIdentifier("landedTile")
 
             Button { showRecordObservation = true } label: {
-              actionTile(icon: "waveform", label: "Record Observation")
+              actionTile(icon: "waveform", label: "Observation")
             }
             .accessibilityIdentifier("observationsTile")
           }
@@ -48,6 +48,16 @@ struct RecordActivityView: View {
             .fill(Color.brandStroke)
             .frame(height: 0.5)
             .padding(.vertical, 4)
+
+          // Section header — groups the four no-catch event tiles below
+          // under a single "Marks" umbrella, consistent with how the rest
+          // of the app refers to these waypoints (e.g. Activities →
+          // Observations → Marks).
+          Text("Marks")
+            .font(.brandHeadline)
+            .foregroundColor(.brandTextPrimary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
 
           // No-catch event tiles — 2 per row
           LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
