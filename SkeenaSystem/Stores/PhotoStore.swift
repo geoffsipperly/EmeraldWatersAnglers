@@ -15,7 +15,12 @@ final class PhotoStore {
   /// - Returns: A stable filename you can store in Core Data (not a full path).
   @discardableResult
   func save(image: UIImage, preferredName: String? = nil, quality: CGFloat = AppEnvironment.shared.imageCompressionQuality) throws -> String {
+    let pixelW = Int(image.size.width * image.scale)
+    let pixelH = Int(image.size.height * image.scale)
+    AppLogging.log("[PhotoStore] save start: size=\(Int(image.size.width))x\(Int(image.size.height)) pixels=\(pixelW)x\(pixelH) scale=\(image.scale) cgImage=\(image.cgImage != nil) quality=\(quality)", level: .debug, category: .catch)
+
     guard let data = image.jpegData(compressionQuality: quality) else {
+      AppLogging.log("[PhotoStore] save FAILED: jpegData returned nil for size=\(Int(image.size.width))x\(Int(image.size.height)) cgImage=\(image.cgImage != nil) — likely missing CGImage backing or unsupported color space", level: .error, category: .catch)
       throw NSError(domain: "PhotoStore", code: -1, userInfo: [NSLocalizedDescriptionKey: "JPEG encode failed"])
     }
     let name: String = if let preferred = preferredName?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -26,8 +31,14 @@ final class PhotoStore {
     }
 
     let url = folderURL().appendingPathComponent(name)
-    try data.write(to: url, options: .atomic)
-    return name
+    do {
+      try data.write(to: url, options: .atomic)
+      AppLogging.log("[PhotoStore] save ok: filename=\(name) bytes=\(data.count)", level: .debug, category: .catch)
+      return name
+    } catch {
+      AppLogging.log("[PhotoStore] save FAILED: write to \(url.lastPathComponent) threw \(error.localizedDescription)", level: .error, category: .catch)
+      throw error
+    }
   }
 
   /// Loads a UIImage given either a filename (recommended) or a full path string.

@@ -129,6 +129,25 @@ struct CatchChatView: View {
       inputBar
     }
     .background(Color.clear)
+    .overlay(alignment: .bottom) {
+      if viewModel.showToast {
+        HStack(spacing: 6) {
+          Image(systemName: "exclamationmark.triangle")
+            .font(.caption2)
+          Text(viewModel.toastMessage)
+            .font(.caption2)
+        }
+        .foregroundColor(.secondary)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.black.opacity(0.5))
+        .cornerRadius(8)
+        .padding(.bottom, 80)
+        .padding(.horizontal, 24)
+        .transition(.opacity)
+        .animation(.easeInOut(duration: 0.2), value: viewModel.showToast)
+      }
+    }
     .onChange(of: showSourceActionSheet) { presented in
       AppLogging.log("ShowSourceActionSheet changed: \(presented)", level: .debug, category: .angler)
       // UI-test bypass: instead of presenting the system photo source dialog
@@ -165,6 +184,9 @@ struct CatchChatView: View {
           let image = picked.image
           AppLogging.log("ImagePicker returned image: size=\(Int(image.size.width))x\(Int(image.size.height))", level: .debug, category: .angler)
           viewModel.handlePhotoSelected(picked)
+        } onLoadFailed: {
+          AppLogging.log("ImagePicker reported load failure to host; presenting toast", level: .warn, category: .angler)
+          viewModel.presentPhotoLoadFailedToast()
         }
       }
       .onAppear {

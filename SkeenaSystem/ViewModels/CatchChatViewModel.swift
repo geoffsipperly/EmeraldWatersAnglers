@@ -176,6 +176,12 @@ final class CatchChatViewModel: ObservableObject {
   /// the correct flow-manager handler.
   @Published var requestSampleScannerSheet: Bool = false
 
+  /// One-shot toast shown when the picker fails to load a photo even after
+  /// the iCloud-download fallback (e.g. user is offline and the photo's
+  /// original isn't on the device). Auto-cleared by `presentPhotoLoadFailedToast`.
+  @Published var showToast: Bool = false
+  @Published var toastMessage: String = ""
+
   // Photo analyzer (modular)
     private let analyzer = CatchPhotoAnalyzer()
 
@@ -370,13 +376,33 @@ final class CatchChatViewModel: ObservableObject {
     showRecordObservation = true
   }
 
+    // MARK: - Photo load failure
+
+    /// Surface a toast when both the PHPicker fast path and the PHImageManager
+    /// iCloud-download fallback fail. Auto-dismisses after 4 seconds so the
+    /// user can tap Upload again and try a different photo without manually
+    /// clearing the message.
+    func presentPhotoLoadFailedToast() {
+      AppLogging.log("[CatchChat] presenting photo-load-failed toast", level: .info, category: .catch)
+      toastMessage = "Couldn't load that photo from iCloud — check your connection or pick a different shot."
+      showToast = true
+      DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) { [weak self] in
+        self?.showToast = false
+      }
+    }
+
     // MARK: - Photo analysis entry point
 
     func handlePhotoSelected(_ picked: PickedPhoto) {
+      let pixelW = Int(picked.image.size.width * picked.image.scale)
+      let pixelH = Int(picked.image.size.height * picked.image.scale)
+      AppLogging.log("[CatchChat] handlePhotoSelected: awaitingHeadPhoto=\(awaitingHeadPhoto) size=\(Int(picked.image.size.width))x\(Int(picked.image.size.height)) pixels=\(pixelW)x\(pixelH) cgImage=\(picked.image.cgImage != nil) exifDate=\(picked.exifDate != nil) exifLocation=\(picked.exifLocation != nil)", level: .info, category: .catch)
+
       // Conservation/research flow captures the HEAD photo first, before the
       // primary fish photo. Route this upload to the head-photo handler and
       // skip the ML analysis pipeline — we'll run analysis on the NEXT upload.
       if awaitingHeadPhoto {
+        AppLogging.log("[CatchChat] routing to head-photo handler", level: .debug, category: .catch)
         handleHeadPhotoSelected(picked)
         return
       }
@@ -397,12 +423,19 @@ final class CatchChatViewModel: ObservableObject {
 
       // 3. Show the image itself as a chat bubble from the user
       messages.append(ChatMessage(sender: .user, text: nil, image: picked.image))
+      AppLogging.log("[CatchChat] full-body photo appended to chat messages (count=\(messages.count))", level: .debug, category: .catch)
 
-      // 4. Persist the photo to disk via PhotoStore and remember filename
-      if let filename = try? PhotoStore.shared.save(image: picked.image) {
+      // 4. Persist the photo to disk via PhotoStore and remember filename.
+      // Wrapped in do/catch (was `try?`) so JPEG-encode or disk-write failures
+      // surface in logs — they'd otherwise silently leave photoFilename=nil
+      // and the user sees an empty bubble after the chat re-renders.
+      do {
+        let filename = try PhotoStore.shared.save(image: picked.image)
         self.photoFilename = filename
-      } else {
+        AppLogging.log("[CatchChat] full-body photo persisted: filename=\(filename)", level: .info, category: .catch)
+      } catch {
         self.photoFilename = nil
+        AppLogging.log("[CatchChat] full-body photo PERSIST FAILED: \(error.localizedDescription) — chat bubble will display from memory but upload will have no file", level: .error, category: .catch)
       }
 
       // 5. Clear any old buttons / analysis state from previous catches.
