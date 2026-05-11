@@ -5,9 +5,10 @@
 //
 //   • Time window — server-side (re-fetches when changed). Defaults to
 //     "Last 30 days" so a busy community doesn't dump 3 years of pins on open.
-//   • Catch / No Catch chips — client-side, multi-select, both on by default.
-//     Right-justified on the same row as the time window. Active=blue,
-//     inactive=grey. The footer legend still decodes the 5-color breakdown.
+//   • "Catch only" toggle — client-side, off by default. When off the map
+//     shows every pin (catches + the four no-catch waypoint types). When
+//     on the map narrows to catch pins only. Styled identically to the
+//     time-window menu so the filter bar reads as one row of affordances.
 //
 // Map is always community-wide (member_id = nil); per-member scope was removed.
 
@@ -50,8 +51,11 @@ enum GuideMapTimeWindow: String, CaseIterable, Identifiable {
   }
 }
 
-/// Two-bucket categorization of pin types. Chips control which buckets are
-/// visible; the footer legend still shows the underlying 5-color breakdown.
+/// Two-bucket categorization of pin types. Powers the client-side filter:
+/// the "Catch only" toggle in the filter bar narrows the visible pins to
+/// `.catch_.apiTypes`, and the underlying union check is still asserted
+/// by `testGuideMapPinCategory_unionCoversAllReportTypes` so a new
+/// server-side pin type can't silently disappear.
 enum GuideMapPinCategory: String, CaseIterable, Identifiable {
   case catch_ = "catch"
   case noCatch
@@ -87,19 +91,20 @@ struct GuideFullMapView: View {
 
   // Filter state
   @State private var timeWindow: GuideMapTimeWindow = .thirtyDays
-  @State private var enabledCategories: Set<GuideMapPinCategory> = Set(GuideMapPinCategory.allCases)
+  /// When true, narrows the visible pins to `GuideMapPinCategory.catch_`
+  /// only. Defaults to false so the map opens with both catch and
+  /// no-catch activity visible.
+  @State private var catchOnly: Bool = false
 
   // Re-fetch key — only the server-side filter (time window) drives a network
   // call. Map is always community-wide.
   private var fetchKey: String { timeWindow.rawValue }
 
-  // Union of every enabled category's underlying API types, then filter
-  // the in-memory pin list. Done as a computed property so chip toggles
-  // re-render the map without re-fetching.
+  // Catch-only is a client-side filter — toggles re-render the map without
+  // re-fetching. Off → every pin; On → catch pins only.
   private var filteredReports: [MapReportDTO] {
-    let allowed = enabledCategories.reduce(into: Set<String>()) { acc, cat in
-      acc.formUnion(cat.apiTypes)
-    }
+    guard catchOnly else { return mapReports }
+    let allowed = GuideMapPinCategory.catch_.apiTypes
     return mapReports.filter { allowed.contains($0.type) }
   }
 
@@ -130,9 +135,7 @@ struct GuideFullMapView: View {
     HStack(spacing: 8) {
       timeMenu
       Spacer(minLength: 8)
-      ForEach(GuideMapPinCategory.allCases) { category in
-        categoryChip(category)
-      }
+      catchOnlyToggle
     }
     .padding(.horizontal, 12)
     .padding(.top, 10)
@@ -170,29 +173,27 @@ struct GuideFullMapView: View {
     .accessibilityIdentifier("mapTimeWindowMenu")
   }
 
-  private func categoryChip(_ category: GuideMapPinCategory) -> some View {
-    let isOn = enabledCategories.contains(category)
-    return Button {
-      if isOn {
-        // Don't allow deselecting the last category — an empty filter set
-        // would hide every pin with no obvious way back. Bounce the tap.
-        if enabledCategories.count > 1 { enabledCategories.remove(category) }
-      } else {
-        enabledCategories.insert(category)
+  /// "Catch only" toggle button. Matches the time-window menu's font,
+  /// foreground, padding, and capsule background exactly — only the
+  /// leading icon flips between `square` (off) and `checkmark.square.fill`
+  /// (on) to indicate state. Keeping the color scheme constant means the
+  /// filter bar reads as one row of equivalent affordances rather than
+  /// a primary/secondary pair.
+  private var catchOnlyToggle: some View {
+    Button { catchOnly.toggle() } label: {
+      HStack(spacing: 6) {
+        Image(systemName: catchOnly ? "checkmark.square.fill" : "square")
+          .font(.system(size: 12, weight: .semibold))
+        Text("Catch only")
+          .font(.brandCaption.weight(.semibold))
       }
-    } label: {
-      Text(category.label)
-        .font(.brandCaption.weight(.semibold))
-        .foregroundColor(.brandTextPrimary)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
-        .background(
-          Capsule()
-            .fill(isOn ? Color.brandAccent : Color.brandTextPrimary.opacity(0.18))
-        )
+      .foregroundColor(.brandTextPrimary)
+      .padding(.horizontal, 12)
+      .padding(.vertical, 7)
+      .background(Color.brandTextPrimary.opacity(0.10), in: Capsule())
     }
     .buttonStyle(.plain)
-    .accessibilityIdentifier("mapCategoryChip_\(category.rawValue)")
+    .accessibilityIdentifier("mapCatchOnlyToggle")
   }
 
   // MARK: - Legend footer
