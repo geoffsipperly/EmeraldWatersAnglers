@@ -142,7 +142,12 @@ struct RoleAwareToolbar: View {
     }
   }
 
-  // MARK: Guide tabs — Home, Trips, Activities, [Social]
+  // MARK: Guide tabs — Home, Trips, Activities, Social
+  //
+  // Social is always rendered for guides (mirrors AnglerLandingView's
+  // inline toolbar which shows Social unconditionally). The other roles
+  // still gate Social on `communityService.isSocialActive` so a community
+  // without the Social add-on doesn't get a dead tab.
   @ViewBuilder private var guideToolbar: some View {
     ToolbarTab(icon: "house", label: "Home") {
       guideNavigateTo(nil)
@@ -153,10 +158,8 @@ struct RoleAwareToolbar: View {
     ToolbarTab(icon: "safari", label: "Activities", badgeCount: pendingUploads.totalPending) {
       if activeTab != "activities" { guideNavigateTo(.activities) }
     }
-    if !socialDisabled {
-      ToolbarTab(icon: "message", label: "Social") {
-        if activeTab != "community" { guideNavigateTo(.community) }
-      }
+    ToolbarTab(icon: "message", label: "Social") {
+      if activeTab != "community" { guideNavigateTo(.community) }
     }
   }
 }
