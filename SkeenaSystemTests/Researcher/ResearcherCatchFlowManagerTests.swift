@@ -49,38 +49,42 @@ final class ResearcherCatchFlowManagerTests: XCTestCase {
     XCTAssertEqual(flow.currentStep, .confirmGirth)
   }
 
-  /// Helper: advance to the floyTagID step via study selection.
-  private func advanceToFloyTagID() {
+  /// Helper: advance to the consolidated `.studyID` step via Floy selection.
+  /// All three study types (Floy / Pit / Radio Telemetry) now land on the
+  /// same step; this helper just picks one for tests that need a study tag
+  /// in flight.
+  private func advanceToStudyID() {
     advanceToConfirmGirth()
     _ = flow.confirm() // confirmGirth → finalSummary
     XCTAssertEqual(flow.currentStep, .finalSummary)
     _ = flow.confirm() // finalSummary → studyParticipation
     XCTAssertEqual(flow.currentStep, .studyParticipation)
-    _ = flow.selectStudy(.floy) // → floyTagID
-    XCTAssertEqual(flow.currentStep, .floyTagID)
+    _ = flow.selectStudy(.floy) // → studyID
+    XCTAssertEqual(flow.currentStep, .studyID)
   }
 
-  /// Helper: advance to the .scaleScan step. The "Yes" capsule at
-  /// .sampleCollection is wired in the view model (calls beginScaleScan);
-  /// at the flow-manager level we drive that transition directly.
+  /// Helper: advance to the `.scaleScan` step via the consolidated sample
+  /// step. Picks "Scale" so only the scale barcode is in flight (the "Both"
+  /// path is exercised by its own dedicated test).
   private func advanceToScaleScan() {
     advanceToConfirmGirth()
     _ = flow.confirm() // → finalSummary
     _ = flow.confirm() // → studyParticipation
     _ = flow.confirm() // skip study → sampleCollection
     XCTAssertEqual(flow.currentStep, .sampleCollection)
-    _ = flow.beginScaleScan()
+    _ = flow.selectSample(.scale)
     XCTAssertEqual(flow.currentStep, .scaleScan)
   }
 
-  /// Helper: advance to the .finScan step by walking through scale capture
-  /// and answering Yes at the fin-clip prompt.
+  /// Helper: advance to the `.finScan` step via the consolidated sample
+  /// step picking "Fin" (no scale step in this path).
   private func advanceToFinScan() {
-    advanceToScaleScan()
-    _ = flow.applyEdit("SMP-A7K3F9")
-    _ = flow.confirm() // .scaleScan → .finPrompt
-    XCTAssertEqual(flow.currentStep, .finPrompt)
-    _ = flow.beginFinScan()
+    advanceToConfirmGirth()
+    _ = flow.confirm() // → finalSummary
+    _ = flow.confirm() // → studyParticipation
+    _ = flow.confirm() // skip study → sampleCollection
+    XCTAssertEqual(flow.currentStep, .sampleCollection)
+    _ = flow.selectSample(.fin)
     XCTAssertEqual(flow.currentStep, .finScan)
   }
 
@@ -123,14 +127,14 @@ final class ResearcherCatchFlowManagerTests: XCTestCase {
     XCTAssertTrue(result.message.contains("keep it civil"))
   }
 
-  func testProfanity_floyTagID_rejected() {
-    advanceToFloyTagID()
+  func testProfanity_studyID_rejected() {
+    advanceToStudyID()
 
     let result = flow.applyEdit("asshole")
 
     XCTAssertFalse(result.recognized)
-    XCTAssertEqual(flow.currentStep, .floyTagID)
-    XCTAssertNil(flow.floyTagNumber, "Floy tag must not be set from profane input")
+    XCTAssertEqual(flow.currentStep, .studyID)
+    XCTAssertNil(flow.studyTagId, "Study tag must not be set from profane input")
     XCTAssertTrue(result.message.contains("keep it civil"))
   }
 
@@ -158,33 +162,49 @@ final class ResearcherCatchFlowManagerTests: XCTestCase {
 
   // MARK: - Two-barcode sample collection
 
-  /// Scale-only path: scan-or-type the scale envelope, answer No at the
-  /// fin-clip prompt, advance to voice memo. Verifies the fin clip field
-  /// stays nil when the researcher declines the optional second envelope.
-  func testSampleCollection_scaleOnly_advancesPastFinClipPromptToVoiceMemo() {
+  /// Scale-only path (consolidated sample step picks "Scale"): captures
+  /// the scale barcode, advances directly to voice memo with no fin step
+  /// in between. Verifies the fin clip field stays nil.
+  func testSampleCollection_scaleOnly_advancesDirectlyToVoiceMemo() {
     advanceToScaleScan()
 
     let edit = flow.applyEdit("SMP-A7K3F9")
     XCTAssertTrue(edit.recognized)
     XCTAssertEqual(flow.scaleEnvelopeId, "SMP-A7K3F9")
 
-    _ = flow.confirm() // .scaleScan → .finPrompt
-    XCTAssertEqual(flow.currentStep, .finPrompt)
-    XCTAssertNil(flow.finEnvelopeId)
-
-    _ = flow.confirm() // .finPrompt "No" → .voiceMemo
+    _ = flow.confirm() // .scaleScan → .voiceMemo (Scale-only skips fin)
     XCTAssertEqual(flow.currentStep, .voiceMemo)
     XCTAssertNil(flow.finEnvelopeId)
   }
 
-  /// Both-samples path: scale envelope captured, Yes at fin-clip prompt,
-  /// fin clip envelope captured. Both barcodes persist; flow lands on
-  /// .voiceMemo.
-  func testSampleCollection_scaleAndFinClip_bothBarcodesPersist() {
-    advanceToScaleScan()
+  /// Fin-only path: pick "Fin" at the consolidated sample step, capture
+  /// the fin clip barcode, advance directly to voice memo. The scale
+  /// barcode field stays nil.
+  func testSampleCollection_finOnly_advancesDirectlyToVoiceMemo() {
+    advanceToFinScan()
+
+    let edit = flow.applyEdit("SMP-B2M8Q1")
+    XCTAssertTrue(edit.recognized)
+    XCTAssertEqual(flow.finEnvelopeId, "SMP-B2M8Q1")
+
+    _ = flow.confirm() // .finScan → .voiceMemo
+    XCTAssertEqual(flow.currentStep, .voiceMemo)
+    XCTAssertNil(flow.scaleEnvelopeId)
+  }
+
+  /// Both-samples path: pick "Both" → scale step first, then fin step,
+  /// then voice memo. Both barcodes persist.
+  func testSampleCollection_bothSamples_routesThroughScaleThenFin() {
+    advanceToConfirmGirth()
+    _ = flow.confirm() // → finalSummary
+    _ = flow.confirm() // → studyParticipation
+    _ = flow.confirm() // skip study → sampleCollection
+    XCTAssertEqual(flow.currentStep, .sampleCollection)
+    _ = flow.selectSample(.both)
+    XCTAssertEqual(flow.currentStep, .scaleScan)
+
     _ = flow.applyEdit("SMP-A7K3F9")
-    _ = flow.confirm() // → .finPrompt
-    _ = flow.beginFinScan() // user tapped Yes
+    _ = flow.confirm() // .scaleScan → .finScan (because Both was picked)
     XCTAssertEqual(flow.currentStep, .finScan)
 
     _ = flow.applyEdit("SMP-B2M8Q1")
@@ -198,14 +218,21 @@ final class ResearcherCatchFlowManagerTests: XCTestCase {
   /// `recordScannedScaleEnvelope` and `recordScannedFinEnvelope` write to
   /// their respective fields and produce per-step confirmation copy.
   func testRecordScannedEnvelopes_storeIntoCorrectFields() {
-    advanceToScaleScan()
+    // Use the Both-samples path so both scanned-envelope hooks come into
+    // play in a single test. Scale step first, then fin step on confirm.
+    advanceToConfirmGirth()
+    _ = flow.confirm() // → finalSummary
+    _ = flow.confirm() // → studyParticipation
+    _ = flow.confirm() // skip study → sampleCollection
+    _ = flow.selectSample(.both)
+    XCTAssertEqual(flow.currentStep, .scaleScan)
 
     let scaleMsg = flow.recordScannedScaleEnvelope(id: "A7K3F9")
     XCTAssertEqual(flow.scaleEnvelopeId, "A7K3F9")
     XCTAssertTrue(scaleMsg.contains("Scale barcode: A7K3F9"))
 
-    _ = flow.confirm() // → .finPrompt
-    _ = flow.beginFinScan()
+    _ = flow.confirm() // .scaleScan → .finScan (Both path)
+    XCTAssertEqual(flow.currentStep, .finScan)
 
     let finClipMsg = flow.recordScannedFinEnvelope(id: "B2M8Q1")
     XCTAssertEqual(flow.finEnvelopeId, "B2M8Q1")

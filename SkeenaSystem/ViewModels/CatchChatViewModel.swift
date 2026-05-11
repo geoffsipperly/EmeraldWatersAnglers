@@ -47,14 +47,13 @@ enum ChatCapsuleAction: Equatable {
   case confirmHeadPhoto                 // head photo confirm (conservation)
   case retakeHeadPhoto                  // head photo retake (conservation)
   // Post-measurement research flow
-  case studyParticipate(yes: Bool)      // "Are you participating in a study?"
-  case selectStudyType(rawValue: String) // "Pit" | "Floy" | "Radio Telemetry"
-  case sampleCollect(yes: Bool)         // "Are you taking samples?"
-  case finChoice(yes: Bool)         // "Did you also take a fin clip?"
+  case selectStudyType(rawValue: String) // "Floy" | "Pit" | "Radio Telemetry" (advances to .studyID)
+  case skipStudy                        // "No" at .studyParticipation
+  case selectSample(kind: String)       // "scale" | "fin" | "both" | "none" at .sampleCollection
   case openSampleScanner                // "Scan" capsule on either .scaleScan or .finScan
   case voiceMemoChoice(yes: Bool)       // add voice memo or skip
-  case confirmID                        // floy / scale / fin: accept typed ID
-  case retryID                          // floy / scale / fin: clear + re-prompt
+  case confirmID                        // study / scale / fin: accept typed ID
+  case retryID                          // study / scale / fin: clear + re-prompt
 }
 
 struct ChatCapsule: Identifiable, Equatable {
@@ -637,16 +636,21 @@ final class CatchChatViewModel: ObservableObject {
     identificationSubStep = .confirmLocation
 
     let primary: String
+    // The river name is intentionally not wrapped in ** markers so it
+    // renders in the bubble's default text color (white) rather than the
+    // green prediction-styling used elsewhere. Per UX direction:
+    // location-match copy reads as a natural sentence, not a highlighted
+    // prediction.
     if let gps = flow.gpsLocationText, !gps.isEmpty {
-      primary = "I matched your location to **\(river)** (\(gps))."
+      primary = "I matched your location to the \(river) (\(gps))."
     } else {
-      primary = "I matched your location to **\(river)**."
+      primary = "I matched your location to the \(river)."
     }
-    let msg = appendAssistant("\(primary)\n§\nIs that right?")
+    let msg = appendAssistant("\(primary)\n§\nIs that correct?")
     capsulesAnchorMessageID = msg.id
     chatCapsules = [
-      ChatCapsule(id: "loc-confirm", label: "Yes",   color: .green, confidence: nil, action: .confirmLocation),
-      ChatCapsule(id: "loc-reject",  label: "Wrong", color: .red,   confidence: nil, action: .rejectLocation),
+      ChatCapsule(id: "loc-confirm", label: "Yes", color: .green, confidence: nil, action: .confirmLocation),
+      ChatCapsule(id: "loc-reject",  label: "No",  color: .red,   confidence: nil, action: .rejectLocation),
     ]
   }
 
@@ -737,7 +741,7 @@ final class CatchChatViewModel: ObservableObject {
       .sorted { $0.value.isPrimary && !$1.value.isPrimary }
       .sorted { $0.value.confidence > $1.value.confidence }
 
-    return ordered.map { key, meta in
+    var capsules: [ChatCapsule] = ordered.map { key, meta in
       let displayLabel = Self.displayName(forSpeciesKey: key)
       // The leading candidate's name + probability is rendered in the bubble
       // above; the green capsule just confirms it. Alternatives still show
@@ -750,6 +754,28 @@ final class CatchChatViewModel: ObservableObject {
         action: .selectSpecies(label: key)
       )
     }
+
+    // Rainbow trout ↔ steelhead taxonomy: steelhead is the sea-run lifecycle
+    // of rainbow trout, and the ViT classifier frequently picks one when the
+    // user means the other. When the primary prediction is rainbow trout,
+    // surface a "Steelhead" alternative unconditionally — no confidence
+    // shown, since the choice is taxonomic, not probabilistic. Selecting it
+    // routes via `selectSpecies(label: "steelhead")`, which `speciesWithLifecycle`
+    // already routes to the lifecycle step (Holding / Traveler).
+    let primaryKey = ordered.first(where: { $0.value.isPrimary })?.key
+    let alreadyHasSteelhead = seenSpeciesKeys["steelhead"] != nil
+    if primaryKey == "rainbow trout", !alreadyHasSteelhead {
+      capsules.append(
+        ChatCapsule(
+          id: "species-steelhead",
+          label: "Steelhead",
+          color: .yellow,
+          confidence: nil,
+          action: .selectSpecies(label: "steelhead")
+        )
+      )
+    }
+    return capsules
   }
 
   /// Post the bubble + capsules for the lifecycle step. Reached when the user
@@ -793,7 +819,18 @@ final class CatchChatViewModel: ObservableObject {
     guard let flow = researcherFlow else { return }
     identificationSubStep = .confirmSex
 
-    let msg = appendAssistant("What's the sex of this fish?\n§\nSelect one.")
+    // Surface the ML prediction inline as a value the user can confirm or
+    // swap, mirroring the length / girth confirmation pattern. The
+    // predicted sex is wrapped in ** so `predictionStyledText` paints it
+    // green; "Unknown" is shown as the prediction when no ML pick is
+    // available (e.g. Bi-catch path) so the bubble still reads cleanly.
+    let predictedLabel: String
+    switch flow.originalSex?.lowercased() {
+    case "male":   predictedLabel = "Male"
+    case "female": predictedLabel = "Female"
+    default:       predictedLabel = "Unknown"
+    }
+    let msg = appendAssistant("Sex: **\(predictedLabel)**\n§\nConfirm, or pick an alternative.")
     capsulesAnchorMessageID = msg.id
 
     let male = ChatCapsule(id: "sex-male",   label: "Male",   color: .yellow, confidence: nil, action: .selectSex(sex: "Male"))
@@ -990,51 +1027,45 @@ final class CatchChatViewModel: ObservableObject {
 
     // MARK: Post-measurement research steps (study / sample / voice)
 
-    case .studyParticipate(let yes):
+    case .skipStudy:
       chatCapsules = []
       capsulesAnchorMessageID = nil
-      if yes {
-        // Show the Pit / Floy / Radio choice.
-        postStudyTypeStep()
-      } else {
-        // "No" is equivalent to confirming past the study step — existing
-        // confirm() transitions from .studyParticipation → .sampleCollection.
-        researcherConfirm()
-      }
+      // "No" at the consolidated study step — equivalent to confirming past
+      // .studyParticipation. confirm() advances to .sampleCollection.
+      researcherConfirm()
 
     case .selectStudyType(let rawValue):
       chatCapsules = []
       capsulesAnchorMessageID = nil
       guard let type = ResearcherCatchFlowManager.StudyType(rawValue: rawValue) else { return }
-      // Pit and Radio are known-unsupported; keep behavior parity with the
-      // old disabled icons by treating their taps as a quiet no-op.
-      if type == .pit || type == .radioTelemetry {
-        // Re-post the study type step so capsules remain available.
-        postStudyTypeStep()
-        return
-      }
+      // All three study types (Floy / Pit / Radio Telemetry) advance to
+      // the generic .studyID step. The chat manager's `selectStudy(_:)`
+      // sets `studyType` so downstream prompts and labels carry the
+      // correct study name.
       researcherSelectStudy(type)
 
-    case .sampleCollect(let yes):
+    case .selectSample(let kind):
       chatCapsules = []
       capsulesAnchorMessageID = nil
-      if yes {
-        // Yes → scales are always taken first when sampling. Advance to
-        // .scaleScan and post the scan/type prompt with the Scan capsule.
-        researcherBeginScaleScan()
-      } else {
-        researcherConfirm()
+      guard let flow = researcherFlow else { return }
+      let selection: ResearcherCatchFlowManager.SampleSelection
+      switch kind {
+      case "scale": selection = .scale
+      case "fin":   selection = .fin
+      case "both":  selection = .both
+      default:      selection = .none
       }
-
-    case .finChoice(let yes):
-      chatCapsules = []
-      capsulesAnchorMessageID = nil
-      if yes {
-        // Yes → advance to .finScan and post the prompt with Scan capsule.
-        researcherBeginFinScan()
-      } else {
-        // No → confirm() advances .finPrompt → .voiceMemo.
-        researcherConfirm()
+      let (message, _) = flow.selectSample(selection)
+      let msg = appendAssistant(message)
+      flow.confirmAnchorID = msg.id
+      // Scale/Fin/Both — attach the Scan / Type capsule pair on the new
+      // barcode-prompt bubble. None — go straight to voice memo, which
+      // attaches its own capsules via attachCapsulesIfNeeded.
+      switch selection {
+      case .scale, .fin, .both:
+        attachSampleScanCapsules(to: msg.id)
+      case .none:
+        attachVoiceMemoCapsules(to: msg.id)
       }
 
     case .openSampleScanner:
@@ -1066,9 +1097,10 @@ final class CatchChatViewModel: ObservableObject {
       chatCapsules = []
       capsulesAnchorMessageID = nil
       switch flow.currentStep {
-      case .floyTagID:
-        flow.floyTagNumber = nil
-        let msg = appendAssistant("Please enter the Floy Tag ID.")
+      case .studyID:
+        flow.studyTagId = nil
+        let typeName = flow.studyType?.rawValue ?? "Study"
+        let msg = appendAssistant("Please enter the \(typeName) ID")
         flow.confirmAnchorID = msg.id
       case .scaleScan:
         // Two distinct retry modes:
@@ -1228,24 +1260,17 @@ final class CatchChatViewModel: ObservableObject {
       switch flow.currentStep {
       case .confirmLength, .confirmGirth:
         attachConfirmMeasurementCapsule(to: msg.id)
+      case .finalSummary:
+        // Mirrors the .confirmLength / .confirmGirth pattern — a single
+        // green capsule below the analysis bubble. Renamed "Next" instead
+        // of "Confirm" because the user is acknowledging the summary and
+        // advancing to the (researcher-only) study / sample / voice flow,
+        // not confirming an editable value.
+        attachNextStepCapsule(to: msg.id)
       case .studyParticipation:
-        attachYesNoCapsules(
-          to: msg.id,
-          yesAction: .studyParticipate(yes: true),
-          noAction: .studyParticipate(yes: false)
-        )
+        attachStudyParticipationCapsules(to: msg.id)
       case .sampleCollection:
-        attachYesNoCapsules(
-          to: msg.id,
-          yesAction: .sampleCollect(yes: true),
-          noAction: .sampleCollect(yes: false)
-        )
-      case .finPrompt:
-        attachYesNoCapsules(
-          to: msg.id,
-          yesAction: .finChoice(yes: true),
-          noAction: .finChoice(yes: false)
-        )
+        attachSampleCollectionCapsules(to: msg.id)
       default:
         break
       }
@@ -1261,6 +1286,23 @@ final class CatchChatViewModel: ObservableObject {
       ChatCapsule(
         id: "measure-confirm",
         label: "Confirm",
+        color: .green,
+        confidence: nil,
+        action: .confirmMeasurement
+      )
+    ]
+  }
+
+  /// Attach the single green "Next" capsule used at `.finalSummary` to
+  /// advance into the researcher-only study / sample / voice flow (or
+  /// straight to voice memo for guides with Conservation OFF). Same wiring
+  /// as the Confirm capsule above — routes through `researcherConfirm()`.
+  private func attachNextStepCapsule(to anchor: UUID) {
+    capsulesAnchorMessageID = anchor
+    chatCapsules = [
+      ChatCapsule(
+        id: "final-next",
+        label: "Next",
         color: .green,
         confidence: nil,
         action: .confirmMeasurement
@@ -1290,15 +1332,29 @@ final class CatchChatViewModel: ObservableObject {
     ]
   }
 
-  /// Attach the study-type capsule row (Pit disabled, Floy primary, Radio disabled)
-  /// to the "What kind of study?" bubble.
-  private func postStudyTypeStep() {
-    let msg = appendAssistant("What kind of study?")
-    capsulesAnchorMessageID = msg.id
+  /// Attach the four-option capsule row to the "Are you participating in a
+  /// study?" bubble. Floy / Pit / Radio are all green (positive picks that
+  /// advance to the .studyID step); No is grey (skip).
+  private func attachStudyParticipationCapsules(to anchor: UUID) {
+    capsulesAnchorMessageID = anchor
     chatCapsules = [
-      ChatCapsule(id: "study-pit",   label: "Pit",   color: .grey,  confidence: nil, action: .selectStudyType(rawValue: "Pit")),
       ChatCapsule(id: "study-floy",  label: "Floy",  color: .green, confidence: nil, action: .selectStudyType(rawValue: "Floy")),
-      ChatCapsule(id: "study-radio", label: "Radio", color: .grey,  confidence: nil, action: .selectStudyType(rawValue: "Radio Telemetry")),
+      ChatCapsule(id: "study-pit",   label: "Pit",   color: .green, confidence: nil, action: .selectStudyType(rawValue: "Pit")),
+      ChatCapsule(id: "study-radio", label: "Radio", color: .green, confidence: nil, action: .selectStudyType(rawValue: "Radio Telemetry")),
+      ChatCapsule(id: "study-no",    label: "No",    color: .grey,  confidence: nil, action: .skipStudy),
+    ]
+  }
+
+  /// Attach the four-option capsule row to the "Are you taking a sample?"
+  /// bubble. Scale / Fin / Both are green (positive picks that route to
+  /// the matching barcode-scan step); No is grey (skip to voice memo).
+  private func attachSampleCollectionCapsules(to anchor: UUID) {
+    capsulesAnchorMessageID = anchor
+    chatCapsules = [
+      ChatCapsule(id: "sample-scale", label: "Scale", color: .green, confidence: nil, action: .selectSample(kind: "scale")),
+      ChatCapsule(id: "sample-fin",   label: "Fin",   color: .green, confidence: nil, action: .selectSample(kind: "fin")),
+      ChatCapsule(id: "sample-both",  label: "Both",  color: .green, confidence: nil, action: .selectSample(kind: "both")),
+      ChatCapsule(id: "sample-none",  label: "No",    color: .grey,  confidence: nil, action: .selectSample(kind: "none")),
     ]
   }
 
@@ -1453,10 +1509,10 @@ final class CatchChatViewModel: ObservableObject {
     } else {
       let msg = appendAssistant("Got it, updated:\n\(updatedPrompt)")
       flow.confirmAnchorID = msg.id
-      // ID-entry steps (Floy / Scale envelope / Fin clip envelope) echo the
-      // typed value back with a Confirm/Retry capsule pair — Confirm
-      // advances, Retry clears the stored value and re-prompts.
-      if flow.currentStep == .floyTagID
+      // ID-entry steps (Study / Scale / Fin) echo the typed value back
+      // with a Confirm/Retry capsule pair — Confirm advances, Retry
+      // clears the stored value and re-prompts.
+      if flow.currentStep == .studyID
           || flow.currentStep == .scaleScan
           || flow.currentStep == .finScan {
         attachConfirmRetryIDCapsules(to: msg.id)
@@ -1464,7 +1520,11 @@ final class CatchChatViewModel: ObservableObject {
     }
   }
 
-  /// Researcher selects a study type (Pit, Floy, Radio Telemetry).
+  /// Researcher selects a study type (Floy / Pit / Radio Telemetry) at the
+  /// consolidated `.studyParticipation` step. The flow manager posts the
+  /// "Please enter the <StudyName> ID" prompt; the user types the ID into
+  /// the input bar, after which the typed-echo bubble gets its own
+  /// Confirm/Retry capsules (see applyEdit handling).
   func researcherSelectStudy(_ type: ResearcherCatchFlowManager.StudyType) {
     guard let flow = researcherFlow else { return }
     flow.confirmAnchorID = nil
@@ -2138,22 +2198,30 @@ final class CatchChatViewModel: ObservableObject {
       mlTrainingOptOut: AuthService.shared.currentUserType == .public
         ? MLTrainingOptOutStore.shared.isOptedOut
         : false,
-      // Floy tag is captured today; PIT ships in Phase 3.5.
+      // The unified .studyID chat step captures one ID per catch into
+      // `studyTagId`; here we dispatch it to the right CatchReport column
+      // based on the chosen `studyType`. Radio Telemetry has no backend
+      // column today — its ID is captured in the chat for UX continuity
+      // but won't make it to the server until the schema adds a column.
       //
-      // Sample envelopes — up to two distinct barcodes per catch:
-      //   * scaleEnvelopeId: set whenever sampling is taken (scales are
-      //     always collected when sampling).
-      //   * finEnvelopeId: optional second envelope, set only when
-      //     the researcher answered Yes to "Did you also take a fin clip?".
-      // The upload-side translation to the backend's current envelope+
-      // contents shape lives in `UploadCatchReport.swift`; the fin-clip
-      // barcode persists locally until the backend ships a two-field
-      // contract.
-      floyId: researcherFlow?.floyTagNumber,
-      pitId: nil,
+      // Sample envelopes:
+      //   * scaleEnvelopeId: set when Scale or Both was picked at the
+      //     consolidated sample step.
+      //   * finEnvelopeId: set when Fin or Both was picked.
+      floyId: routeStudyId(forType: .floy),
+      pitId: routeStudyId(forType: .pit),
       scaleEnvelopeId: nonEmpty(researcherFlow?.scaleEnvelopeId),
       finEnvelopeId: nonEmpty(researcherFlow?.finEnvelopeId)
     )
+  }
+
+  /// Returns `studyTagId` only when the researcher picked the supplied
+  /// study type; otherwise nil. Used by the snapshot builder to fan a
+  /// single captured ID out to the right per-type column.
+  private func routeStudyId(forType type: ResearcherCatchFlowManager.StudyType) -> String? {
+    guard let flow = researcherFlow,
+          flow.studyType == type else { return nil }
+    return nonEmpty(flow.studyTagId)
   }
 
   /// Trim + nil-coalesce so empty strings never leak into the snapshot.

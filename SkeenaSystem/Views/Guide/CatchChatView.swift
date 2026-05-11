@@ -22,11 +22,6 @@ struct CatchChatView: View {
   // dismiss and let the user type into the input bar).
   @State private var showSampleScanner = false
 
-  // Study: show Yes/No first, then expand to type icons. Sample collection
-  // is now driven by the chat-capsule row (Yes/No) plus per-step Scan/Type
-  // capsules — no icon-expansion state needed for it.
-  @State private var showStudyTypeIcons = false
-
   /// Whether the chat uses the scientific visual style ("Science mode" label).
   private var isResearcherMode: Bool { viewModel.isResearcherMode }
 
@@ -58,7 +53,6 @@ struct CatchChatView: View {
       HStack {
         Spacer()
         Button {
-          showStudyTypeIcons = false
           viewModel.resetForNewCatch()
         } label: {
           HStack(spacing: 4) {
@@ -125,11 +119,6 @@ struct CatchChatView: View {
           DispatchQueue.main.async {
             proxy.scrollTo(lastID, anchor: .bottom)
           }
-        }
-        // Re-scroll when study/sample icons expand so they aren't
-        // clipped behind the input bar.
-        .onChange(of: showStudyTypeIcons) { _ in
-          scrollToBottom(proxy: proxy)
         }
       }
 
@@ -334,63 +323,13 @@ struct CatchChatView: View {
   private var researcherStepButtons: some View {
     let step = viewModel.researcherFlow?.currentStep
 
-    if step == .studyParticipation {
-      if showStudyTypeIcons {
-        // Study type options: Pit (disabled), Floy, Radio (disabled)
-        Button {} label: {
-          VStack(spacing: 4) {
-            Image(systemName: "tag.fill").font(.brandTitle3)
-            Text("Pit").font(.brandCaption)
-          }.foregroundColor(.brandTextSecondary)
-        }
-        .disabled(true)
-
-        Button {
-          showStudyTypeIcons = false
-          viewModel.researcherSelectStudy(.floy)
-        } label: {
-          VStack(spacing: 4) {
-            Image(systemName: "tag.fill").font(.brandTitle3)
-            Text("Floy").font(.brandCaption)
-          }
-        }
-
-        Button {} label: {
-          VStack(spacing: 4) {
-            Image(systemName: "antenna.radiowaves.left.and.right").font(.brandTitle3)
-            Text("Radio").font(.brandCaption)
-          }.foregroundColor(.brandTextSecondary)
-        }
-        .disabled(true)
-      } else {
-        // Yes / No
-        Button { showStudyTypeIcons = true } label: {
-          Image(systemName: "checkmark.circle.fill").font(.brandTitle2)
-        }
-        Button {
-          viewModel.researcherConfirm()
-        } label: {
-          Image(systemName: "xmark.circle.fill").font(.brandTitle2)
-        }
-      }
-    } else if step == .sampleCollection || step == .finPrompt {
-      // Yes/No prompt steps. Yes routes through the VM (advances flow +
-      // posts next bubble); No is just researcherConfirm().
-      let yesAction: ChatCapsuleAction = (step == .sampleCollection)
-        ? .sampleCollect(yes: true)
-        : .finChoice(yes: true)
-      Button {
-        viewModel.handleCapsuleTap(yesAction)
-      } label: {
-        Image(systemName: "checkmark.circle.fill").font(.brandTitle2)
-      }
-      Button {
-        viewModel.researcherConfirm()
-      } label: {
-        Image(systemName: "xmark.circle.fill").font(.brandTitle2)
-      }
-    } else if step == .floyTagID {
-      if let tag = viewModel.researcherFlow?.floyTagNumber, !tag.isEmpty {
+    if step == .studyParticipation || step == .sampleCollection {
+      // Both consolidated question steps are driven entirely by the
+      // capsules attached to the bubble (Floy/Pit/Radio/No for study,
+      // Scale/Fin/Both/No for sample). No icon column needed.
+      EmptyView()
+    } else if step == .studyID {
+      if let tag = viewModel.researcherFlow?.studyTagId, !tag.isEmpty {
         Button {
           viewModel.researcherConfirm()
         } label: {
@@ -419,17 +358,22 @@ struct CatchChatView: View {
             .font(.brandTitle2)
         }
       }
+    } else if step == .finalSummary {
+      // Final summary uses an in-bubble "Next" capsule instead of the
+      // side icon column — the green checkmark icon used to sit here and
+      // visually competed with the analysis text. The capsule is attached
+      // in `attachCapsulesIfNeeded`. Render nothing in the side column.
+      EmptyView()
     } else {
-      let useConfirmStyle = step == .identification || step == .confirmLength || step == .confirmGirth || step == .finalSummary
-      let isFinalSummary = step == .finalSummary
+      let useConfirmStyle = step == .identification || step == .confirmLength || step == .confirmGirth
       Button {
         viewModel.researcherConfirm()
       } label: {
         Image(systemName: useConfirmStyle ? "checkmark.circle.fill" : "arrow.right.circle.fill")
-          .font(isFinalSummary ? .largeTitle : .title2)
-          .foregroundColor(isFinalSummary ? .green : .white)
+          .font(.title2)
+          .foregroundColor(.white)
       }
-      .accessibilityIdentifier(isFinalSummary ? "researcherFinalConfirmButton" : "researcherStepConfirmButton")
+      .accessibilityIdentifier("researcherStepConfirmButton")
     }
   }
 

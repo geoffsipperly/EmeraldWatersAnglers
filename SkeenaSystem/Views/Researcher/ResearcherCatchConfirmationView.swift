@@ -161,7 +161,7 @@ struct ResearcherCatchConfirmationView: View {
     editSex = flow.sex ?? ""
     editLength = flow.lengthInches.map { $0.rounded() == $0 ? "\(Int($0))" : String(format: "%.1f", $0) } ?? ""
     editGirth = flow.girthInches.map { String(format: "%.1f", $0) } ?? ""
-    editFloyTag = flow.floyTagNumber ?? ""
+    editFloyTag = flow.studyTagId ?? ""
     editScaleEnvelopeId = flow.scaleEnvelopeId ?? ""
     editFinEnvelopeId = flow.finEnvelopeId ?? ""
     isEditing = true
@@ -195,7 +195,7 @@ struct ResearcherCatchConfirmationView: View {
     flow.recalculate()
 
     let trimmedFloy = editFloyTag.trimmingCharacters(in: .whitespaces)
-    flow.floyTagNumber = trimmedFloy.isEmpty ? nil : trimmedFloy
+    flow.studyTagId = trimmedFloy.isEmpty ? nil : trimmedFloy
 
     let trimmedScale = editScaleEnvelopeId.trimmingCharacters(in: .whitespaces)
     flow.scaleEnvelopeId = trimmedScale.isEmpty ? nil : trimmedScale
@@ -262,7 +262,7 @@ struct ResearcherCatchConfirmationView: View {
   }
 
   private var floyTagString: String {
-    chatVM.researcherFlow?.floyTagNumber ?? "None"
+    chatVM.researcherFlow?.studyTagId ?? "None"
   }
 
   private var scaleEnvelopeIdString: String {

@@ -26,12 +26,11 @@ final class ResearcherCatchFlowManager: ObservableObject {
     case confirmLength          // show estimated length, confirm or edit
     case confirmGirth           // show length + estimated girth, confirm or edit girth
     case finalSummary           // show all confirmed values + derived weight
-    case studyParticipation     // "Are you participating in a study?" — Pit, Floy, Radio Telemetry
-    case floyTagID              // conditional: enter Floy Tag ID (only if Floy selected)
-    case sampleCollection       // "Are you taking samples?" — Yes / No
-    case scaleScan              // scan / type the scale envelope barcode (always when sampling)
-    case finPrompt          // "Did you also take a fin clip?" — Yes / No
-    case finScan            // scan / type the fin clip envelope barcode (only when finPrompt = Yes)
+    case studyParticipation     // "Are you participating in a study?" — Floy / Pit / Radio / No
+    case studyID                // enter the study tag ID (any of Floy / Pit / Radio Telemetry)
+    case sampleCollection       // "Are you taking a sample?" — Scale / Fin / Both / No
+    case scaleScan              // scan / type the scale barcode (Scale or Both selection)
+    case finScan                // scan / type the fin clip barcode (Fin or Both selection)
     case voiceMemo              // offer voice memo
     case complete
   }
@@ -109,9 +108,12 @@ final class ResearcherCatchFlowManager: ObservableObject {
   var initialGirthRatio: Double = FishWeightEstimator.defaultGirthRatio
   var initialGirthRatioSource: String = "Default (freshwater average)"
 
-  // Study participation
+  // Study participation. Single ID field — populated when the researcher
+  // picks Floy / Pit / Radio Telemetry at .studyParticipation. The upload
+  // path dispatches this value to the per-type CatchReport column based
+  // on `studyType` (e.g. .floy → floyId, .pit → pitId).
   @Published var studyType: StudyType?
-  @Published var floyTagNumber: String?
+  @Published var studyTagId: String?
 
   // Sample collection — up to two distinct envelope barcodes per catch.
   // When a researcher takes samples, scales are always collected (so
@@ -122,6 +124,13 @@ final class ResearcherCatchFlowManager: ObservableObject {
   // fin clip envelope.
   @Published var scaleEnvelopeId: String?
   @Published var finEnvelopeId: String?
+
+  /// Set true when the researcher picks "Both" at .sampleCollection. The
+  /// scaleScan step inspects this flag on confirm: when true, it advances
+  /// to .finScan (instead of .voiceMemo) so the second barcode is captured.
+  /// Cleared after the fin step is queued so re-entering scaleScan via
+  /// retry doesn't accidentally re-trigger the fin step.
+  var pendingSampleNeedsFin: Bool = false
 
   // Length estimation source (updated when species correction triggers re-estimation)
   var lengthSource: LengthEstimateSource?
@@ -263,8 +272,8 @@ final class ResearcherCatchFlowManager: ObservableObject {
       currentStep = .sampleCollection
       return "Are you taking a sample?"
 
-    case .floyTagID:
-      // Floy tag submitted or skipped → sample collection
+    case .studyID:
+      // Study tag id submitted (Floy / Pit / Radio) → sample collection.
       currentStep = .sampleCollection
       return "Are you taking a sample?"
 
@@ -276,21 +285,20 @@ final class ResearcherCatchFlowManager: ObservableObject {
       return "Would you like to add a voice memo for this catch?"
 
     case .scaleScan:
-      // Scale envelope confirmed. Always ask about the fin clip next —
-      // scales are required when sampling, fin clips are optional.
-      currentStep = .finPrompt
-      return "Did you also take a fin clip?"
-
-    case .finPrompt:
-      // "No" was selected — no fin clip envelope. Clear any stale state and
-      // advance. (Yes is handled via beginFinScan() which transitions to
-      // .finScan and posts the scan prompt itself.)
-      finEnvelopeId = nil
+      // Scale barcode confirmed. If the researcher chose "Both" at the
+      // sample step, the fin clip step is still ahead; otherwise we
+      // advance directly to the voice memo. `pendingSampleNeedsFin`
+      // tracks the Both selection across the scale step.
+      if pendingSampleNeedsFin {
+        pendingSampleNeedsFin = false
+        currentStep = .finScan
+        return "Scan the fin clip barcode, or type the ID."
+      }
       currentStep = .voiceMemo
       return "Would you like to add a voice memo for this catch?"
 
     case .finScan:
-      // Fin clip envelope confirmed. Advance to voice memo.
+      // Fin clip barcode confirmed. Advance to voice memo.
       currentStep = .voiceMemo
       return "Would you like to add a voice memo for this catch?"
 
@@ -366,14 +374,16 @@ final class ResearcherCatchFlowManager: ObservableObject {
         false
       )
 
-    case .floyTagID:
-      // Store the Floy Tag ID but don't advance — show it for confirmation
+    case .studyID:
+      // Store the study tag ID but don't advance — show it for confirmation.
+      // The label adapts to whichever study type the researcher picked.
       let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+      let typeName = studyType?.rawValue ?? "Study"
       if !trimmed.isEmpty {
-        floyTagNumber = trimmed
-        return ("Floy Tag ID: \(trimmed)\n§\nConfirm, or type a corrected value.", false, true)
+        studyTagId = trimmed
+        return ("\(typeName) ID: \(trimmed)\n§\nConfirm, or type a corrected value.", false, true)
       }
-      return ("Please enter the Floy Tag ID.", false, false)
+      return ("Please enter the \(typeName) ID", false, false)
 
     case .scaleScan:
       // Scale envelope barcode — typed manually as the fallback when the
@@ -422,8 +432,8 @@ final class ResearcherCatchFlowManager: ObservableObject {
       return (finalAnalysisText(), false, true)
 
     default:
-      // .studyParticipation, .sampleCollection, .finPrompt, .voiceMemo,
-      // .complete — these are button-driven steps; typed input isn't expected.
+      // .studyParticipation, .sampleCollection, .voiceMemo, .complete —
+      // these are button-driven steps; typed input isn't expected.
       return (
         "I'm not expecting typed input right now — use the buttons above, or upload a new photo.",
         false,
@@ -472,8 +482,9 @@ final class ResearcherCatchFlowManager: ObservableObject {
       return "Let's keep it civil. Please enter the length in inches (e.g., 28 or 28.5)."
     case .confirmGirth:
       return "Let's keep it civil. Please enter the girth in inches (e.g., 14 or 14.5)."
-    case .floyTagID:
-      return "Let's keep it civil. Please enter the Floy Tag ID."
+    case .studyID:
+      let typeName = studyType?.rawValue ?? "Study"
+      return "Let's keep it civil. Please enter the \(typeName) ID"
     case .scaleScan:
       return "Let's keep it civil. Please enter the scale barcode ID."
     case .finScan:
@@ -485,31 +496,62 @@ final class ResearcherCatchFlowManager: ObservableObject {
 
   // MARK: - Study & Sample Selection
 
-  /// Called when the researcher selects a study type (Pit, Floy, Radio Telemetry).
+  /// Called when the researcher picks a study type at `.studyParticipation`
+  /// (Floy / Pit / Radio Telemetry). All three advance to `.studyID`, where
+  /// the user types the tag ID. "No" is handled by `confirm()` instead.
   func selectStudy(_ type: StudyType) -> (message: String, nextStep: Step) {
     studyType = type
+    currentStep = .studyID
+    return ("Please enter the \(type.rawValue) ID", .studyID)
+  }
 
-    if type == .floy {
-      currentStep = .floyTagID
-      return ("Study: \(type.rawValue)\n§\nPlease enter the Floy Tag ID.", .floyTagID)
-    } else {
-      // Pit and Radio Telemetry don't have follow-up yet
-      currentStep = .sampleCollection
-      return ("Study: \(type.rawValue)\n§\nAre you taking samples?", .sampleCollection)
+  /// What the researcher picked at `.sampleCollection` — drives whether the
+  /// scale step, fin step, or both come next.
+  enum SampleSelection {
+    case scale
+    case fin
+    case both
+    case none
+  }
+
+  /// Called when the researcher picks one of the four sample options at
+  /// `.sampleCollection`. Routes to the right barcode-capture step (or
+  /// skips both for None) and arms `pendingSampleNeedsFin` so the scale
+  /// step knows whether to advance into the fin step on confirm.
+  func selectSample(_ selection: SampleSelection) -> (message: String, nextStep: Step) {
+    switch selection {
+    case .scale:
+      pendingSampleNeedsFin = false
+      finEnvelopeId = nil
+      currentStep = .scaleScan
+      return ("Scan the scale barcode, or type the ID.", .scaleScan)
+    case .fin:
+      pendingSampleNeedsFin = false
+      scaleEnvelopeId = nil
+      currentStep = .finScan
+      return ("Scan the fin clip barcode, or type the ID.", .finScan)
+    case .both:
+      pendingSampleNeedsFin = true
+      currentStep = .scaleScan
+      return ("Scan the scale barcode, or type the ID.", .scaleScan)
+    case .none:
+      pendingSampleNeedsFin = false
+      scaleEnvelopeId = nil
+      finEnvelopeId = nil
+      currentStep = .voiceMemo
+      return ("Would you like to add a voice memo for this catch?", .voiceMemo)
     }
   }
 
-  /// Called when the researcher answers Yes at the .sampleCollection step.
-  /// Advances to the scale-envelope-scan step (scales are always taken when
-  /// sampling). The chat view model is responsible for posting the
-  /// scan/type prompt bubble and attaching the Scan capsule.
+  /// Legacy entry kept for callers (e.g. retryID) that explicitly want to
+  /// re-enter the scale-scan step. The "Both" path uses `selectSample`
+  /// directly.
   func beginScaleScan() -> (message: String, nextStep: Step) {
     currentStep = .scaleScan
     return ("Scan the scale barcode, or type the ID.", .scaleScan)
   }
 
-  /// Called when the researcher answers Yes at the .finPrompt step.
-  /// Advances to the fin-clip-envelope-scan step.
+  /// Legacy entry kept for retry / re-enter flows on the fin step.
   func beginFinScan() -> (message: String, nextStep: Step) {
     currentStep = .finScan
     return ("Scan the fin clip barcode, or type the ID.", .finScan)
