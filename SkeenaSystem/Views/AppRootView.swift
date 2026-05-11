@@ -78,6 +78,9 @@ struct AppRootView: View {
     .task {
       // Optional: warm up cached JWT for your uploader on launch
       await AuthStore.shared.refreshFromSupabase()
+      // Start path monitoring early so the first reading is ready before
+      // any UI or sync subscriber asks for it.
+      _ = NetworkMonitor.shared
       // Make sure we know the role after launch/sign-in/refresh
       await auth.loadUserProfile()
       // Fetch community memberships (sets active community + role)
