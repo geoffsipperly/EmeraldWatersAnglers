@@ -67,8 +67,8 @@ OBSERVATIONS_URL = /functions/v1/observations
 OPS_TICKETS_URL = /functions/v1/ops-tickets
 
 // DevTEST-only endpoints
-STAE_BIOS = /functions/v1/staff-bios
-STAE_BIO_DETAIL = /functions/v1/staff-bio-detail
+STAFF_BIOS = /functions/v1/staff-bios
+STAFF_BIO_DETAIL = /functions/v1/staff-bio-detail
 FLIGHT_DETAILS = /functions/v1/flight-details
 FLIGHT_STATUS = /functions/v1/flight-status
 

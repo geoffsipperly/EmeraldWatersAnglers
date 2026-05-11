@@ -16,8 +16,9 @@ private enum StaffDetailAPI {
   }()
 
   private static let staffDetailPath: String = {
-    (Bundle.main.object(forInfoDictionaryKey: "STAFF_BIO_DETAIL") as? String)?
-      .trimmingCharacters(in: .whitespacesAndNewlines) ?? "/functions/v1/staff-bio-detail"
+    let configured = (Bundle.main.object(forInfoDictionaryKey: "STAFF_BIO_DETAIL") as? String)?
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    return (configured?.isEmpty == false ? configured : nil) ?? "/functions/v1/staff-bio-detail"
   }()
 
   static func staffDetailURL(queryItems: [URLQueryItem]) -> URL? {

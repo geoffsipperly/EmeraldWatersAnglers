@@ -16,8 +16,9 @@ private enum MeetStaffAPI {
   }()
 
   private static let staffBiosPath: String = {
-    (Bundle.main.object(forInfoDictionaryKey: "STAFF_BIOS") as? String)?
-      .trimmingCharacters(in: .whitespacesAndNewlines) ?? "/functions/v1/staff-bios"
+    let configured = (Bundle.main.object(forInfoDictionaryKey: "STAFF_BIOS") as? String)?
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    return (configured?.isEmpty == false ? configured : nil) ?? "/functions/v1/staff-bios"
   }()
 
   static func staffBiosURL(queryItems: [URLQueryItem]) -> URL? {
