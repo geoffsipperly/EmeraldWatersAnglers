@@ -31,6 +31,12 @@ struct GuideLandingView: View {
   @State private var mapReports: [MapReportDTO] = []
   @State private var mapFetchDone = false
 
+  /// 0…1 while the offline-tile pre-cache is downloading the
+  /// community-wide basemap for the landing map, nil when idle, 1.0
+  /// briefly after success before auto-hiding. Mirrors the recall view's
+  /// pattern — same `OfflineTileManager`, separate region prefix.
+  @State private var landingTileCacheProgress: Double?
+
   // Pushed full-screen map (expand button on the landing tile)
   @State private var showFullMap = false
 
@@ -381,6 +387,13 @@ struct GuideLandingView: View {
               .padding(8)
               .accessibilityIdentifier("expandMapButton")
               .accessibilityLabel("Expand map")
+
+              if let p = landingTileCacheProgress {
+                landingTileChip(progress: p)
+                  .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                  .padding(8)
+                  .allowsHitTesting(false)
+              }
             }
 
             GuideLandingMapLegend()
@@ -393,6 +406,31 @@ struct GuideLandingView: View {
     }
   }
 
+  // MARK: - Landing tile cache chip
+
+  /// Compact overlay shown on the landing map while the offline-tile pre-
+  /// cache is downloading. Reads "Saving 45%" during download, "Saved"
+  /// briefly on completion, then auto-hides. Visually mirrors the recall-
+  /// view chip so guides recognize it across both screens.
+  @ViewBuilder
+  private func landingTileChip(progress: Double) -> some View {
+    let done = progress >= 1.0
+    HStack(spacing: 4) {
+      Image(systemName: done ? "checkmark.circle.fill" : "arrow.down.circle")
+        .font(.system(size: 12, weight: .semibold))
+        .foregroundColor(done ? .brandSuccess : .brandTextPrimary)
+      Text(done ? "Saved" : "Saving \(Int(progress * 100))%")
+        .font(.brandCaption2.weight(.semibold))
+        .foregroundColor(.brandTextPrimary)
+        .lineLimit(1)
+    }
+    .padding(.horizontal, 8)
+    .padding(.vertical, 6)
+    .background(Color.brandScrim.opacity(0.55), in: Capsule())
+    .fixedSize(horizontal: true, vertical: false)
+    .accessibilityIdentifier("landingMapOfflineTileChip")
+  }
+
   // MARK: - Map reports
 
   private func fetchMapReports() async {
@@ -401,8 +439,54 @@ struct GuideLandingView: View {
     do {
       let reports = try await MapReportService.fetch(communityId: communityId)
       await MainActor.run { mapReports = reports }
+      // Kick off the offline-tile pre-cache for the community's whole
+      // fishing footprint. Best-effort + non-blocking; pins render
+      // immediately and the basemap stays cached for the next offline
+      // visit.
+      Task { await preCacheLandingBasemap(communityId: communityId) }
     } catch {
       AppLogging.log("[LandingMap] Fetch failed: \(error.localizedDescription)", level: .error, category: .network)
+    }
+  }
+
+  /// Looks up every river + water body the active community owns, flattens
+  /// to a single coordinate list, and asks `OfflineTileManager` to cache
+  /// a bounding-box region around them. Same pattern as the recall view —
+  /// progress drives a small chip on the landing map tile and disappears
+  /// after success.
+  private func preCacheLandingBasemap(communityId: String) async {
+    let config = CommunityService.shared.activeCommunityConfig
+    var coords: [CLLocationCoordinate2D] = []
+    for river in config.resolvedLodgeRivers {
+      if let spine = RiverAtlas.all[river], !spine.isEmpty {
+        coords.append(contentsOf: spine)
+      }
+    }
+    for body in config.resolvedLodgeWaterBodies {
+      if let polygon = WaterBodyAtlas.all[body], !polygon.isEmpty {
+        coords.append(contentsOf: polygon)
+      }
+    }
+    guard !coords.isEmpty else {
+      AppLogging.log("[LandingMap] no fishery geometry — skipping tile pre-cache", level: .debug, category: .map)
+      return
+    }
+    await MainActor.run { landingTileCacheProgress = 0 }
+    let result = await OfflineTileManager.preCacheLanding(
+      communityId: communityId,
+      fisheryCoordinates: coords,
+      onProgress: { fraction in
+        landingTileCacheProgress = min(max(fraction, 0), 1)
+      }
+    )
+    switch result {
+    case .success:
+      await MainActor.run { landingTileCacheProgress = 1.0 }
+      try? await Task.sleep(nanoseconds: 1_500_000_000)
+      await MainActor.run { landingTileCacheProgress = nil }
+    case .failure(let error):
+      AppLogging.log("[LandingMap] tile pre-cache failed: \(error.localizedDescription)", level: .warn, category: .map)
+      await MainActor.run { landingTileCacheProgress = nil }
     }
   }
 

@@ -4,7 +4,7 @@ import Foundation
 
 // MARK: - DTOs
 
-struct MapReportDTO: Decodable, Identifiable {
+struct MapReportDTO: Codable, Identifiable {
   var id: String
   let type: String          // "catch" | "active" | "farmed" | "promising" | "passed"
   let date: String

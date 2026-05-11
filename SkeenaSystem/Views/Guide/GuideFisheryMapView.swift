@@ -30,9 +30,30 @@ struct GuideFisheryMapView: View {
   /// requirement are bypassed — every pin for the fishery in the time
   /// window is shown, including pre-enrichment reports without metrics.
   @State private var showAll: Bool = false
+  /// Timestamp on the disk snapshot when pins were populated from the
+  /// `MapRecallCache` fallback (live fetch failed). nil when the current
+  /// pin list came from a successful network fetch.
+  @State private var cachedAt: Date?
+
+  /// 0…1 while the offline-tile pre-cache is downloading the basemap for
+  /// this fishery, nil when idle, 1.0 briefly after success before
+  /// auto-hiding. Surfaces in the filter bar so the guide knows the map
+  /// is being made off-line-safe.
+  @State private var tileCacheProgress: Double?
 
   private var community: CommunityConfig { CommunityService.shared.activeCommunityConfig }
   private var fetchKey: String { timeWindow.rawValue }
+
+  /// True when the ±10% temp/level filter is bypassed for *either* reason:
+  /// the user manually checked "All", or current conditions weren't
+  /// available (off-line, gauge missing) so the filter has no anchor to
+  /// compare against. Auto-falling-back to "show every pin" is honest —
+  /// labeling stale pins as "within 10%" without a live anchor would be a
+  /// lie. The user-facing `showAll` checkbox state is preserved separately
+  /// so the box doesn't appear pre-checked once connectivity returns.
+  private var effectiveShowAll: Bool {
+    showAll || (currentWaterTempC == nil && currentWaterLevelFt == nil)
+  }
 
   // MARK: - Filtering
 
@@ -54,7 +75,9 @@ struct GuideFisheryMapView: View {
 
       // "All" override — keep every pin for the fishery, including those
       // missing metric data, regardless of how far they sit from current.
-      if showAll { return true }
+      // Also triggers automatically when current conditions are missing
+      // (off-line, gauge gap) so the map isn't silently empty.
+      if effectiveShowAll { return true }
 
       // 2. Both metrics must be present + within 10% of current.
       guard let reportTempC = r.waterTempC,
@@ -261,15 +284,22 @@ struct GuideFisheryMapView: View {
   }
 
   /// Right-aligned readout: "Now: 9.5°C · 4.3 ft" on top, "Pins within ±10%"
-  /// underneath. Empty state — when either current value is missing — falls
-  /// back to "Current conditions unavailable" so the user understands why
-  /// the map looks empty.
+  /// underneath. When current temp/level are both missing, falls back to
+  /// a two-line "unavailable / showing all" explanation. The "Cached N ago"
+  /// indicator for stale pin data sits as an overlay on the map below —
+  /// keeping the filter bar's vertical height stable across states.
   @ViewBuilder
   private var currentConditionsReadout: some View {
     if currentWaterTempC == nil && currentWaterLevelFt == nil {
-      Text("Current conditions unavailable")
-        .font(.brandCaption2)
-        .foregroundColor(.brandTextPrimary.opacity(0.7))
+      VStack(alignment: .trailing, spacing: 2) {
+        Text("Current conditions unavailable")
+          .font(.brandCaption2)
+          .foregroundColor(.brandTextPrimary.opacity(0.7))
+        Text("Showing all pins in window")
+          .font(.brandCaption2)
+          .foregroundColor(.brandTextPrimary.opacity(0.5))
+      }
+      .accessibilityIdentifier("fisheryMapCurrentConditionsUnavailable")
     } else {
       VStack(alignment: .trailing, spacing: 2) {
         HStack(spacing: 6) {
@@ -287,13 +317,45 @@ struct GuideFisheryMapView: View {
               .foregroundColor(.brandTextPrimary)
           }
         }
-        Text(showAll ? "Showing all pins" : "Pins within ±10%")
+        Text(effectiveShowAll ? "Showing all pins" : "Pins within ±10%")
           .font(.brandCaption2)
           .foregroundColor(.brandTextPrimary.opacity(0.7))
       }
       .accessibilityIdentifier("fisheryMapCurrentConditions")
     }
   }
+
+  /// Small pill overlaid on the map (top-leading) when the pin list was
+  /// served from the on-device cache instead of a live fetch. Carries a
+  /// scrim background so it stays readable over both bright and dark map
+  /// imagery. Mutually exclusive in practice with the tile-saving spinner
+  /// (cache fallback only fires when the live fetch failed; tile pre-cache
+  /// only fires after the live fetch succeeded).
+  @ViewBuilder
+  private func cachedAtMapPill(_ at: Date) -> some View {
+    let relative = Self.cachedAtRelativeFormatter.localizedString(for: at, relativeTo: Date())
+    HStack(spacing: 4) {
+      Image(systemName: "clock.arrow.circlepath")
+        .font(.system(size: 11, weight: .semibold))
+        .foregroundColor(.brandSuccess)
+      Text("Cached \(relative)")
+        .font(.brandCaption2.weight(.semibold))
+        .foregroundColor(.brandTextPrimary)
+    }
+    .padding(.horizontal, 8)
+    .padding(.vertical, 5)
+    .background(Color.brandScrim.opacity(0.55), in: Capsule())
+    .accessibilityIdentifier("fisheryMapCachedIndicator")
+  }
+
+  /// Static formatter so we don't allocate per-frame. `.short` keeps the
+  /// label tight ("2 min. ago", "3 days ago") to fit alongside the
+  /// conditions readout.
+  private static let cachedAtRelativeFormatter: RelativeDateTimeFormatter = {
+    let f = RelativeDateTimeFormatter()
+    f.unitsStyle = .short
+    return f
+  }()
 
   // MARK: - Map pane
 
@@ -327,10 +389,34 @@ struct GuideFisheryMapView: View {
             .padding(10)
         }
 
+        // Tile pre-cache progress — small spinner over the map at top-
+        // leading. Visible only while the download is in flight; the
+        // filter bar stays a fixed height regardless of state, which
+        // was the old chip's bug.
+        if let p = tileCacheProgress, p < 1.0 {
+          ProgressView()
+            .tint(.white)
+            .padding(8)
+            .background(Color.brandScrim.opacity(0.55), in: Circle())
+            .padding(10)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .accessibilityIdentifier("fisheryMapOfflineTileSpinner")
+        }
+
+        // "Cached N ago" pill for pin data served from disk. Same top-
+        // leading anchor as the spinner above, but the two states are
+        // mutually exclusive (tile cache only after a successful fetch;
+        // pin cache only after a failed fetch), so they never collide.
+        if let cachedAt {
+          cachedAtMapPill(cachedAt)
+            .padding(10)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+
         if filteredReports.isEmpty {
           VStack {
             Spacer()
-            Text(showAll ? "No reports for this fishery" : "No reports within ±10% of current conditions")
+            Text(effectiveShowAll ? "No reports for this fishery" : "No reports within ±10% of current conditions")
               .font(.brandSubheadline.weight(.semibold))
               .foregroundColor(.brandTextPrimary)
               .padding(.horizontal, 14)
@@ -377,12 +463,65 @@ struct GuideFisheryMapView: View {
         memberId: nil,
         fromDate: timeWindow.fromDate()
       )
+      // Persist on every successful fetch (including empty results — that's
+      // the freshest reality and should overwrite stale cached pins).
+      MapRecallCache.save(reports: reports, communityId: communityId)
       await MainActor.run {
         mapReports = reports
+        cachedAt = nil
         logFilterTrace(reason: "fetch complete")
       }
+      // Kick off the offline-tile pre-cache for this fishery's basemap.
+      // Non-blocking and best-effort: the map renders pins immediately
+      // and the chip in the filter bar shows download progress. A
+      // failure (no token, no connectivity, no geometry) is logged and
+      // silently swallowed — the live map still works.
+      Task { await preCacheBasemap(communityId: communityId) }
     } catch {
       AppLogging.log("[FisheryMap] fetch failed: \(error.localizedDescription)", level: .error, category: .map)
+      // Off-line / transport failure → fall back to the last snapshot
+      // (if any). The pins are filtered client-side, so the existing
+      // ±10% / "All" UI keeps working over the cached payload.
+      if let snapshot = MapRecallCache.load(communityId: communityId) {
+        AppLogging.log("[FisheryMap] serving cached pins from \(snapshot.cachedAt)", level: .info, category: .map)
+        await MainActor.run {
+          mapReports = snapshot.reports
+          cachedAt = snapshot.cachedAt
+          logFilterTrace(reason: "cache fallback")
+        }
+      }
+    }
+  }
+
+  /// Pre-caches the satellite-streets basemap for the current fishery so
+  /// the recall view still renders tiles when the guide is off-line. Non-
+  /// blocking: pins render before this finishes. The chip in the filter
+  /// bar shows progress and disappears 1.5s after success.
+  private func preCacheBasemap(communityId: String) async {
+    let coords = fisheryGeometry
+    guard !coords.isEmpty else {
+      AppLogging.log("[FisheryMap] no geometry — skipping tile pre-cache", level: .debug, category: .map)
+      return
+    }
+    await MainActor.run { tileCacheProgress = 0 }
+    let result = await OfflineTileManager.preCache(
+      communityId: communityId,
+      fisheryName: riverName,
+      geometry: coords,
+      onProgress: { fraction in
+        tileCacheProgress = min(max(fraction, 0), 1)
+      }
+    )
+    switch result {
+    case .success:
+      // Drop the indicator immediately on success. The chip-era held at
+      // "Saved" for 1.5s as user feedback; with a spinner-only design
+      // there's nothing to keep spinning, so the cleanest signal is
+      // simply absence.
+      await MainActor.run { tileCacheProgress = nil }
+    case .failure(let error):
+      AppLogging.log("[FisheryMap] tile pre-cache failed: \(error.localizedDescription)", level: .warn, category: .map)
+      await MainActor.run { tileCacheProgress = nil }
     }
   }
 

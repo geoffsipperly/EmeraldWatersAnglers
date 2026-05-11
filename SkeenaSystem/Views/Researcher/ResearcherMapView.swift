@@ -4,6 +4,16 @@
 // reports. Reached from the Researcher bottom toolbar's "Maps" tab. Mirrors the
 // Guide landing-page map but server-filters by member_id and drops every
 // non-catch report type, so the map only shows pins this researcher logged.
+//
+// Off-line behavior (mirrors GuideLandingView + GuideFisheryMapView):
+//   - Successful pin fetch → persisted to `MapRecallCache` scoped by
+//     `memberId` so the researcher's slice doesn't collide with any
+//     community-wide cache.
+//   - Failed pin fetch → falls back to the last cached snapshot and surfaces
+//     a "Cached N ago" pill over the map.
+//   - Successful fetch also kicks off `OfflineTileManager.preCacheLanding`
+//     so the community-wide satellite basemap is available off-line. A
+//     spinner over the map (top-leading) shows download progress.
 
 import CoreLocation
 import SwiftUI
@@ -14,6 +24,15 @@ struct ResearcherMapView: View {
   @State private var mapReports: [MapReportDTO] = []
   @State private var fetchDone = false
   @State private var focusCatchCoordinate: CLLocationCoordinate2D? = nil
+
+  /// Timestamp on the disk snapshot when pins were populated from the
+  /// `MapRecallCache` fallback (live fetch failed). nil when the current
+  /// pin list came from a successful network fetch.
+  @State private var cachedAt: Date?
+
+  /// 0…1 while the offline-tile pre-cache is downloading the community-
+  /// wide basemap, nil when idle. Drives the spinner overlay below.
+  @State private var tileCacheProgress: Double?
 
   var body: some View {
     DarkPageTemplate(bottomToolbar: {
@@ -76,9 +95,58 @@ struct ResearcherMapView: View {
           .padding(.top, 12)
           .accessibilityIdentifier("nearestCatchLabel")
         }
+
+        // Tile pre-cache spinner — top-leading while the off-line basemap
+        // is downloading. Disappears on success/failure; the cached pin
+        // pill below shares the same anchor but is mutually exclusive
+        // (tile cache fires after a successful fetch; pin cache fallback
+        // only after a failed fetch).
+        if let p = tileCacheProgress, p < 1.0 {
+          ProgressView()
+            .tint(.white)
+            .padding(8)
+            .background(Color.brandScrim.opacity(0.55), in: Circle())
+            .padding(10)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .accessibilityIdentifier("researcherMapOfflineTileSpinner")
+        }
+
+        if let cachedAt {
+          cachedAtMapPill(cachedAt)
+            .padding(10)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
       }
     }
   }
+
+  // MARK: - Cached-from indicator
+
+  /// Small pill (top-leading on the map) when pins were served from disk
+  /// after a failed live fetch. Matches the recall view's chrome so a
+  /// guide who covers research duty sees the same affordance.
+  @ViewBuilder
+  private func cachedAtMapPill(_ at: Date) -> some View {
+    let relative = Self.cachedAtRelativeFormatter.localizedString(for: at, relativeTo: Date())
+    HStack(spacing: 4) {
+      Image(systemName: "clock.arrow.circlepath")
+        .font(.system(size: 11, weight: .semibold))
+        .foregroundColor(.brandSuccess)
+      Text("Cached \(relative)")
+        .font(.brandCaption2.weight(.semibold))
+        .foregroundColor(.brandTextPrimary)
+    }
+    .padding(.horizontal, 8)
+    .padding(.vertical, 5)
+    .background(Color.brandScrim.opacity(0.55), in: Capsule())
+    .accessibilityIdentifier("researcherMapCachedIndicator")
+  }
+
+  private static let cachedAtRelativeFormatter: RelativeDateTimeFormatter = {
+    let f = RelativeDateTimeFormatter()
+    f.unitsStyle = .short
+    return f
+  }()
 
   // MARK: - Nearest catch
 
@@ -130,6 +198,12 @@ struct ResearcherMapView: View {
   /// scoped to this researcher's member id. Reports without a memberId or
   /// with a non-`catch` type are dropped client-side as defense in depth in
   /// case the server stops honouring the filter.
+  ///
+  /// On success: persists pins to `MapRecallCache` (scoped by `memberId`)
+  /// and kicks off the satellite-streets tile pre-cache for the community-
+  /// wide bbox so the basemap renders off-line.
+  /// On failure: loads the last cached snapshot, sets `cachedAt`, and
+  /// surfaces the cached-pins pill over the map.
   private func fetchMapReports() async {
     defer { Task { @MainActor in fetchDone = true } }
 
@@ -146,9 +220,62 @@ struct ResearcherMapView: View {
     do {
       let all = try await MapReportService.fetch(communityId: communityId, memberId: memberId)
       let catches = all.filter { $0.type == "catch" }
-      await MainActor.run { mapReports = catches }
+      MapRecallCache.save(reports: catches, communityId: communityId, scope: memberId)
+      await MainActor.run {
+        mapReports = catches
+        cachedAt = nil
+      }
+      // Tile pre-cache uses the community-wide footprint — same call the
+      // guide landing makes, so the region is shared across surfaces and
+      // a second visit is a no-op.
+      Task { await preCacheBasemap(communityId: communityId) }
     } catch {
       AppLogging.log("[ResearcherMap] fetch failed: \(error.localizedDescription)", level: .error, category: .map)
+      if let snapshot = MapRecallCache.load(communityId: communityId, scope: memberId) {
+        AppLogging.log("[ResearcherMap] serving cached pins from \(snapshot.cachedAt)", level: .info, category: .map)
+        await MainActor.run {
+          mapReports = snapshot.reports
+          cachedAt = snapshot.cachedAt
+        }
+      }
+    }
+  }
+
+  /// Looks up the active community's rivers + water bodies, flattens to a
+  /// coordinate list, and asks `OfflineTileManager` to cache a bbox tile
+  /// region. Same call the guide landing makes — Mapbox short-circuits
+  /// when the region is already on disk.
+  private func preCacheBasemap(communityId: String) async {
+    let config = CommunityService.shared.activeCommunityConfig
+    var coords: [CLLocationCoordinate2D] = []
+    for river in config.resolvedLodgeRivers {
+      if let spine = RiverAtlas.all[river], !spine.isEmpty {
+        coords.append(contentsOf: spine)
+      }
+    }
+    for body in config.resolvedLodgeWaterBodies {
+      if let polygon = WaterBodyAtlas.all[body], !polygon.isEmpty {
+        coords.append(contentsOf: polygon)
+      }
+    }
+    guard !coords.isEmpty else {
+      AppLogging.log("[ResearcherMap] no fishery geometry — skipping tile pre-cache", level: .debug, category: .map)
+      return
+    }
+    await MainActor.run { tileCacheProgress = 0 }
+    let result = await OfflineTileManager.preCacheLanding(
+      communityId: communityId,
+      fisheryCoordinates: coords,
+      onProgress: { fraction in
+        tileCacheProgress = min(max(fraction, 0), 1)
+      }
+    )
+    switch result {
+    case .success:
+      await MainActor.run { tileCacheProgress = nil }
+    case .failure(let error):
+      AppLogging.log("[ResearcherMap] tile pre-cache failed: \(error.localizedDescription)", level: .warn, category: .map)
+      await MainActor.run { tileCacheProgress = nil }
     }
   }
 }
