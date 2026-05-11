@@ -616,16 +616,20 @@ final class AuthService: ObservableObject {
           UserDefaults.standard.set(self.currentMemberId, forKey: kCachedMemberId)
           AppLogging.log("[Offline][ProfileCache] saved first=\(self.currentFirstName ?? "<nil>") last=\(self.currentLastName ?? "<nil>") userType=\(self.currentUserType?.rawValue ?? "<nil>") memberId=\(self.currentMemberId ?? "<nil>")", level: .debug, category: .auth)
 
-          if let t = self.currentUserType {
-            // Default Remember Me based on role: guides ON, anglers OFF
-            let desired = (t == .guide)
-            if self.rememberMeEnabled != desired {
-              self.rememberMeEnabled = desired
-              AppLogging.log("[Offline][RememberMe] auto-set based on role=\(t.rawValue) -> \(desired)", level: .debug, category: .auth)
-            }
+          // Default Remember Me ON for every role so all users can sign in
+          // offline after a successful first online sign-in. Previously this
+          // was role-gated (guides only) which left anglers / researchers /
+          // public users locked out after sign-out + network loss because
+          // `signOut()` deletes the cached credentials when Remember Me is
+          // OFF. Password lives in the Keychain under
+          // `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` until an
+          // explicit "Forget this device" action clears it.
+          if !self.rememberMeEnabled {
+            self.rememberMeEnabled = true
+            AppLogging.log("[Offline][RememberMe] auto-set on profile load -> true", level: .debug, category: .auth)
           }
 
-          // Ensure offline credentials are recorded after role-based rememberMe defaulting
+          // Ensure offline credentials are recorded after Remember Me is on.
           if self.rememberMeEnabled {
             let hasPw = (Keychain.get(self.kOfflinePasswordKey)?.isEmpty == false)
             if !hasPw, let le = self.lastSignInEmail, let lp = self.lastSignInPassword, !le.isEmpty, !lp.isEmpty {
