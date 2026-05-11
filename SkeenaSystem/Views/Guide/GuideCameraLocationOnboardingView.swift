@@ -12,7 +12,7 @@ struct GuideCameraLocationOnboardingView: View {
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
 
       VStack(spacing: 20) {
         // Top bar with optional close button
@@ -22,8 +22,8 @@ struct GuideCameraLocationOnboardingView: View {
             onDone()
           } label: {
             Image(systemName: "xmark")
-              .font(.headline.weight(.semibold))
-              .foregroundColor(.white.opacity(0.8))
+              .font(.brandHeadline.weight(.semibold))
+              .foregroundColor(.brandTextPrimary.opacity(0.8))
               .padding(8)
           }
         }
@@ -36,17 +36,17 @@ struct GuideCameraLocationOnboardingView: View {
         VStack(spacing: 16) {
           Image(systemName: "camera.viewfinder")
             .font(.system(size: 60, weight: .regular))
-            .foregroundColor(.blue)
+            .foregroundColor(.brandAccent)
             .padding(.bottom, 4)
 
           Text("Enable Camera Location")
-            .font(.title2.weight(.bold))
-            .foregroundColor(.white)
+            .font(.brandTitle2.weight(.bold))
+            .foregroundColor(.brandTextPrimary)
             .multilineTextAlignment(.center)
 
           Text("Turn on location tagging for your photos so we can automatically attach GPS and time to your catch reports.")
-            .font(.body)
-            .foregroundColor(.white.opacity(0.8))
+            .font(.brandBody)
+            .foregroundColor(.brandTextPrimary.opacity(0.8))
             .multilineTextAlignment(.center)
             .padding(.horizontal)
 
@@ -75,8 +75,8 @@ struct GuideCameraLocationOnboardingView: View {
         VStack(spacing: 14) {
           VStack(alignment: .leading, spacing: 4) {
             Text("How to turn this on")
-              .font(.headline)
-              .foregroundColor(.white)
+              .font(.brandHeadline)
+              .foregroundColor(.brandTextPrimary)
               .frame(maxWidth: .infinity, alignment: .leading)
 
             Text("""
@@ -85,8 +85,8 @@ struct GuideCameraLocationOnboardingView: View {
 3. Make sure **Location Services** are ON.
 4. Scroll down to **Camera**, set **Allow Location Access** to **While Using the App**.
 """)
-            .font(.footnote)
-            .foregroundColor(.white.opacity(0.8))
+            .font(.brandFootnote)
+            .foregroundColor(.brandTextPrimary.opacity(0.8))
           }
           .padding(.horizontal)
 
@@ -98,8 +98,8 @@ struct GuideCameraLocationOnboardingView: View {
             }
             .frame(maxWidth: .infinity)
             .padding()
-            .background(Color.blue)
-            .foregroundColor(.white)
+            .background(Color.brandAccent)
+            .foregroundColor(.brandTextPrimary)
             .cornerRadius(14)
           }
           .padding(.horizontal)
@@ -111,16 +111,16 @@ struct GuideCameraLocationOnboardingView: View {
               .fontWeight(.semibold)
               .frame(maxWidth: .infinity)
               .padding()
-              .background(Color.white.opacity(0.12))
-              .foregroundColor(.white)
+              .background(Color.brandStroke)
+              .foregroundColor(.brandTextPrimary)
               .cornerRadius(14)
           }
           .padding(.horizontal)
           .padding(.bottom, 20)
 
           Text("You can change this later in Settings at any time.")
-            .font(.footnote)
-            .foregroundColor(.gray)
+            .font(.brandFootnote)
+            .foregroundColor(.brandTextSecondary)
             .padding(.bottom, 8)
         }
       }
@@ -133,13 +133,13 @@ struct GuideCameraLocationOnboardingView: View {
   private func benefitRow(icon: String, text: String) -> some View {
     HStack(alignment: .top, spacing: 10) {
       Image(systemName: icon)
-        .font(.body.weight(.semibold))
-        .foregroundColor(.blue)
+        .font(.brandBody.weight(.semibold))
+        .foregroundColor(.brandAccent)
         .frame(width: 24)
 
       Text(text)
-        .font(.footnote)
-        .foregroundColor(.white.opacity(0.9))
+        .font(.brandFootnote)
+        .foregroundColor(.brandTextPrimary.opacity(0.9))
         .fixedSize(horizontal: false, vertical: true)
 
       Spacer(minLength: 0)

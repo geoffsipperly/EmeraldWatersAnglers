@@ -39,6 +39,10 @@ struct GuideLandingAnnotation: Identifiable {
 
 struct GuideLandingMapView: View {
   let reports: [MapReportDTO]
+  /// Optional user GPS coordinate — used as a viewport fallback when no reports exist.
+  var userLocation: CLLocationCoordinate2D? = nil
+  /// When set, the map flies to this coordinate. Caller drives the value; map does not reset it.
+  var focusCoordinate: CLLocationCoordinate2D? = nil
 
   @State private var selectedAnnotation: GuideLandingAnnotation? = nil
 
@@ -73,7 +77,11 @@ struct GuideLandingMapView: View {
   // MARK: - Initial viewport
 
   private var initialViewport: Viewport {
-    // Center on most recent report
+    // Center on user's GPS location (matches weather conditions location)
+    if let loc = userLocation {
+      return .camera(center: loc, zoom: 9, bearing: 0, pitch: 0)
+    }
+    // Fallback to most recent report
     if let latest = annotations.sorted(by: { $0.date > $1.date }).first {
       return .camera(center: latest.coordinate, zoom: 9, bearing: 0, pitch: 0)
     }
@@ -98,28 +106,34 @@ struct GuideLandingMapView: View {
   // MARK: - Body
 
   var body: some View {
-    Map(initialViewport: initialViewport) {
-      annotationGroup(for: catchAnnotations,     type: .catch_)
-      annotationGroup(for: activeAnnotations,    type: .active)
-      annotationGroup(for: farmedAnnotations,    type: .farmed)
-      annotationGroup(for: promisingAnnotations, type: .promising)
-      annotationGroup(for: passedAnnotations,    type: .passed)
+    MapReader { proxy in
+      Map(initialViewport: initialViewport) {
+        annotationGroup(for: catchAnnotations,     type: .catch_)
+        annotationGroup(for: activeAnnotations,    type: .active)
+        annotationGroup(for: farmedAnnotations,    type: .farmed)
+        annotationGroup(for: promisingAnnotations, type: .promising)
+        annotationGroup(for: passedAnnotations,    type: .passed)
 
-      // Callout for selected catch pin
-      if let selected = selectedAnnotation, selected.reportType == .catch_ {
-        MapViewAnnotation(coordinate: selected.coordinate) {
-          GuideMapCalloutView(
-            species: selected.species,
-            lengthInches: selected.lengthInches,
-            date: selected.date,
-            onDismiss: { selectedAnnotation = nil }
-          )
+        // Callout for selected catch pin
+        if let selected = selectedAnnotation, selected.reportType == .catch_ {
+          MapViewAnnotation(coordinate: selected.coordinate) {
+            GuideMapCalloutView(
+              species: selected.species,
+              lengthInches: selected.lengthInches,
+              date: selected.date,
+              onDismiss: { selectedAnnotation = nil }
+            )
+          }
+          .allowOverlap(true)
+          .variableAnchors([ViewAnnotationAnchorConfig(anchor: .bottom, offsetY: 44)])
         }
-        .allowOverlap(true)
-        .variableAnchors([ViewAnnotationAnchorConfig(anchor: .bottom, offsetY: 44)])
+      }
+      .mapStyle(.satelliteStreets)
+      .onChange(of: focusCoordinate) { coord in
+        guard let coord else { return }
+        proxy.camera?.fly(to: CameraOptions(center: coord, zoom: 12), duration: 0.8)
       }
     }
-    .mapStyle(.satelliteStreets)
   }
 
   // MARK: - Helpers
@@ -170,7 +184,7 @@ struct GuideLandingMapLegend: View {
             .frame(width: 8, height: 8)
           Text(label)
             .font(.system(size: 10))
-            .foregroundColor(.white.opacity(0.7))
+            .foregroundColor(.brandTextPrimary.opacity(0.7))
         }
       }
     }

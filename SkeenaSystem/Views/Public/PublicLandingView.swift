@@ -61,7 +61,7 @@ private enum PublicLandingAPI {
 // MARK: - PublicLandingView
 //
 // Landing screen for users with the "public" community role.
-// Identical to LandingView except:
+// Identical to GuideLandingView except:
 //   - No trip sync on appear (public users have no trip concept)
 //   - No trip navigation destination
 //   - ReportChatView opened in alwaysSolo mode
@@ -76,13 +76,24 @@ struct PublicLandingView: View {
   private var E_CATCH_MAP: Bool { communityService.activeCommunityConfig.flag("E_CATCH_MAP") }
 
   @State private var goToAssistant = false
+  @State private var goToManageAccount = false
   @State private var showRecordActivity = false
+  @State private var showWelcome = false
 
   // Catch report data
   @State private var reports: [CatchReportDTO] = []
   @State private var isLoading = false
   @State private var errorText: String?
   @State private var goToCatchMap = false
+
+  // Map reports (same data source as GuideLandingView)
+  @State private var mapReports: [MapReportDTO] = []
+
+  // Location (for weather)
+  @StateObject private var locationManager = LocationManager()
+
+  // Live weather
+  @State private var liveWeather: LiveWeather? = nil
 
   // Path-based nav for toolbar navigation
   @State private var navPath = NavigationPath()
@@ -95,8 +106,13 @@ struct PublicLandingView: View {
         content
       }
       .navigationDestination(isPresented: $goToAssistant) {
-        ReportChatView(alwaysSolo: true, directToChat: true)
+        ReportChatView(alwaysSolo: true, directToChat: true, onSaved: {
+          goToAssistant = false
+        })
           .navigationBarTitleDisplayMode(.inline)
+      }
+      .navigationDestination(isPresented: $goToManageAccount) {
+        ManageProfileView().environmentObject(auth)
       }
       .navigationDestination(isPresented: $showRecordActivity) {
         RecordActivityView()
@@ -105,7 +121,15 @@ struct PublicLandingView: View {
           .environmentObject(auth)
       }
       .navigationDestination(isPresented: $goToCatchMap) {
-        AnglerCatchMapView(reports: reports)
+        DarkPageTemplate {
+          VStack(spacing: 4) {
+            GuideLandingMapView(reports: mapReports, userLocation: locationManager.lastLocation?.coordinate)
+              .ignoresSafeArea(edges: .bottom)
+            GuideLandingMapLegend()
+              .padding(.bottom, 8)
+          }
+        }
+        .navigationTitle("Catch Map")
       }
       .navigationDestination(for: GuideDestination.self) { dest in
         switch dest {
@@ -114,16 +138,16 @@ struct PublicLandingView: View {
             .environment(\.userRole, .public)
             .environment(\.guideNavigateTo, handleNavigateTo)
         case .community:
-          CommunityForumView()
+          SocialFeedView()
             .environment(\.userRole, .public)
             .environment(\.guideNavigateTo, handleNavigateTo)
-            .environmentObject(auth)
-        case .catches:
-          ReportsListViewPicMemo()
+        case .activities:
+          ActivitiesView()
             .environment(\.userRole, .public)
             .environment(\.guideNavigateTo, handleNavigateTo)
         case .observations:
-          ObservationsListView()
+          // Standalone observations removed — now inside Activities → Observations tab.
+          ActivitiesView()
             .environment(\.userRole, .public)
             .environment(\.guideNavigateTo, handleNavigateTo)
         case .trips:
@@ -134,27 +158,77 @@ struct PublicLandingView: View {
             .environment(\.userRole, .public)
             .environment(\.guideNavigateTo, handleNavigateTo)
             .environmentObject(communityService)
+        case .explore:
+          ExploreView()
+            .environment(\.userRole, .public)
+            .environment(\.guideNavigateTo, handleNavigateTo)
+        case .maps:
+          // Maps is researcher-only — should not be reached from a public toolbar
+          EmptyView()
         }
       }
       .toolbar {
         ToolbarItem(placement: .navigationBarLeading) {
-          CommunityToolbarButton()
+          HStack(spacing: 12) {
+            Button(action: { goToManageAccount = true }) {
+              Image(systemName: "person.circle")
+                .font(.brandTitle3.weight(.semibold))
+                .foregroundColor(.brandTextPrimary)
+            }
+            .accessibilityIdentifier("profileButton")
+            CommunityToolbarButton()
+          }
         }
         ToolbarItem(placement: .navigationBarTrailing) {
           Button(action: logoutTapped) {
             HStack(spacing: 6) {
               Image(systemName: "person.crop.circle.badge.xmark")
-                .font(.title3.weight(.semibold))
+                .font(.brandSubheadline)
               Text("Log out")
-                .font(.footnote.weight(.semibold))
+                .font(.brandCaption)
             }
           }
           .accessibilityIdentifier("logoutCapsule")
         }
       }
-      .onAppear { }
-      .task {
-        if reports.isEmpty { await fetchReports() }
+      .onAppear {
+        locationManager.request()
+        locationManager.start()
+        checkWelcome()
+        Task {
+          await fetchReports()
+          await fetchMapReports()
+        }
+      }
+      .onChange(of: locationManager.lastLocation) { loc in
+        guard liveWeather == nil, let loc else { return }
+        Task { await fetchWeather(location: loc) }
+      }
+      .onChange(of: communityService.activeCommunityId) { newValue in
+        AppLogging.log("[PublicLandingView] onChange(activeCommunityId) -> \(newValue ?? "nil") — clearing stale reports and refetching", level: .info, category: .catch)
+        reports = []
+        mapReports = []
+        Task {
+          await fetchReports()
+          await fetchMapReports()
+        }
+      }
+      .onChange(of: auth.currentMemberId) { newValue in
+        AppLogging.log("[PublicLandingView] onChange(currentMemberId) -> \(newValue ?? "nil") — clearing stale reports and refetching", level: .info, category: .catch)
+        reports = []
+        mapReports = []
+        checkWelcome()
+        Task {
+          await fetchReports()
+          await fetchMapReports()
+        }
+      }
+      .fullScreenCover(isPresented: $showWelcome) {
+        PublicWelcomeView(onDismiss: {
+          if let key = welcomeKey() {
+            UserDefaults.standard.set(true, forKey: key)
+          }
+        })
       }
     }
     .environment(\.userRole, .public)
@@ -166,82 +240,147 @@ struct PublicLandingView: View {
 
   private var content: some View {
     ScrollView {
-      VStack(spacing: 12) {
-        // Compact logo
-        CommunityLogoView(config: communityService.activeCommunityConfig, size: 100)
-          .padding(.top, 12)
+      VStack(spacing: 8) {
 
-        // Welcome row — greeting + Record capsule
-        HStack(alignment: .center) {
-          Text("Welcome, \(auth.currentFirstName ?? "")!")
-            .font(.title3.weight(.semibold))
-            .foregroundColor(.white)
-          Spacer()
+        // ── Header: name → logo → record ──────────────────────────────
+        VStack(spacing: 0) {
+          // User name — left aligned
+          Text("\(auth.currentFirstName ?? "") \(auth.currentLastName ?? "")")
+            .font(.brandCaption.weight(.semibold))
+            .foregroundColor(.brandTextPrimary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
+            .accessibilityIdentifier("userNameLabel")
+
+          // Community logo — centred
+          CommunityLogoView(config: communityService.activeCommunityConfig, size: 160)
+            .frame(maxWidth: .infinity)
+
+          // Record capsule — right aligned, directly below logo
           Button { showRecordActivity = true } label: {
             Text("Record")
-              .font(.caption.weight(.bold))
-              .foregroundColor(.white)
+              .font(.brandCaption.weight(.bold))
+              .foregroundColor(.brandTextPrimary)
               .padding(.horizontal, 14)
               .padding(.vertical, 7)
-              .background(Color.blue, in: Capsule())
+              .background(Color.brandAccent, in: Capsule())
           }
           .buttonStyle(.plain)
+          .frame(maxWidth: .infinity, alignment: .trailing)
+          .padding(.horizontal, 20)
+          .padding(.top, 4)
           .accessibilityIdentifier("recordActivityButton")
         }
-        .padding(.horizontal, 20)
+        .padding(.top, 12)
 
-        // Weather tile (compact, placeholder)
-        HStack(alignment: .center, spacing: 12) {
-          // Location + condition
-          VStack(alignment: .leading, spacing: 1) {
-            Text("Smithers, BC")
-              .font(.caption.weight(.semibold))
-              .foregroundColor(.white)
-            Text("Sunny")
-              .font(.caption2)
-              .foregroundColor(.white.opacity(0.7))
+        // ── Weather tile ───────────────────────────────────────────────
+        VStack(spacing: 0) {
+          // Current conditions row: location | temp | wind | pressure
+          HStack(spacing: 0) {
+            Text(liveWeather?.locationName ?? "\u{2013}")
+              .font(.system(size: 11, weight: .semibold))
+              .foregroundColor(.brandTextPrimary)
+              .lineLimit(1)
+              .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(spacing: 3) {
+              Image(systemName: liveWeather?.icon ?? "thermometer")
+                .font(.brandCaption)
+                .foregroundColor(weatherIconColor(liveWeather?.icon))
+              Text(liveWeather.map { "\(communityService.activeCommunityConfig.temperature(Double($0.temp)))\(communityService.activeCommunityConfig.tempUnit)" } ?? "\u{2013}")
+                .font(.brandCaption.weight(.bold))
+                .foregroundColor(.brandTextPrimary)
+            }
+            .frame(width: 56, alignment: .center)
+
+            HStack(spacing: 3) {
+              Image(systemName: "wind")
+                .font(.brandCaption2)
+                .foregroundColor(.brandTextSecondary)
+              Text(liveWeather.map { "\($0.windDir) \(communityService.activeCommunityConfig.windSpeed(Double($0.windSpeed)))" } ?? "\u{2013}")
+                .font(.brandCaption2.weight(.medium))
+                .foregroundColor(.brandTextPrimary)
+            }
+            .frame(width: 56, alignment: .center)
+
+            HStack(spacing: 3) {
+              Image(systemName: "barometer")
+                .font(.brandCaption2)
+                .foregroundColor(.brandTextSecondary)
+              Text(liveWeather.map { "\($0.pressureVal)" } ?? "\u{2013}")
+                .font(.brandCaption2.weight(.medium))
+                .foregroundColor(.brandTextPrimary)
+              Image(systemName: liveWeather?.pressureTrend.sfSymbol ?? "minus")
+                .font(.system(size: 8))
+                .foregroundColor(pressureTrendColor(liveWeather?.pressureTrend))
+            }
+            .frame(width: 64, alignment: .center)
           }
+          .padding(.horizontal, 14)
+          .padding(.top, 8)
+          .padding(.bottom, 6)
 
-          Spacer()
+          // Hourly strip
+          if let hourly = liveWeather?.hourly, !hourly.isEmpty {
+            Rectangle()
+              .fill(Color.brandStroke)
+              .frame(height: 0.5)
+              .padding(.horizontal, 14)
 
-          // Wind
-          HStack(spacing: 3) {
-            Image(systemName: "wind")
-              .font(.caption2)
-              .foregroundColor(.gray)
-            Text("W 10")
-              .font(.caption2.weight(.medium))
-              .foregroundColor(.white)
-          }
-
-          // Pressure
-          HStack(spacing: 3) {
-            Image(systemName: "barometer")
-              .font(.caption2)
-              .foregroundColor(.gray)
-            Image(systemName: "arrow.up.right")
-              .font(.caption2)
-              .foregroundColor(.green)
-          }
-
-          // Temp
-          HStack(spacing: 3) {
-            Image(systemName: "sun.max.fill")
-              .font(.caption)
-              .foregroundColor(.yellow)
-            Text("8\u{00B0}C")
-              .font(.caption.weight(.bold))
-              .foregroundColor(.white)
+            HStack(spacing: 0) {
+              ForEach(hourly) { slot in
+                VStack(alignment: .center, spacing: 2) {
+                  Text(slot.hour)
+                    .font(.system(size: 9))
+                    .foregroundColor(.brandTextSecondary)
+                  Image(systemName: slot.icon)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 16, height: 16)
+                    .foregroundColor(weatherIconColor(slot.icon))
+                  Text("\(communityService.activeCommunityConfig.temperature(Double(slot.temp)))\u{00B0}")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundColor(.brandTextPrimary)
+                  Text(slot.precipChance > 0 ? "\(slot.precipChance)%" : " ")
+                    .font(.system(size: 9))
+                    .foregroundColor(.cyan)
+                }
+                .frame(maxWidth: .infinity)
+              }
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 6)
           }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+        .background(Color.brandSurface, in: RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal, 16)
+
+        // ── Fisheries Conditions ───────────────────────────────────────
+        Button { handleNavigateTo(.conditions) } label: {
+          HStack(spacing: 8) {
+            Image(systemName: "water.waves")
+              .font(.brandCaption)
+              .foregroundColor(.brandTextPrimary)
+            Text("Fisheries Conditions")
+              .font(.brandCaption.weight(.semibold))
+              .foregroundColor(.brandTextPrimary)
+            Spacer()
+            Image(systemName: "chevron.right")
+              .font(.brandCaption.weight(.semibold))
+              .foregroundColor(.brandTextPrimary.opacity(0.4))
+          }
+          .padding(.horizontal, 16)
+          .padding(.vertical, 10)
+          .background(Color.brandSurface, in: RoundedRectangle(cornerRadius: 14))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+        .accessibilityIdentifier("fishingForecastTile")
 
         // Section divider
         Rectangle()
-          .fill(Color.white.opacity(0.12))
+          .fill(Color.brandStroke)
           .frame(height: 0.5)
           .padding(.vertical, 2)
 
@@ -251,14 +390,14 @@ struct PublicLandingView: View {
             // Header row — "Your recent activity" + map icon
             HStack(alignment: .center) {
               Text("Your recent activity")
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(.white)
+                .font(.brandSubheadline.weight(.semibold))
+                .foregroundColor(.brandTextPrimary)
               Spacer()
               if E_CATCH_MAP {
                 Button { goToCatchMap = true } label: {
                   Image(systemName: "map")
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.7))
+                    .font(.brandSubheadline)
+                    .foregroundColor(.brandTextPrimary.opacity(0.7))
                 }
                 .buttonStyle(.plain)
               }
@@ -271,8 +410,8 @@ struct PublicLandingView: View {
                 .frame(maxWidth: .infinity)
             } else if sortedReports.isEmpty {
               Text("No catch reports yet.")
-                .foregroundColor(.gray)
-                .font(.subheadline)
+                .foregroundColor(.brandTextSecondary)
+                .font(.brandSubheadline)
                 .padding(.vertical, 14)
                 .padding(.horizontal, 16)
             } else {
@@ -294,63 +433,13 @@ struct PublicLandingView: View {
         // Error banner
         if let err = errorText {
           Text(err)
-            .foregroundColor(.red)
-            .font(.footnote)
+            .foregroundColor(.brandError)
+            .font(.brandFootnote)
             .multilineTextAlignment(.center)
             .padding(.horizontal, 16)
         }
 
-        // Section divider
-        Rectangle()
-          .fill(Color.white.opacity(0.12))
-          .frame(height: 0.5)
-          .padding(.vertical, 2)
-
-        // Explore section (placeholder)
-        VStack(alignment: .leading, spacing: 12) {
-          Text("Explore")
-            .font(.subheadline.weight(.semibold))
-            .foregroundColor(.white)
-            .padding(.horizontal, 16)
-
-          // Citizen Scientists video tile
-          Button { } label: {
-            ZStack(alignment: .bottomLeading) {
-              Image("CitizenScientists")
-                .resizable()
-                .scaledToFill()
-                .frame(height: 160)
-                .clipped()
-                .overlay(
-                  LinearGradient(
-                    colors: [.clear, .black.opacity(0.7)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                  )
-                )
-
-              HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 2) {
-                  Text("Citizen Scientists")
-                    .font(.subheadline.weight(.bold))
-                    .foregroundColor(.white)
-                  Text("Learn how you can contribute")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.8))
-                }
-                Spacer()
-                Image(systemName: "play.circle.fill")
-                  .font(.title)
-                  .foregroundColor(.white.opacity(0.9))
-              }
-              .padding(12)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-          }
-          .buttonStyle(.plain)
-          .padding(.horizontal, 16)
-        }
-        .padding(.bottom, 16)
+        Spacer(minLength: 8)
       }
     }
   }
@@ -373,41 +462,41 @@ struct PublicLandingView: View {
       AsyncImage(url: r.photoURL) { phase in
         switch phase {
         case .empty:
-          ZStack { Color.white.opacity(0.08); ProgressView().tint(.white) }
+          ZStack { Color.brandSurface; ProgressView().tint(.white) }
         case let .success(img):
           img.resizable().scaledToFill()
         case .failure:
           ZStack {
-            Color.white.opacity(0.08)
+            Color.brandSurface
             Image(systemName: "photo")
-              .font(.largeTitle)
-              .foregroundColor(.white.opacity(0.3))
+              .font(.brandLargeTitle)
+              .foregroundColor(.brandTextPrimary.opacity(0.3))
           }
         @unknown default:
-          Color.white.opacity(0.08)
+          Color.brandSurface
         }
       }
-      .frame(width: 115, height: 115)
+      .frame(width: 140, height: 140)
       .clipped()
 
       HStack {
         VStack(alignment: .leading, spacing: 1) {
           Text(r.displayLocation)
-            .font(.caption2.weight(.semibold))
-            .foregroundColor(.white)
+            .font(.brandCaption2.weight(.semibold))
+            .foregroundColor(.brandTextPrimary)
             .lineLimit(1)
           Text(Self.fmtDate(r.createdAt))
-            .font(.caption2)
-            .foregroundColor(.gray)
+            .font(.brandCaption2)
+            .foregroundColor(.brandTextSecondary)
             .lineLimit(1)
         }
         Spacer()
       }
       .padding(.horizontal, 8)
       .padding(.vertical, 5)
-      .background(Color.white.opacity(0.06))
+      .background(Color.brandStrokeSubtle)
     }
-    .frame(width: 115)
+    .frame(width: 140)
     .clipShape(RoundedRectangle(cornerRadius: 10))
   }
 
@@ -435,6 +524,8 @@ struct PublicLandingView: View {
       return
     }
 
+    AppLogging.log("[PublicLanding] GET \(url.absoluteString)", level: .debug, category: .catch)
+
     var req = URLRequest(url: url)
     req.httpMethod = "GET"
     req.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -454,11 +545,95 @@ struct PublicLandingView: View {
         return
       }
       let decoded = try JSONDecoder().decode(DownloadResponse.self, from: data)
+      let ids = decoded.catch_reports.map(\.catch_id)
+      let uniqueIds = Set(ids)
+      AppLogging.log("[PublicLanding] Server returned \(decoded.catch_reports.count) report(s), \(uniqueIds.count) unique catch_id(s): \(ids)", level: .info, category: .catch)
+      if ids.count != uniqueIds.count {
+        AppLogging.log("[PublicLanding] ⚠️ Server response contains duplicate catch_ids — ForEach will collapse to \(uniqueIds.count) row(s)", level: .warn, category: .catch)
+      }
       withAnimation { reports = decoded.catch_reports }
     } catch {
       AppLogging.log("[PublicLanding] Network error fetching catches: \(error.localizedDescription)", level: .error, category: .catch)
       errorText = "Unable to load catch reports. Please check your connection and try again."
     }
+  }
+
+  // MARK: - Map reports
+
+  private func fetchMapReports() async {
+    guard let communityId = CommunityService.shared.activeCommunityId else { return }
+    do {
+      let reports = try await MapReportService.fetch(communityId: communityId, memberId: auth.currentMemberId)
+      await MainActor.run { mapReports = reports }
+    } catch {
+      AppLogging.log("[PublicLanding] Map reports fetch failed: \(error.localizedDescription)", level: .error, category: .network)
+    }
+  }
+
+  // MARK: - Weather
+
+  private func fetchWeather(location: CLLocation) async {
+    let lat = location.coordinate.latitude
+    let lon = location.coordinate.longitude
+
+    // Reverse geocode for city name
+    let geocoder = CLGeocoder()
+    let locationName: String
+    if let placemark = try? await geocoder.reverseGeocodeLocation(location).first {
+      let city = placemark.locality
+        ?? placemark.subLocality
+        ?? placemark.subAdministrativeArea
+        ?? ""
+      let state = placemark.administrativeArea ?? ""
+      locationName = [city, state].filter { !$0.isEmpty }.joined(separator: ", ")
+    } else {
+      locationName = ""
+    }
+
+    do {
+      let response = try await WeatherSnapshotService.fetch(lat: lat, lon: lon)
+      let w = response.current
+      let slots = response.hourlyForecast.map { h in
+        LiveWeather.HourlySlot(
+          hour: WeatherSnapshotService.hourLabel(from: h.time),
+          icon: WeatherSnapshotService.conditionIcon(for: h.weatherCode),
+          temp: Int(h.temperature.rounded()),
+          precipChance: h.precipitationProbability
+        )
+      }
+      await MainActor.run {
+        liveWeather = LiveWeather(
+          locationName: locationName,
+          condition: WeatherSnapshotService.conditionText(for: w.weatherCode),
+          icon: WeatherSnapshotService.conditionIcon(for: w.weatherCode),
+          temp: Int(w.temperature.rounded()),
+          windDir: WeatherSnapshotService.windCardinal(from: w.windDirection),
+          windSpeed: Int(w.windSpeed.rounded()),
+          pressureVal: Int(w.pressure.rounded()),
+          pressureTrend: WeatherSnapshotService.pressureTrend(current: w.pressure, hourly: response.hourlyForecast),
+          hourly: slots,
+          source: response.source
+        )
+      }
+    } catch {
+      AppLogging.log("[Weather] Fetch failed: \(error.localizedDescription)", level: .error, category: .network)
+    }
+  }
+
+  private func pressureTrendColor(_ trend: WeatherPressureTrend?) -> Color {
+    switch trend {
+    case .rising:  return .green
+    case .falling: return .red
+    default:       return .gray
+    }
+  }
+
+  private func weatherIconColor(_ icon: String?) -> Color {
+    guard let icon else { return .gray }
+    if icon.contains("sun") { return .yellow }
+    if icon.contains("snow") { return .cyan }
+    if icon.contains("bolt") { return .yellow }
+    return .gray
   }
 
   private func logoutTapped() {
@@ -468,6 +643,29 @@ struct PublicLandingView: View {
         AuthStore.shared.clear()
       }
     }
+  }
+
+  // MARK: - Welcome (first-login overview)
+
+  /// Per-member key so each new public member sees the welcome once.
+  /// Returns nil until auth has resolved a memberId — the onChange(currentMemberId)
+  /// handler re-runs checkWelcome() once it's available.
+  private func welcomeKey() -> String? {
+    guard let mid = auth.currentMemberId else { return nil }
+    return "publicWelcome_\(mid)"
+  }
+
+  private func checkWelcome() {
+    // UI tests that aren't exercising welcome behavior (PostLoginTestBase)
+    // can opt out via this launch arg. Without it, the fullScreenCover
+    // covers the landing screen and SwiftUI's hit-testing reports {-1,-1}
+    // for both Get Started and Close on iOS 26.2 sim — see the same class
+    // of issue noted in SkeenaSystemApp.registerUITestSignOutHook.
+    if CommandLine.arguments.contains("-suppressWelcomeForUITests") { return }
+    guard let key = welcomeKey() else { return }
+    guard !UserDefaults.standard.bool(forKey: key) else { return }
+    guard !showWelcome else { return }
+    showWelcome = true
   }
 
   // MARK: - Navigation
@@ -485,17 +683,11 @@ struct PublicLandingView: View {
   // MARK: - Helpers
 
   private static func parseISO(_ iso: String) -> Date? {
-    let f = ISO8601DateFormatter()
-    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    return f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
+    DateFormatting.parseISO(iso)
   }
 
   private static func fmtDate(_ iso: String) -> String {
-    if let d = parseISO(iso) {
-      let f = DateFormatter()
-      f.dateStyle = .medium; f.timeStyle = .short
-      return f.string(from: d)
-    }
+    if let d = parseISO(iso) { return DateFormatting.mediumDateTime.string(from: d) }
     return iso
   }
 }

@@ -14,13 +14,15 @@ import Foundation
 struct CommunityMembership: Codable, Identifiable {
     let id: String
     let communityId: String
-    let role: String  // "guide" or "angler"
+    let role: String  // "guide", "angler", or "public"
+    let isActive: Bool
     let communities: CommunityInfo
 
     enum CodingKeys: String, CodingKey {
         case id
         case communityId = "community_id"
         case role
+        case isActive = "is_active"
         case communities
     }
 }
@@ -38,9 +40,15 @@ struct CommunityInfo: Codable, Identifiable {
     let tagline: String?
     let displayName: String?
     let learnUrl: String?
+    let customUrls: [CustomURL]?
+    let donationUrl: String?
+    let donationDescription: String?
 
     // Geography (JSONB from communities table)
     let geography: CommunityGeography?
+
+    // Unit system: "metric" or "imperial" (defaults to "metric" if absent)
+    let units: String?
 
     // Nested join to community_types (singular — 1:1 via community_type_id FK)
     let communityTypes: CommunityTypeInfo?
@@ -54,7 +62,11 @@ struct CommunityInfo: Codable, Identifiable {
         case tagline
         case displayName = "display_name"
         case learnUrl = "learn_url"
+        case customUrls = "custom_urls"
+        case donationUrl = "donation_url"
+        case donationDescription = "donation_description"
         case geography
+        case units
         case communityTypes = "community_types"
     }
 
@@ -67,10 +79,26 @@ struct CommunityInfo: Codable, Identifiable {
             tagline: tagline,
             displayName: displayName,
             learnUrl: learnUrl,
+            customUrls: customUrls,
+            donationUrl: donationUrl,
+            donationDescription: donationDescription,
             entitlements: communityTypes?.entitlements ?? [:],
-            geography: geography ?? .empty
+            geography: geography ?? .empty,
+            units: units
         )
     }
+}
+
+// MARK: - Custom URL (from communities.custom_urls JSONB)
+
+/// Named link configured per community. Up to 5 entries; backend validates
+/// non-empty name (≤100 chars) and url (≤2048 chars). Replaces the legacy
+/// single `learn_url` field — see api-reference.md.
+nonisolated struct CustomURL: Codable, Equatable, Hashable, Identifiable, Sendable {
+    let name: String
+    let url: String
+
+    var id: String { url }
 }
 
 // MARK: - Community type (from community_types table)
@@ -88,7 +116,7 @@ struct CommunityTypeInfo: Codable, Identifiable {
 
 // MARK: - Community geography (JSONB from communities.geography)
 
-struct CommunityGeography: Codable, Equatable {
+nonisolated struct CommunityGeography: Codable, Equatable, Sendable {
     let defaultRiver: String?
     let lodgeRivers: [String]?
     let defaultWaterBody: String?

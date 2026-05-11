@@ -21,7 +21,6 @@
 		FD0A00012F3A000100000001 /* MapboxMaps in Frameworks */ = {isa = PBXBuildFile; productRef = FD0A00002F3A000100000001 /* MapboxMaps */; };
 		FD616A952F6C2E60009F1B3F /* hand_landmarker.task in Resources */ = {isa = PBXBuildFile; fileRef = FD616A942F6C2E60009F1B3F /* hand_landmarker.task */; };
 		FD616D252F6C3043009F1B3F /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = FD616D242F6C3043009F1B3F /* libz.tbd */; };
-		FDFCA4462F31951200CD5E46 /* Media in Resources */ = {isa = PBXBuildFile; fileRef = FDFCA4452F31951200CD5E46 /* Media */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,7 +61,6 @@
 		FD616D262F6C30C2009F1B3F /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk/usr/lib/libz.tbd; sourceTree = DEVELOPER_DIR; };
 		FD6334CA2EFF0B4900CF49C7 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		FD6A18CF2F18487A0067DBFD /* SkeenaSystemUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SkeenaSystemUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		FDFCA4452F31951200CD5E46 /* Media */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Media; path = SkeenaSystem/Media; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -137,7 +135,6 @@
 		4759B4702E8EE1F9005E27BB = {
 			isa = PBXGroup;
 			children = (
-				FDFCA4452F31951200CD5E46 /* Media */,
 				FD6334CA2EFF0B4900CF49C7 /* .gitignore */,
 				4759B47B2E8EE1F9005E27BB /* SkeenaSystem */,
 				47E678582E8F368B009190EF /* SkeenaSystem.app */,
@@ -309,7 +306,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FDFCA4462F31951200CD5E46 /* Media in Resources */,
 				FD616A952F6C2E60009F1B3F /* hand_landmarker.task in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -557,11 +553,9 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SkeenaSystem/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Mad Thinker";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access allows adding a photo of the catch";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access lets you photograph catches and scan sample-envelope barcodes";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Used for streamlined login";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "We use location to help identify where catches occur";
-				INFOPLIST_KEY_NSLocationUsageDescription = "We tag notes with your location to help conservation efforts";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Location is used to stamp catch reports with GPS coordinates";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Your location tags each catch report with the river or water body where you caught the fish, so you can find and share exactly where it happened.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "We use the microphone so you can record field notes";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Used to save selected photos if needed";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Photo library access allows selecting a photo of the catch";
@@ -576,8 +570,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sip.BendFlyShop;
+				MARKETING_VERSION = 1.0.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.app.madthinker;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -606,11 +600,9 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SkeenaSystem/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Mad Thinker";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access allows adding a photo of the catch";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access lets you photograph catches and scan sample-envelope barcodes";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Used for streamlined login";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "We use location to help identify where catches occur";
-				INFOPLIST_KEY_NSLocationUsageDescription = "We tag notes with your location to help conservation efforts";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Location is used to stamp catch reports with GPS coordinates";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Your location tags each catch report with the river or water body where you caught the fish, so you can find and share exactly where it happened.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "We use the microphone so you can record field notes";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Used to save selected photos if needed";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Photo library access allows selecting a photo of the catch";
@@ -625,8 +617,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sip.BendFlyShop;
+				MARKETING_VERSION = 1.0.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.app.madthinker;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -650,7 +642,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sip.BendFlyShopTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.app.madthinkerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -673,7 +665,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sip.BendFlyShopTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.app.madthinkerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -694,7 +686,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sip.BendFlyShopUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.app.madthinkerUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -715,7 +707,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sip.BendFlyShopUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.app.madthinkerUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -736,7 +728,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sip.BendFlyShopUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.app.madthinkerUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -757,7 +749,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sip.BendFlyShopUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.app.madthinkerUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -854,11 +846,9 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SkeenaSystem/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Mad Thinker";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access allows adding a photo of the catch";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access lets you photograph catches and scan sample-envelope barcodes";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Used for streamlined login";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "We use location to help identify where catches occur";
-				INFOPLIST_KEY_NSLocationUsageDescription = "We tag notes with your location to help conservation efforts";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Location is used to stamp catch reports with GPS coordinates";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Your location tags each catch report with the river or water body where you caught the fish, so you can find and share exactly where it happened.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "We use the microphone so you can record field notes";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Used to save selected photos if needed";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Photo library access allows selecting a photo of the catch";
@@ -873,8 +863,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sip.BendFlyShop;
+				MARKETING_VERSION = 1.0.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.app.madthinker;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -898,7 +888,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sip.BendFlyShopTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.app.madthinkerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -994,11 +984,9 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SkeenaSystem/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Mad Thinker";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access allows adding a photo of the catch";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access lets you photograph catches and scan sample-envelope barcodes";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Used for streamlined login";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "We use location to help identify where catches occur";
-				INFOPLIST_KEY_NSLocationUsageDescription = "We tag notes with your location to help conservation efforts";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Location is used to stamp catch reports with GPS coordinates";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Your location tags each catch report with the river or water body where you caught the fish, so you can find and share exactly where it happened.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "We use the microphone so you can record field notes";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Used to save selected photos if needed";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Photo library access allows selecting a photo of the catch";
@@ -1013,8 +1001,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sip.BendFlyShop;
+				MARKETING_VERSION = 1.0.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.app.madthinker;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -1038,7 +1026,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sip.BendFlyShopTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.app.madthinkerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;

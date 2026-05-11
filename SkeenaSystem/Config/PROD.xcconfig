@@ -14,6 +14,15 @@ SUPABASE_PROJECT_URL = https://koyegehcwcrvxpfthkxq.supabase.co
 API_BASE_URL = koyegehcwcrvxpfthkxq.supabase.co
 SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtveWVnZWhjd2NydnhwZnRoa3hxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjE3MzMsImV4cCI6MjA4OTMzNzczM30.XVjI2BRX0-XdHQFK_Vas2jc7zZN32DCXRVKtnsbQQGk
 LOG_LEVEL = error
+// Comma-separated log category allowlist. Empty = all categories enabled.
+// Leave empty in prod so error logs from any subsystem are preserved.
+LOG_CATEGORIES =
+
+// Auto-archive threshold (whole days). An uploaded catch report or
+// observation older than this many days drops out of the active list
+// and moves into the Archive view. Locally-saved/pending records are
+// never archived regardless of age.
+ARCHIVE_AFTER_DAYS = 14
 
 // ──────────────────────────────────────────────
 // MARK: - Entitlements
@@ -24,16 +33,15 @@ E_MEET_STAFF = true
 E_GEAR_CHECKLIST = true
 E_MANAGE_LICENSES = true
 E_SELF_ASSESSMENT = true
+E_PREFERENCES = true
 E_CATCH_CAROUSEL = true
-E_THE_BUZZ = true
 E_CATCH_MAP = true
-E_MANAGE_OPS = true
 
 // ──────────────────────────────────────────────
 // MARK: - API Endpoints (Edge Functions)
 // ──────────────────────────────────────────────
 
-UPLOAD_CATCH_URL = /functions/v1/upload-catch-reports-v3
+UPLOAD_CATCH_URL = /functions/v1/upload-catch-reports-v5
 MANAGE_TRIP_URL = functions/v1/manage-trip
 DOWNLOAD_CATCH_URL = /functions/v1/download-catch-reports
 RIVER_CONDITIONS_URL = /functions/v1/river-conditions
@@ -43,8 +51,10 @@ ANGLER_PROFILE_URL = /functions/v1/angler-profile
 ANGLER_CONTEXT_URL = /functions/v1/angler-context
 ANGLER_DETAILS_URL = /functions/v1/angler-details
 MY_PROFILE_URL = /functions/v1/my-profile
+DELETE_ACCOUNT_URL = /functions/v1/delete-account
 PROFICIENCY_URL = /functions/v1/proficiency
 GEAR_URL = /functions/v1/gear
+MEMBER_PROFILE_FIELDS_URL = /functions/v1/member-profile-fields
 CLASSIFIED_LICENSES_URL = /functions/v1/classified-licenses
 CATCH_STORY_URL = /functions/v1/catch-story
 // Host+path only (no protocol) — xcconfig treats // as a comment.
@@ -54,13 +64,6 @@ TRIP_ROSTER_URL = /functions/v1/trip-roster
 OBSERVATIONS_URL = /functions/v1/observations
 OPS_TICKETS_URL = /functions/v1/ops-tickets
 
-// ──────────────────────────────────────────────
-// MARK: - Forum / Community Feed
-// ──────────────────────────────────────────────
-
-FORUM_BASE = /rest/v1
-FORUM_API_KEY = $(SUPABASE_ANON_KEY)
-BUZZ_CATEGORY_ID = d7f7900f-97b3-43a2-9c7e-03bab95b7002
 
 // ──────────────────────────────────────────────
 // MARK: - App Branding
@@ -111,8 +114,13 @@ IMAGE_COMPRESSION_QUALITY = 0.85
 // MARK: - Fish Detection ML Calibration
 // ──────────────────────────────────────────────
 
-SPECIES_DETECTION_THRESHOLD = 0.80
+SPECIES_DETECTION_THRESHOLD = 0.3
+// Top-1 softmax below this triggers the "pick-from-capsules" UX in chat.
+SPECIES_RUNNER_UP_TRIGGER = 0.85
+// Runner-up must exceed this to appear as a capsule.
+SPECIES_RUNNER_UP_MIN_PROB = 0.15
 FISH_DETECT_MIN_CONFIDENCE = 0.08
+FISH_DEFAULT_GIRTH_RATIO = 0.52
 FISH_BOX_SCALE_FACTOR = 0.59
 FISH_PIXELS_PER_INCH = 11.7
 FISH_MIN_LENGTH_INCHES = 10.0

@@ -93,7 +93,7 @@ struct TacticsRecommendationsView: View {
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
 
       content
         .padding(.horizontal, 14)
@@ -116,10 +116,10 @@ struct TacticsRecommendationsView: View {
         Spacer()
         ProgressView()
           .progressViewStyle(.circular)
-          .tint(.blue)
+          .tint(.brandAccent)
         Text("Analyzing conditions…")
-          .font(.footnote)
-          .foregroundColor(.white.opacity(0.7))
+          .font(.brandFootnote)
+          .foregroundColor(.brandTextPrimary.opacity(0.7))
         Spacer()
       }
 
@@ -127,12 +127,12 @@ struct TacticsRecommendationsView: View {
       VStack {
         Spacer()
         Text("Unable to load tactics.")
-          .font(.subheadline).bold()
-          .foregroundColor(.white)
+          .font(.brandSubheadline).bold()
+          .foregroundColor(.brandTextPrimary)
 
         Text(errorMessage)
-          .font(.footnote)
-          .foregroundColor(.red.opacity(0.8))
+          .font(.brandFootnote)
+          .foregroundColor(.brandError.opacity(0.8))
           .multilineTextAlignment(.center)
           .padding(.top, 4)
 
@@ -142,11 +142,11 @@ struct TacticsRecommendationsView: View {
           fetchTactics()
         } label: {
           Text("Retry")
-            .font(.footnote).bold()
+            .font(.brandFootnote).bold()
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(Capsule().fill(Color.blue.opacity(0.9)))
-            .foregroundColor(.white)
+            .background(Capsule().fill(Color.brandAccent.opacity(0.9)))
+            .foregroundColor(.brandTextPrimary)
         }
         .padding(.top, 10)
         Spacer()
@@ -168,22 +168,22 @@ struct TacticsRecommendationsView: View {
           if !tactics.recommendedFlies.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
               Text("Recommended Flies")
-                .font(.subheadline).bold()
-                .foregroundColor(.blue)
+                .font(.brandSubheadline).bold()
+                .foregroundColor(.brandAccent)
 
               ForEach(tactics.recommendedFlies, id: \.self) { fly in
                 HStack(spacing: 8) {
                   Circle()
-                    .fill(Color.blue)
+                    .fill(Color.brandAccent)
                     .frame(width: 6, height: 6)
                   Text(fly)
-                    .font(.footnote)
-                    .foregroundColor(.white)
+                    .font(.brandFootnote)
+                    .foregroundColor(.brandTextPrimary)
                 }
               }
             }
             .padding(10)
-            .background(Color.white.opacity(0.06))
+            .background(Color.brandStrokeSubtle)
             .clipShape(RoundedRectangle(cornerRadius: 12))
           }
 
@@ -201,15 +201,15 @@ struct TacticsRecommendationsView: View {
   private func sectionCard(title: String, body: String) -> some View {
     VStack(alignment: .leading, spacing: 6) {
       Text(title)
-        .font(.subheadline).bold()
-        .foregroundColor(.blue)
+        .font(.brandSubheadline).bold()
+        .foregroundColor(.brandAccent)
 
       Text(body)
-        .font(.footnote)
-        .foregroundColor(.white)
+        .font(.brandFootnote)
+        .foregroundColor(.brandTextPrimary)
     }
     .padding(10)
-    .background(Color.white.opacity(0.06))
+    .background(Color.brandStrokeSubtle)
     .clipShape(RoundedRectangle(cornerRadius: 12))
   }
 

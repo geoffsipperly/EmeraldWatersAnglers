@@ -22,6 +22,24 @@ final class FarmedReportStoreTests: XCTestCase {
 
   // MARK: - Lifecycle
 
+  override func setUp() {
+    super.setUp()
+    // The shared store now requires an (memberId, communityId) binding before
+    // any read/write operation — see the rescope fix in
+    // /Users/geoffsipperly/.claude/plans/kind-spinning-duckling.md. Bind to a
+    // fixed test scope so each test operates on its own scoped directory and
+    // doesn't inherit state from a real signed-in user.
+    store.rebind(memberId: "test-member", communityId: "test-community")
+
+    // Allow the async loadAll triggered by rebind to settle before any
+    // assertions read `store.reports`.
+    let expectation = expectation(description: "Store rebound for setUp")
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+      expectation.fulfill()
+    }
+    wait(for: [expectation], timeout: 2.0)
+  }
+
   override func tearDown() {
     // Clean up any reports created during each test
     for id in createdIDs {
@@ -108,6 +126,11 @@ final class FarmedReportStoreTests: XCTestCase {
   }
 
   func testAdd_preservesMemberId() {
+    // memberId must equal boundMemberId — loadAll's cross-member filter drops
+    // mismatches. Rebind so this test reflects the production invariant.
+    store.rebind(memberId: "ANG-001", communityId: "test-community")
+    waitForStoreUpdate()
+
     let report = makeReport(memberId: "ANG-001")
     store.add(report)
     waitForStoreUpdate()
@@ -150,17 +173,22 @@ final class FarmedReportStoreTests: XCTestCase {
     XCTAssertEqual(found?.guideName, "After", "Guide name should be updated")
   }
 
-  func testUpdate_changesMemberId() {
-    var report = makeReport(memberId: nil)
+  func testUpdate_preservesMemberId() {
+    // memberId is part of the scope key — update() round-trips it via the
+    // file-based encoder; this guards against accidental clearing on update.
+    store.rebind(memberId: "ANG-001", communityId: "test-community")
+    waitForStoreUpdate()
+
+    var report = makeReport(guideName: "Before", memberId: "ANG-001")
     store.add(report)
     waitForStoreUpdate()
 
-    report.memberId = "ANG-UPDATED"
+    report.guideName = "After"
     store.update(report)
     waitForStoreUpdate()
 
     let found = store.reports.first(where: { $0.id == report.id })
-    XCTAssertEqual(found?.memberId, "ANG-UPDATED")
+    XCTAssertEqual(found?.memberId, "ANG-001")
   }
 
   // MARK: - delete Tests

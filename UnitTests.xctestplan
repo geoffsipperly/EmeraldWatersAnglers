@@ -1,0 +1,30 @@
+{
+  "configurations" : [
+    {
+      "id" : "D4E5F6A7-0004-0004-0004-000000000004",
+      "name" : "Unit Tests",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true,
+    "defaultTestExecutionTimeAllowance" : 60
+  },
+  "testTargets" : [
+    {
+      "skippedTests" : [
+        "BackendHealthSmokeTests",
+        "MLTrainingOptOutUploadTests",
+        "PublicUserAPITests"
+      ],
+      "target" : {
+        "containerPath" : "container:SkeenaSystem.xcodeproj",
+        "identifier" : "FD2182F62EF9C1E2001E905A",
+        "name" : "SkeenaSystemTests"
+      }
+    }
+  ],
+  "version" : 1
+}

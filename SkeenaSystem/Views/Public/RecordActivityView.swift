@@ -12,12 +12,14 @@ import SwiftUI
 struct RecordActivityView: View {
   @StateObject private var auth = AuthService.shared
   @Environment(\.guideNavigateTo) private var guideNavigateTo
+  @Environment(\.dismiss) private var dismiss
 
   // Location for no-catch reports
   @StateObject private var locationManager = LocationManager()
 
   // Navigation
   @State private var goToAssistant = false
+  @State private var showRecordObservation = false
 
   // No-catch tile feedback
   @State private var savedEventType: NoCatchEventType? = nil
@@ -29,11 +31,11 @@ struct RecordActivityView: View {
           // Action tiles — Record a Catch + Record Observation (blue)
           LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
             Button { goToAssistant = true } label: {
-              actionTile(icon: "square.and.pencil", label: "Record a Catch")
+              actionTile(icon: "square.and.pencil", label: "Record catch")
             }
             .accessibilityIdentifier("landedTile")
 
-            Button { guideNavigateTo(.observations) } label: {
+            Button { showRecordObservation = true } label: {
               actionTile(icon: "waveform", label: "Record Observation")
             }
             .accessibilityIdentifier("observationsTile")
@@ -43,7 +45,7 @@ struct RecordActivityView: View {
 
           // Section divider
           Rectangle()
-            .fill(Color.white.opacity(0.12))
+            .fill(Color.brandStroke)
             .frame(height: 0.5)
             .padding(.vertical, 4)
 
@@ -58,17 +60,61 @@ struct RecordActivityView: View {
             }
           }
           .padding(.horizontal, 16)
+
+          Spacer(minLength: 24)
+
+          // Explanatory text
+          VStack(alignment: .leading, spacing: 12) {
+            ForEach([
+              ("eye",                  "Active",     "You saw signs of fish but didn't hook up."),
+              ("leaf.arrow.circlepath","Farmed",     "You hooked a fish but lost it before landing."),
+              ("sparkles",             "Promising",  "The spot looked promising and you want to remember it."),
+              ("xmark.circle",         "Passed",     "You checked the spot and decided to move on."),
+            ], id: \.1) { icon, title, description in
+              HStack(alignment: .top, spacing: 10) {
+                Image(systemName: icon)
+                  .font(.brandCaption)
+                  .foregroundColor(.brandTextPrimary.opacity(0.5))
+                  .frame(width: 16, alignment: .center)
+                  .padding(.top, 1)
+                VStack(alignment: .leading, spacing: 2) {
+                  Text(title)
+                    .font(.brandCaption.weight(.semibold))
+                    .foregroundColor(.brandTextPrimary)
+                  Text(description)
+                    .font(.brandCaption)
+                    .foregroundColor(.brandTextPrimary.opacity(0.55))
+                }
+              }
+            }
+          }
+          .padding(.horizontal, 20)
+          .padding(.bottom, 24)
         }
       }
     }
     .navigationTitle("New Activity")
     .navigationDestination(isPresented: $goToAssistant) {
-      ReportChatView(alwaysSolo: true, directToChat: true)
+      ReportChatView(alwaysSolo: true, directToChat: true, onSaved: {
+        // Pop all the way back to the landing view after catch is saved
+        goToAssistant = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+          dismiss()
+        }
+      })
         .navigationBarTitleDisplayMode(.inline)
     }
     .onAppear {
       locationManager.request()
       locationManager.start()
+    }
+    .fullScreenCover(isPresented: $showRecordObservation) {
+      RecordObservationSheet { _ in
+        showRecordObservation = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+          dismiss()
+        }
+      }
     }
   }
 
@@ -83,7 +129,11 @@ struct RecordActivityView: View {
       guideName: auth.currentFirstName ?? "",
       lat: locationManager.lastLocation?.coordinate.latitude,
       lon: locationManager.lastLocation?.coordinate.longitude,
-      memberId: nil
+      memberId: auth.currentMemberId,
+      communityId: CommunityService.shared.activeCommunityId,
+      mlTrainingOptOut: auth.currentUserType == .public
+        ? MLTrainingOptOutStore.shared.isOptedOut
+        : false
     )
     FarmedReportStore.shared.add(report)
 
@@ -98,15 +148,15 @@ struct RecordActivityView: View {
   private func actionTile(icon: String, label: String) -> some View {
     VStack(spacing: 6) {
       Image(systemName: icon)
-        .font(.title3)
-        .foregroundColor(.blue)
+        .font(.brandTitle3)
+        .foregroundColor(.brandAccent)
       Text(label)
-        .font(.caption.weight(.semibold))
-        .foregroundColor(.blue)
+        .font(.brandCaption.weight(.semibold))
+        .foregroundColor(.brandAccent)
         .lineLimit(1)
     }
     .frame(maxWidth: .infinity, minHeight: 70)
-    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+    .background(Color.brandSurface, in: RoundedRectangle(cornerRadius: 16))
   }
 
   private func noCatchTile(eventType: NoCatchEventType) -> some View {
@@ -120,14 +170,14 @@ struct RecordActivityView: View {
     }()
     return VStack(spacing: 6) {
       Image(systemName: icon)
-        .font(.title3)
-        .foregroundColor(.white)
+        .font(.brandTitle3)
+        .foregroundColor(.brandTextPrimary)
       Text(savedEventType == eventType ? "Saved!" : eventType.displayName)
-        .font(.caption.weight(.semibold))
-        .foregroundColor(.white)
+        .font(.brandCaption.weight(.semibold))
+        .foregroundColor(.brandTextPrimary)
         .lineLimit(1)
     }
     .frame(maxWidth: .infinity, minHeight: 70)
-    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+    .background(Color.brandSurface, in: RoundedRectangle(cornerRadius: 16))
   }
 }

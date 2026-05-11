@@ -7,9 +7,9 @@ import UIKit
 import CoreData
 import Foundation
 
-// MARK: - PicMemo Upload API (URL composition matches TripRosterAPI pattern)
+// MARK: - Catch Report Upload API (URL composition matches TripRosterAPI pattern)
 
-private enum PicMemoUploadAPI {
+enum CatchReportUploadAPI {
   // Composable base + path URLs from Info.plist keys, with safe normalization and logging
 
   private static let rawBaseURLString: String = {
@@ -28,7 +28,7 @@ private enum PicMemoUploadAPI {
   private static let rawUploadString: String = {
     (Bundle.main.object(forInfoDictionaryKey: "UPLOAD_CATCH_URL") as? String)?
       .trimmingCharacters(in: .whitespacesAndNewlines)
-      ?? "/functions/v1/upload-catch-reports-v4"
+      ?? "/functions/v1/upload-catch-reports-v5"
   }()
 
   private static let supabaseAnonKey: String = {
@@ -37,14 +37,14 @@ private enum PicMemoUploadAPI {
   }()
 
   private static func logConfig(normalizedPath: String) {
-    AppLogging.log("PicMemoUploadAPI config — API_BASE_URL (raw): '\(rawBaseURLString)'", level: .debug, category: .catch)
-    AppLogging.log("PicMemoUploadAPI config — API_BASE_URL (normalized): '\(baseURLString)'", level: .debug, category: .catch)
-    AppLogging.log("PicMemoUploadAPI config — UPLOAD_CATCH_URL (raw): '\(rawUploadString)'", level: .debug, category: .catch)
-    AppLogging.log("PicMemoUploadAPI config — upload path (normalized): '\(normalizedPath)'", level: .debug, category: .catch)
-    AppLogging.log("PicMemoUploadAPI config — SUPABASE_ANON_KEY prefix: \(supabaseAnonKey.prefix(8))…", level: .debug, category: .catch)
+    AppLogging.log("CatchReportUploadAPI config — API_BASE_URL (raw): '\(rawBaseURLString)'", level: .debug, category: .catch)
+    AppLogging.log("CatchReportUploadAPI config — API_BASE_URL (normalized): '\(baseURLString)'", level: .debug, category: .catch)
+    AppLogging.log("CatchReportUploadAPI config — UPLOAD_CATCH_URL (raw): '\(rawUploadString)'", level: .debug, category: .catch)
+    AppLogging.log("CatchReportUploadAPI config — upload path (normalized): '\(normalizedPath)'", level: .debug, category: .catch)
+    AppLogging.log("CatchReportUploadAPI config — SUPABASE_ANON_KEY prefix: \(supabaseAnonKey.prefix(8))…", level: .debug, category: .catch)
   }
 
-  /// Convert whatever is in UPLOAD_CATCH_URL into a *path-only* string (e.g. "/functions/v1/upload-catch-reports-v4")
+  /// Convert whatever is in UPLOAD_CATCH_URL into a *path-only* string (e.g. "/functions/v1/upload-catch-reports-v5")
   /// Handles:
   /// - "/functions/v1/..."
   /// - "functions/v1/..."
@@ -80,7 +80,7 @@ private enum PicMemoUploadAPI {
     }
 
     // Otherwise treat as a relative path
-    if s.isEmpty { return "/functions/v1/upload-catch-reports-v4" }
+    if s.isEmpty { return "/functions/v1/upload-catch-reports-v5" }
     return s.hasPrefix("/") ? s : ("/" + s)
   }
 
@@ -88,8 +88,8 @@ private enum PicMemoUploadAPI {
   /// Preserves any query string that was embedded in the path (rare, but safe).
   private static func makeURL(pathWithOptionalQuery: String) throws -> URL {
     guard let base = URL(string: baseURLString), let scheme = base.scheme, let host = base.host else {
-      AppLogging.log("PicMemoUploadAPI invalid API_BASE_URL — raw: '\(rawBaseURLString)', normalized: '\(baseURLString)'", level: .debug, category: .catch)
-      throw NSError(domain: "PicMemoUpload", code: -1000, userInfo: [
+      AppLogging.log("CatchReportUploadAPI invalid API_BASE_URL — raw: '\(rawBaseURLString)', normalized: '\(baseURLString)'", level: .debug, category: .catch)
+      throw NSError(domain: "CatchReportUpload", code: -1000, userInfo: [
         NSLocalizedDescriptionKey: "Invalid API_BASE_URL (raw: '\(rawBaseURLString)', normalized: '\(baseURLString)')"
       ])
     }
@@ -123,7 +123,7 @@ private enum PicMemoUploadAPI {
     comps.queryItems = merged.isEmpty ? nil : merged
 
     guard let url = comps.url else {
-      throw NSError(domain: "PicMemoUpload", code: -1001, userInfo: [
+      throw NSError(domain: "CatchReportUpload", code: -1001, userInfo: [
         NSLocalizedDescriptionKey: "Failed to build URL for path: \(pathWithOptionalQuery)"
       ])
     }
@@ -136,10 +136,10 @@ private enum PicMemoUploadAPI {
 
     do {
       let url = try makeURL(pathWithOptionalQuery: normalizedPath)
-      AppLogging.log("PicMemoUploadAPI endpoint URL: \(url.absoluteString)", level: .debug, category: .catch)
+      AppLogging.log("CatchReportUploadAPI endpoint URL: \(url.absoluteString)", level: .debug, category: .catch)
       return url
     } catch {
-      AppLogging.log("PicMemoUploadAPI failed to build endpoint — \(error.localizedDescription)", level: .debug, category: .catch)
+      AppLogging.log("CatchReportUploadAPI failed to build endpoint — \(error.localizedDescription)", level: .debug, category: .catch)
       return nil
     }
   }
@@ -149,9 +149,19 @@ private enum PicMemoUploadAPI {
 
 // MARK: - View
 
-struct ReportsListViewPicMemo: View {
+struct ReportsListView: View {
+  /// When true the view is hosted inside `ActivitiesView` and skips its own
+  /// `DarkPageTemplate` wrapper, navigation title, and back button. The
+  /// parent provides those instead. All state, upload logic, sheets, and
+  /// navigation destinations remain functional.
+  let embedded: Bool
+
+  init(embedded: Bool = false) {
+    self.embedded = embedded
+  }
+
   @Environment(\.dismiss) private var dismiss
-  @StateObject private var store = CatchReportPicMemoStore.shared
+  @StateObject private var store = CatchReportStore.shared
 
   // Upload state
   @State private var isUploading = false
@@ -160,7 +170,7 @@ struct ReportsListViewPicMemo: View {
   @State private var showErrorAlert = false
   @State private var lastUploadResult: String?
 
-  @State private var reportToDelete: CatchReportPicMemo?
+  @State private var reportToDelete: CatchReport?
   @State private var showDeleteConfirm: Bool = false
 
   // Map navigation
@@ -169,10 +179,9 @@ struct ReportsListViewPicMemo: View {
   // Archive navigation
   @State private var showArchived = false
 
-  // Farmed navigation
-  @State private var showFarmed = false
+  // Farmed navigation (removed — now in Observations tab)
 
-    private var uploader: UploadCatchPicMemo {
+    private var uploader: UploadCatchReport {
       // Read from Info.plist (ProcessInfo.environment is typically empty on iOS)
       let rawBase = ((Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String) ?? "")
         .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -236,16 +245,16 @@ struct ReportsListViewPicMemo: View {
       }()
 
       // Logging (matches your style)
-      AppLogging.log("PicMemo uploader config — API_BASE_URL (raw): '\(rawBase)'", level: .debug, category: .catch)
-      AppLogging.log("PicMemo uploader config — API_BASE_URL (normalized): '\(baseWithScheme)'", level: .debug, category: .catch)
-      AppLogging.log("PicMemo uploader config — UPLOAD_CATCH_URL (raw): '\(rawPath)'", level: .debug, category: .catch)
-      AppLogging.log("PicMemo uploader config — UPLOAD_CATCH_URL (expanded): '\(expandedPath)'", level: .debug, category: .catch)
+      AppLogging.log("CatchReport uploader config — API_BASE_URL (raw): '\(rawBase)'", level: .debug, category: .catch)
+      AppLogging.log("CatchReport uploader config — API_BASE_URL (normalized): '\(baseWithScheme)'", level: .debug, category: .catch)
+      AppLogging.log("CatchReport uploader config — UPLOAD_CATCH_URL (raw): '\(rawPath)'", level: .debug, category: .catch)
+      AppLogging.log("CatchReport uploader config — UPLOAD_CATCH_URL (expanded): '\(expandedPath)'", level: .debug, category: .catch)
 
       if let endpointURL {
-        AppLogging.log("PicMemo uploader endpoint resolved: \(endpointURL.absoluteString)", level: .debug, category: .catch)
+        AppLogging.log("CatchReport uploader endpoint resolved: \(endpointURL.absoluteString)", level: .debug, category: .catch)
       } else {
         AppLogging.log(
-          "PicMemo uploader endpoint is invalid. base='\(baseWithScheme)' path='\(rawPath)'. Falling back to https://invalid.local",
+          "CatchReport uploader endpoint is invalid. base='\(baseWithScheme)' path='\(rawPath)'. Falling back to https://invalid.local",
           level: .debug,
           category: .catch
         )
@@ -254,10 +263,10 @@ struct ReportsListViewPicMemo: View {
       if apiKey.isEmpty {
         AppLogging.log("SUPABASE_ANON_KEY is empty or not set. Uploads may fail.", level: .debug, category: .catch)
       } else {
-        AppLogging.log("PicMemo uploader apikey prefix: \(apiKey.prefix(8))…", level: .debug, category: .catch)
+        AppLogging.log("CatchReport uploader apikey prefix: \(apiKey.prefix(8))…", level: .debug, category: .catch)
       }
 
-      return UploadCatchPicMemo(
+      return UploadCatchReport(
         config: .init(
           endpoint: endpointURL ?? URL(string: "https://invalid.local")!,
           appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0",
@@ -268,40 +277,41 @@ struct ReportsListViewPicMemo: View {
 
   // MARK: - Archiving
 
-  private func isArchived(_ report: CatchReportPicMemo) -> Bool {
-    guard report.status == .uploaded else { return false }
-    let twoWeeksAgo = Calendar.current.date(byAdding: .day, value: -14, to: Date()) ?? Date.distantPast
-    return report.createdAt < twoWeeksAgo
+  private func isArchived(_ report: CatchReport) -> Bool {
+    AppEnvironment.shared.shouldArchive(
+      uploaded: report.status == .uploaded,
+      createdAt: report.createdAt
+    )
   }
 
-  private var activeReports: [CatchReportPicMemo] {
+  private var activeReports: [CatchReport] {
     store.reports.filter { !isArchived($0) }
   }
 
-  private var archivedReports: [CatchReportPicMemo] {
+  private var archivedReports: [CatchReport] {
     store.reports.filter { isArchived($0) }
   }
 
   // MARK: - Derived collections (active only)
 
-  private var pendingReports: [CatchReportPicMemo] {
+  private var pendingReports: [CatchReport] {
     activeReports.filter { $0.status == .savedLocally }
   }
 
-  private var uploadedReports: [CatchReportPicMemo] {
+  private var uploadedReports: [CatchReport] {
     activeReports.filter { $0.status == .uploaded }
   }
 
-  private var groupedPending: [(date: String, reports: [CatchReportPicMemo])] {
+  private var groupedPending: [(date: String, reports: [CatchReport])] {
     groupedByDay(pendingReports)
   }
 
-  private var groupedUploaded: [(date: String, reports: [CatchReportPicMemo])] {
+  private var groupedUploaded: [(date: String, reports: [CatchReport])] {
     groupedByDay(uploadedReports)
   }
 
-  private func groupedByDay(_ list: [CatchReportPicMemo])
-    -> [(date: String, reports: [CatchReportPicMemo])] {
+  private func groupedByDay(_ list: [CatchReport])
+    -> [(date: String, reports: [CatchReport])] {
     let grouped = Dictionary(grouping: list) { report -> String in
       Self.dayFormatter.string(from: report.createdAt)
     }
@@ -329,7 +339,7 @@ struct ReportsListViewPicMemo: View {
 
   // MARK: - Map annotation data
 
-  private var mapAnnotations: [PicMemoAnnotation] {
+  private var mapAnnotations: [CatchReportAnnotation] {
     store.reports.compactMap { r in
       guard
         let lat = r.lat,
@@ -344,7 +354,7 @@ struct ReportsListViewPicMemo: View {
 
       let coord = CLLocationCoordinate2D(latitude: lat, longitude: lon)
 
-      return PicMemoAnnotation(
+      return CatchReportAnnotation(
         id: r.id,
         coordinate: coord,
         title: r.species ?? "Catch",
@@ -360,61 +370,36 @@ struct ReportsListViewPicMemo: View {
   // MARK: - Body
 
   var body: some View {
-    DarkPageTemplate(bottomToolbar: {
-      RoleAwareToolbar(activeTab: "catches")
-    }) {
-      VStack(spacing: 0) {
-        // Action icons — pinned at top
-        VStack(spacing: 8) {
-          HStack(spacing: 0) {
-            Button(action: startUpload) {
-              VStack(spacing: 2) {
-                Image(systemName: "arrow.up.circle")
-                  .font(.title3)
-                Text("Upload")
-                  .font(.caption2)
-              }
-              .frame(maxWidth: .infinity)
-            }
-            .disabled(isUploading || pendingReports.isEmpty)
+    let inner = reportsContent
 
-            Button { showMap = true } label: {
-              VStack(spacing: 2) {
-                Image(systemName: "map")
-                  .font(.title3)
-                Text("Map")
-                  .font(.caption2)
-              }
-              .frame(maxWidth: .infinity)
-            }
-            .disabled(mapAnnotations.isEmpty)
-
-            Button { showArchived = true } label: {
-              VStack(spacing: 2) {
-                Image(systemName: "archivebox")
-                  .font(.title3)
-                Text("Archive")
-                  .font(.caption2)
-              }
-              .frame(maxWidth: .infinity)
-            }
-            .disabled(archivedReports.isEmpty)
-
-            Button { showFarmed = true } label: {
-              VStack(spacing: 2) {
-                Image(systemName: "leaf.arrow.circlepath")
-                  .font(.title3)
-                Text("No Catch")
-                  .font(.caption2)
-              }
-              .frame(maxWidth: .infinity)
-            }
+    if embedded {
+      // Hosted inside ActivitiesView — no DarkPageTemplate, no nav chrome.
+      inner
+    } else {
+      // Standalone — full page with toolbar and nav title.
+      DarkPageTemplate(bottomToolbar: {
+        RoleAwareToolbar(activeTab: "activities")
+      }) {
+        inner
+      }
+      .navigationTitle("Activities")
+      .navigationBarTitleDisplayMode(.inline)
+      .navigationBarBackButtonHidden(true)
+      .toolbar {
+        ToolbarItem(placement: .navigationBarLeading) {
+          Button { dismiss() } label: {
+            Image(systemName: "chevron.left")
           }
-          .foregroundColor(.white.opacity(0.85))
         }
-        .padding(.top, 8)
-        .padding(.bottom, 12)
+      }
+    }
+  }
 
+  // MARK: - Reports content (shared between standalone and embedded modes)
+
+  @ViewBuilder
+  private var reportsContent: some View {
+    VStack(spacing: 0) {
         // Content fills remaining space
         ZStack(alignment: .bottom) {
           if store.reports.isEmpty {
@@ -429,14 +414,14 @@ struct ReportsListViewPicMemo: View {
             VStack {
               VStack(spacing: 12) {
                 Image(systemName: "archivebox")
-                  .font(.largeTitle)
+                  .font(.brandLargeTitle)
                   .foregroundColor(.secondary)
                 Text("All catch reports have been archived.")
-                  .font(.headline)
-                  .foregroundColor(.white)
+                  .font(.brandHeadline)
+                  .foregroundColor(.brandTextPrimary)
                   .multilineTextAlignment(.center)
                 Text("Tap the archive icon in the toolbar to view previous catch reports.")
-                  .font(.subheadline)
+                  .font(.brandSubheadline)
                   .foregroundColor(.secondary)
                   .multilineTextAlignment(.center)
               }
@@ -446,20 +431,20 @@ struct ReportsListViewPicMemo: View {
           } else {
               List {
                 if !groupedPending.isEmpty {
-                  Section(header: Text("Pending Upload").foregroundColor(.white)) {
+                  Section(header: Text("Pending Upload").foregroundColor(.brandTextPrimary)) {
                     ForEach(groupedPending, id: \.date) { section in
                       Text(section.date)
-                        .font(.subheadline)
+                        .font(.brandSubheadline)
                         .foregroundColor(.secondary)
-                        .listRowBackground(Color.black)
+                        .listRowBackground(Color.brandBackground)
 
                       ForEach(section.reports) { report in
                         NavigationLink {
-                          PicMemoDetailView(report: report)
+                          CatchReportDetailView(report: report)
                         } label: {
-                          PicMemoRow(report: report)
+                          CatchReportRow(report: report)
                         }
-                        .listRowBackground(Color.black)
+                        .listRowBackground(Color.brandBackground)
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                           Button(role: .destructive) {
                             self.reportToDelete = report
@@ -475,27 +460,27 @@ struct ReportsListViewPicMemo: View {
                 }
 
                 if !groupedUploaded.isEmpty {
-                  Section(header: Text("Uploaded").foregroundColor(.white)) {
+                  Section(header: Text("Uploaded").foregroundColor(.brandTextPrimary)) {
                     ForEach(groupedUploaded, id: \.date) { section in
                       Text(section.date)
-                        .font(.subheadline)
+                        .font(.brandSubheadline)
                         .foregroundColor(.secondary)
-                        .listRowBackground(Color.black)
+                        .listRowBackground(Color.brandBackground)
 
                       ForEach(section.reports) { report in
                         NavigationLink {
-                          PicMemoDetailView(report: report)
+                          CatchReportDetailView(report: report)
                         } label: {
-                          PicMemoRow(report: report)
+                          CatchReportRow(report: report)
                         }
-                        .listRowBackground(Color.black)
+                        .listRowBackground(Color.brandBackground)
                       }
                     }
                   }
                 }
               }
               .listStyle(.plain)
-              .background(Color.black)
+              .background(Color.brandBackground)
               .modifier(HideListBackgroundIfAvailable())
               .alert("Delete Catch Report?", isPresented: $showDeleteConfirm) {
                 Button("Cancel", role: .cancel) {
@@ -505,7 +490,7 @@ struct ReportsListViewPicMemo: View {
                   if let r = reportToDelete {
                     // Only allow deletion of locally saved reports
                     if r.status == .savedLocally {
-                      CatchReportPicMemoStore.shared.delete(r)
+                      CatchReportStore.shared.delete(r)
                       store.refresh()
                     }
                     reportToDelete = nil
@@ -523,7 +508,7 @@ struct ReportsListViewPicMemo: View {
                 .progressViewStyle(LinearProgressViewStyle())
                 .padding(.horizontal)
               Text("Uploading catch reports… \(Int(uploadProgress * 100))%")
-                .font(.caption)
+                .font(.brandCaption)
                 .foregroundColor(.secondary)
             }
             .padding()
@@ -532,21 +517,13 @@ struct ReportsListViewPicMemo: View {
         }
         .frame(maxHeight: .infinity)
       }
-    }
-    .navigationTitle("My Catch History")
-    .navigationBarBackButtonHidden(true)
     .onAppear {
       store.refresh()
     }
-    .navigationDestination(isPresented: $showMap) {
-      PicMemoMapView(annotations: mapAnnotations)
-    }
     .navigationDestination(isPresented: $showArchived) {
-      PicMemoArchiveListView(reports: archivedReports)
+      CatchReportArchiveListView(reports: archivedReports)
     }
-    .navigationDestination(isPresented: $showFarmed) {
-      FarmedReportsListView()
-    }
+    // No Catch (farmed) navigation removed — now in Observations tab
     .alert("Upload Error", isPresented: $showErrorAlert) {
       Button("OK", role: .cancel) {}
     } message: {
@@ -570,7 +547,7 @@ struct ReportsListViewPicMemo: View {
         await MainActor.run {
           self.isUploading = false
           self.uploadProgress = 0
-          self.uploadErrorMessage = "You must be signed in to upload PicMemo reports."
+          self.uploadErrorMessage = "You must be signed in to upload catch reports."
           self.showErrorAlert = true
         }
         return
@@ -594,7 +571,7 @@ struct ReportsListViewPicMemo: View {
 
             switch result {
             case let .success(uploadedIDs):
-              CatchReportPicMemoStore.shared.markUploaded(uploadedIDs)
+              CatchReportStore.shared.markUploaded(uploadedIDs)
               self.store.refresh()
               self.lastUploadResult = "Uploaded \(uploadedIDs.count) catch reports."
             case let .failure(error):
@@ -607,7 +584,7 @@ struct ReportsListViewPicMemo: View {
     }
   }
 
-  private func deleteReports(offsets: IndexSet, in sectionReports: [CatchReportPicMemo]) {
+  private func deleteReports(offsets: IndexSet, in sectionReports: [CatchReport]) {
     let toDelete = offsets.map { sectionReports[$0] }
     let local = toDelete.filter { $0.status == .savedLocally }
     local.forEach { store.delete($0) }
@@ -628,50 +605,52 @@ private struct HideListBackgroundIfAvailable: ViewModifier {
 
 // MARK: - Row
 
-private struct PicMemoRow: View {
-  let report: CatchReportPicMemo
+private struct CatchReportRow: View {
+  let report: CatchReport
   var isArchived: Bool = false
 
   var body: some View {
     VStack(alignment: .leading, spacing: 6) {
       HStack(alignment: .firstTextBaseline, spacing: 6) {
         Text(speciesText)
-          .font(.headline)
-          .foregroundColor(.white)
+          .font(.brandHeadline)
+          .foregroundColor(.brandTextPrimary)
           .lineLimit(1)
           .truncationMode(.tail)
 
         if let lengthText {
           Text("• \(lengthText)")
-            .font(.subheadline)
+            .font(.brandSubheadline)
             .foregroundColor(.secondary)
         }
 
         if let riverText {
           Text("• \(riverText)")
-            .font(.subheadline)
+            .font(.brandSubheadline)
             .foregroundColor(.secondary)
             .lineLimit(1)
             .truncationMode(.tail)
         }
 
         Spacer()
-        StatusChipPicMemo(status: report.status, isArchived: isArchived)
+        CatchReportStatusChip(status: report.status, isArchived: isArchived)
       }
 
-      Text("Guide: \(guideText)")
-        .font(.footnote)
+      Text("\(authorRoleLabel): \(guideText)")
+        .font(.brandFootnote)
         .foregroundColor(.secondary)
         .lineLimit(1)
         .truncationMode(.tail)
 
       Text("Member Number: \(report.memberId)")
-        .font(.footnote)
+        .font(.brandFootnote)
         .foregroundColor(.secondary)
         .lineLimit(1)
         .truncationMode(.tail)
     }
-    .listRowBackground(Color.black)
+    .listRowBackground(Color.brandBackground)
+    .accessibilityElement(children: .contain)
+    .accessibilityIdentifier("catchReportRow_\(report.id.uuidString)")
   }
 
   private var speciesText: String {
@@ -691,17 +670,25 @@ private struct PicMemoRow: View {
     let name = report.guideName ?? ""
     return name.isEmpty ? "—" : name
   }
+
+  private var authorRoleLabel: String {
+    switch AuthService.shared.currentUserType {
+    case .researcher: return "Researcher"
+    case .`public`: return "Member"
+    default: return "Guide"
+    }
+  }
 }
 
 // MARK: - Status chip
 
-private struct StatusChipPicMemo: View {
-  let status: CatchReportPicMemoStatus
+private struct CatchReportStatusChip: View {
+  let status: CatchReportStatus
   var isArchived: Bool = false
 
   var body: some View {
     Text(displayText)
-      .font(.caption2)
+      .font(.brandCaption2)
       .padding(.horizontal, 8)
       .padding(.vertical, 3)
       .background(background)
@@ -714,10 +701,10 @@ private struct StatusChipPicMemo: View {
   }
 
   private var background: Color {
-    if isArchived { return Color.gray.opacity(0.15) }
+    if isArchived { return Color.brandTextSecondary.opacity(0.15) }
     switch status {
-    case .savedLocally: return Color.blue.opacity(0.12)
-    case .uploaded: return Color.green.opacity(0.12)
+    case .savedLocally: return Color.brandAccent.opacity(0.12)
+    case .uploaded: return Color.brandSuccess.opacity(0.12)
     }
   }
 
@@ -732,7 +719,7 @@ private struct StatusChipPicMemo: View {
 
 // MARK: - Map support
 
-private struct PicMemoAnnotation: Identifiable {
+private struct CatchReportAnnotation: Identifiable {
   let id: UUID
   let coordinate: CLLocationCoordinate2D
   let title: String
@@ -745,10 +732,10 @@ private struct PicMemoAnnotation: Identifiable {
 
 // MARK: - SwiftUI Mapbox map wrapper with navigation
 
-private struct PicMemoMapView: View {
-  let annotations: [PicMemoAnnotation]
+private struct CatchReportMapView: View {
+  let annotations: [CatchReportAnnotation]
 
-  @State private var selectedAnnotation: PicMemoAnnotation?
+  @State private var selectedAnnotation: CatchReportAnnotation?
   @State private var selectedReportID: UUID?
 
   private var showDetail: Binding<Bool> {
@@ -758,9 +745,9 @@ private struct PicMemoMapView: View {
     )
   }
 
-  private var selectedReport: CatchReportPicMemo? {
+  private var selectedReport: CatchReport? {
     guard let id = selectedReportID else { return nil }
-    return CatchReportPicMemoStore.shared.reports.first { $0.id == id }
+    return CatchReportStore.shared.reports.first { $0.id == id }
   }
 
   private var initialViewport: Viewport {
@@ -776,7 +763,7 @@ private struct PicMemoMapView: View {
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
 
       Map(initialViewport: initialViewport) {
         PointAnnotationGroup(annotations) { annotation in
@@ -791,7 +778,7 @@ private struct PicMemoMapView: View {
 
         if let selected = selectedAnnotation {
           MapViewAnnotation(coordinate: selected.coordinate) {
-            PicMemoCalloutView(
+            CatchReportCalloutView(
               title: selected.title,
               lifecycleStage: selected.lifecycleStage,
               lengthInches: selected.lengthInches,
@@ -813,7 +800,7 @@ private struct PicMemoMapView: View {
     .environment(\.colorScheme, .dark)
     .navigationDestination(isPresented: showDetail) {
       if let report = selectedReport {
-        PicMemoDetailView(report: report)
+        CatchReportDetailView(report: report)
       }
     }
   }
@@ -821,11 +808,11 @@ private struct PicMemoMapView: View {
 
 // MARK: - Detail View
 
-private struct PicMemoDetailView: View {
+private struct CatchReportDetailView: View {
   @Environment(\.dismiss) private var dismiss
   @Environment(\.managedObjectContext) private var context
 
-  @State private var report: CatchReportPicMemo
+  @State private var report: CatchReport
   @ObservedObject private var voiceStore = VoiceNoteStore.shared
   @StateObject private var audioPlayer = NoteAudioPlayer()
   @State private var isEditing: Bool = false
@@ -833,7 +820,7 @@ private struct PicMemoDetailView: View {
   // Drive navigation to voice recorder (ChatVoiceNoteSheet)
   @State private var showVoiceNoteRecorder = false
 
-  init(report: CatchReportPicMemo) {
+  init(report: CatchReport) {
     _report = State(initialValue: report)
   }
 
@@ -845,9 +832,21 @@ private struct PicMemoDetailView: View {
     ZStack {
       ScrollView {
         VStack(alignment: .leading, spacing: 16) {
+          if report.conservationOptIn == true {
+            conservationBadge
+          }
           photoSection
+          if report.headPhotoFilename != nil {
+            headPhotoSection
+          }
           catchInfoSection
-          tripInfoSection
+          dateTimeSection
+          // Length is always present; girth/weight rows inside the section
+          // stay conditional for historical records that pre-date Phase 3.
+          measurementsSection
+          if hasResearchTagData {
+            researchTagsSection
+          }
           locationSection
           voiceMemoSection
         }
@@ -855,7 +854,7 @@ private struct PicMemoDetailView: View {
       }
 
     }
-    .background(Color.black.ignoresSafeArea())
+    .background(Color.brandBackground.ignoresSafeArea())
     .navigationTitle("Catch Details")
     .navigationDestination(isPresented: $showVoiceNoteRecorder) {
       ChatVoiceNoteSheet { note in
@@ -867,7 +866,7 @@ private struct PicMemoDetailView: View {
 
         // Persist immediately so it's saved even if the user
         // backs out without tapping "Save Changes".
-        CatchReportPicMemoStore.shared.update(report)
+        CatchReportStore.shared.update(report)
 
         // Pop back to the detail view
         showVoiceNoteRecorder = false
@@ -887,16 +886,17 @@ private struct PicMemoDetailView: View {
             } label: {
               if isEditing {
                 Text("Save")
-                  .font(.subheadline.weight(.semibold))
-                  .foregroundColor(.white)
+                  .font(.brandSubheadline.weight(.semibold))
+                  .foregroundColor(.brandTextPrimary)
                   .padding(.horizontal, 12)
                   .padding(.vertical, 8)
-                  .background(Color.blue)
+                  .background(Color.brandAccent)
                   .clipShape(Capsule())
               } else {
                 Text("Edit")
               }
             }
+            .accessibilityIdentifier(isEditing ? "catchDetailSaveButton" : "catchDetailEditButton")
           }
         }
       }
@@ -916,7 +916,7 @@ private struct PicMemoDetailView: View {
           .cornerRadius(12)
       } else {
         RoundedRectangle(cornerRadius: 12)
-          .stroke(Color.gray.opacity(0.6), style: StrokeStyle(lineWidth: 1, dash: [4]))
+          .stroke(Color.brandTextSecondary.opacity(0.6), style: StrokeStyle(lineWidth: 1, dash: [4]))
           .frame(height: 200)
           .overlay(
             Text("No photo available")
@@ -929,8 +929,41 @@ private struct PicMemoDetailView: View {
   private var catchInfoSection: some View {
     VStack(alignment: .leading, spacing: 8) {
       Text("Catch Info")
-        .font(.headline)
-        .foregroundColor(.white)
+        .font(.brandHeadline)
+        .foregroundColor(.brandTextPrimary)
+
+      // Author + identity rows lead the section so the reader sees who
+      // logged the catch before the catch attributes.
+      editableTextField(title: authorRoleLabel, text: Binding(
+        get: { report.guideName ?? "" },
+        set: { report.guideName = $0 }
+      ))
+
+      // Trip Name is guide-only — researchers and members fish solo and
+      // have no trip context.
+      if AuthService.shared.currentUserType == .guide {
+        HStack {
+          Text("Trip Name")
+            .font(.brandSubheadline)
+            .foregroundColor(.brandAccent)
+          Spacer()
+          Text(resolvedTripName())
+            .font(.brandBody)
+            .foregroundColor(.brandTextPrimary)
+        }
+      }
+
+      editableTextField(title: "Member Number", text: Binding(
+        get: { report.memberId },
+        set: { report.memberId = MemberNumber.normalize($0) }
+      ))
+
+      if CommunityService.shared.activeCommunityConfig.flag("E_MANAGE_LICENSES") {
+        editableTextField(title: "Classified Waters License", text: Binding(
+          get: { report.classifiedWatersLicenseNumber ?? "" },
+          set: { report.classifiedWatersLicenseNumber = $0 }
+        ))
+      }
 
       editableTextField(title: "Species", text: Binding(
         get: { report.species ?? "" },
@@ -947,15 +980,71 @@ private struct PicMemoDetailView: View {
         set: { report.sex = $0 }
       ))
 
-      editableTextField(title: "Origin", text: Binding(
-        get: { report.origin ?? "" },
-        set: { report.origin = $0 }
+      editableTextField(title: "River", text: Binding(
+        get: { report.river ?? "" },
+        set: { report.river = $0 }
       ))
+    }
+    .padding()
+    .background(Color.brandStrokeSubtle)
+    .cornerRadius(12)
+  }
+
+  // MARK: Conservation badge & research-grade sections
+
+  /// Shown at the top of the detail view when this catch participated in the
+  /// conservation/research flow. Mirrors the landing-view banner.
+  private var conservationBadge: some View {
+    HStack(spacing: 6) {
+      Image(systemName: "leaf.fill")
+        .font(.brandCaption)
+        .foregroundColor(.brandSuccess)
+      Text("Conservation Mode")
+        .font(.brandCaption.weight(.semibold))
+        .foregroundColor(.brandSuccess)
+    }
+    .frame(maxWidth: .infinity)
+    .padding(.vertical, 8)
+    .background(Color.brandSuccess.opacity(0.12))
+    .cornerRadius(10)
+    .accessibilityIdentifier("conservationBadge")
+  }
+
+  /// Close-up head shot displayed below the primary catch photo when present.
+  /// Populated by the research/conservation flow in Phase 3.5.
+  private var headPhotoSection: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Text("Head Photo")
+        .font(.brandHeadline)
+        .foregroundColor(.brandTextPrimary)
+
+      if let filename = report.headPhotoFilename,
+         let image = loadCatchImage(filename: filename) {
+        Image(uiImage: image)
+          .resizable()
+          .scaledToFit()
+          .cornerRadius(12)
+      }
+    }
+    .padding()
+    .background(Color.brandStrokeSubtle)
+    .cornerRadius(12)
+  }
+
+  /// Length, girth, and weight rows. Length is always present on a catch;
+  /// girth/weight are only populated by the unified research flow (Phase 3+)
+  /// and are omitted from display on older historical records. The `~` prefix
+  /// marks estimated values, matching the convention in FishWeightEstimator.
+  private var measurementsSection: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Text("Measurements")
+        .font(.brandHeadline)
+        .foregroundColor(.brandTextPrimary)
 
       HStack {
         Text("Length (in)")
-          .font(.subheadline)
-          .foregroundColor(.blue)
+          .font(.brandSubheadline)
+          .foregroundColor(.brandAccent)
         Spacer()
         TextField(
           canEdit ? "Length" : "",
@@ -972,50 +1061,73 @@ private struct PicMemoDetailView: View {
         )
         .keyboardType(.numberPad)
         .multilineTextAlignment(.trailing)
-        .foregroundColor(.white)
+        .foregroundColor(.brandTextPrimary)
         .disabled(!canEdit)
       }
 
-      editableTextField(title: "River", text: Binding(
-        get: { report.river ?? "" },
-        set: { report.river = $0 }
-      ))
+      if let girth = report.girthInches {
+        infoRow(label: "Girth (in)", value: String(format: "%.1f", girth))
+      }
+      if let weight = report.weightLbs {
+        infoRow(label: "Weight (lbs)", value: String(format: "%.1f", weight))
+      }
     }
     .padding()
-    .background(Color.white.opacity(0.06))
+    .background(Color.brandStrokeSubtle)
     .cornerRadius(12)
   }
 
-  private var tripInfoSection: some View {
+  /// True when any research-tag or sample field is populated on the report.
+  private var hasResearchTagData: Bool {
+    report.floyId?.isEmpty == false
+      || report.pitId?.isEmpty == false
+      || report.scaleEnvelopeId?.isEmpty == false
+      || report.finEnvelopeId?.isEmpty == false
+  }
+
+  /// Research tag IDs and sample envelope barcodes. Only rendered when at
+  /// least one field is populated (guarded by `hasResearchTagData` at the
+  /// call site).
+  private var researchTagsSection: some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text("Trip / Angler")
-        .font(.headline)
-        .foregroundColor(.white)
+      Text("Research Tags & Samples")
+        .font(.brandHeadline)
+        .foregroundColor(.brandTextPrimary)
 
-      HStack {
-        Text("Trip Name")
-          .font(.subheadline)
-          .foregroundColor(.blue)
-        Spacer()
-        Text(resolvedTripName())
-          .font(.body)
-          .foregroundColor(.white)
+      if let floy = report.floyId, !floy.isEmpty {
+        infoRow(label: "Floy Tag", value: floy)
       }
+      if let pit = report.pitId, !pit.isEmpty {
+        infoRow(label: "PIT Tag", value: pit)
+      }
+      if let scale = report.scaleEnvelopeId, !scale.isEmpty {
+        infoRow(label: "Scale Barcode", value: scale)
+      }
+      if let finClip = report.finEnvelopeId, !finClip.isEmpty {
+        infoRow(label: "Fin Clip Barcode", value: finClip)
+      }
+    }
+    .padding()
+    .background(Color.brandStrokeSubtle)
+    .cornerRadius(12)
+  }
 
-      editableTextField(title: "Guide", text: Binding(
-        get: { report.guideName ?? "" },
-        set: { report.guideName = $0 }
-      ))
+  /// Author label for the catch row — researchers fish solo, guides have
+  /// a trip + angler context. Mirrors `CatchReportRow.authorRoleLabel` so
+  /// the row and detail views agree on the role's display name.
+  private var authorRoleLabel: String {
+    switch AuthService.shared.currentUserType {
+    case .researcher: return "Researcher"
+    case .`public`:   return "Member"
+    default:          return "Guide"
+    }
+  }
 
-      editableTextField(title: "Member Number", text: Binding(
-        get: { report.memberId },
-        set: { report.memberId = $0 }
-      ))
-
-      editableTextField(title: "Classified Waters License", text: Binding(
-        get: { report.classifiedWatersLicenseNumber ?? "" },
-        set: { report.classifiedWatersLicenseNumber = $0 }
-      ))
+  private var dateTimeSection: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Text("Date & Time")
+        .font(.brandHeadline)
+        .foregroundColor(.brandTextPrimary)
 
       infoRow(
         label: "Created",
@@ -1029,15 +1141,15 @@ private struct PicMemoDetailView: View {
       }
     }
     .padding()
-    .background(Color.white.opacity(0.06))
+    .background(Color.brandStrokeSubtle)
     .cornerRadius(12)
   }
 
   private var locationSection: some View {
     VStack(alignment: .leading, spacing: 8) {
       Text("Location")
-        .font(.headline)
-        .foregroundColor(.white)
+        .font(.brandHeadline)
+        .foregroundColor(.brandTextPrimary)
 
       editableDoubleField(
         title: "Latitude",
@@ -1056,15 +1168,15 @@ private struct PicMemoDetailView: View {
       )
     }
     .padding()
-    .background(Color.white.opacity(0.06))
+    .background(Color.brandStrokeSubtle)
     .cornerRadius(12)
   }
 
   private var voiceMemoSection: some View {
     VStack(alignment: .leading, spacing: 8) {
       Text("Voice Memo")
-        .font(.headline)
-        .foregroundColor(.white)
+        .font(.brandHeadline)
+        .foregroundColor(.brandTextPrimary)
 
       if let voiceId = report.voiceNoteId,
          let note = voiceStore.notes.first(where: { $0.id == voiceId }) {
@@ -1075,11 +1187,11 @@ private struct PicMemoDetailView: View {
 
         if !transcript.isEmpty {
           Text(transcript)
-            .font(.subheadline)
-            .foregroundColor(.white)
+            .font(.brandSubheadline)
+            .foregroundColor(.brandTextPrimary)
         } else {
           Text("No transcript available")
-            .font(.subheadline)
+            .font(.brandSubheadline)
             .foregroundColor(.secondary)
         }
 
@@ -1093,8 +1205,8 @@ private struct PicMemoDetailView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Color.white)
-            .foregroundColor(.black)
+            .background(Color.brandSurfaceInverted)
+            .foregroundColor(.brandTextOnLight)
             .cornerRadius(8)
           }
 
@@ -1109,8 +1221,8 @@ private struct PicMemoDetailView: View {
               }
               .padding(.horizontal, 12)
               .padding(.vertical, 6)
-              .background(Color.white.opacity(0.1))
-              .foregroundColor(.white)
+              .background(Color.brandTextPrimary.opacity(0.1))
+              .foregroundColor(.brandTextPrimary)
               .cornerRadius(8)
             }
           }
@@ -1119,7 +1231,7 @@ private struct PicMemoDetailView: View {
       } else {
         // No voice memo attached
         Text("No voice memo attached")
-          .font(.subheadline)
+          .font(.brandSubheadline)
           .foregroundColor(.secondary)
 
         if canEdit {
@@ -1133,15 +1245,15 @@ private struct PicMemoDetailView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Color.white.opacity(0.1))
-            .foregroundColor(.white)
+            .background(Color.brandTextPrimary.opacity(0.1))
+            .foregroundColor(.brandTextPrimary)
             .cornerRadius(8)
           }
         }
       }
     }
     .padding()
-    .background(Color.white.opacity(0.06))
+    .background(Color.brandStrokeSubtle)
     .cornerRadius(12)
   }
 
@@ -1150,24 +1262,25 @@ private struct PicMemoDetailView: View {
   private func editableTextField(title: String, text: Binding<String>) -> some View {
     HStack {
       Text(title)
-        .font(.subheadline)
-        .foregroundColor(.blue)
+        .font(.brandSubheadline)
+        .foregroundColor(.brandAccent)
       Spacer()
       TextField(
         canEdit ? title : "",
         text: text
       )
       .multilineTextAlignment(.trailing)
-      .foregroundColor(.white)
+      .foregroundColor(.brandTextPrimary)
       .disabled(!canEdit)
+      .accessibilityIdentifier("catchDetailField_\(title)")
     }
   }
 
   private func editableDoubleField(title: String, value: Binding<Double?>) -> some View {
     HStack {
       Text(title)
-        .font(.subheadline)
-        .foregroundColor(.blue)
+        .font(.brandSubheadline)
+        .foregroundColor(.brandAccent)
       Spacer()
       TextField(
         canEdit ? title : "",
@@ -1190,7 +1303,7 @@ private struct PicMemoDetailView: View {
       )
       .keyboardType(.decimalPad)
       .multilineTextAlignment(.trailing)
-      .foregroundColor(.white)
+      .foregroundColor(.brandTextPrimary)
       .disabled(!canEdit)
     }
   }
@@ -1198,12 +1311,12 @@ private struct PicMemoDetailView: View {
   private func infoRow(label: String, value: String) -> some View {
     HStack {
       Text(label)
-        .font(.subheadline)
-        .foregroundColor(.blue)
+        .font(.brandSubheadline)
+        .foregroundColor(.brandAccent)
       Spacer()
       Text(value)
-        .font(.subheadline)
-        .foregroundColor(.white)
+        .font(.brandSubheadline)
+        .foregroundColor(.brandTextPrimary)
     }
   }
 
@@ -1216,65 +1329,62 @@ private struct PicMemoDetailView: View {
   }
 
   private func saveEdits() {
-    CatchReportPicMemoStore.shared.update(report)
+    CatchReportStore.shared.update(report)
     isEditing = false
     dismiss()
   }
 
+  /// Resolves the human-readable trip name for the Trip Name row (guide-only).
+  /// Prefers `report.tripName` if stored, falls back to a Core Data `Trip`
+  /// fetch by `tripId`, and returns "-" when neither is available.
   private func resolvedTripName() -> String {
-    // First check if the PicMemo has a tripName stored directly
     if let storedName = report.tripName?.trimmingCharacters(in: .whitespacesAndNewlines),
        !storedName.isEmpty {
       return storedName
     }
 
-    // Fall back to Core Data Trip lookup using the stored tripId
     let dash = "-"
 
-    // Guard that CatchReportPicMemo has a tripId property; if not, bail
     guard let any = Mirror(reflecting: report).children.first(where: { $0.label == "tripId" })?.value else {
       return dash
     }
 
-    // Extract tripId as String if possible
     let tripIdString: String
-    if let s = any as? String { tripIdString = s } else if let sOpt = any as? String? { tripIdString = sOpt ?? "" } else { return dash }
+    if let s = any as? String { tripIdString = s }
+    else if let sOpt = any as? String? { tripIdString = sOpt ?? "" }
+    else { return dash }
 
     let trimmed = tripIdString.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else { return dash }
 
-    // Build fetch request for Trip by tripId, supporting UUID or String storage
     let request: NSFetchRequest<Trip> = Trip.fetchRequest()
-
     if let uuid = UUID(uuidString: trimmed) {
       request.predicate = NSPredicate(format: "tripId == %@", uuid as CVarArg)
     } else {
       request.predicate = NSPredicate(format: "tripId == %@", trimmed)
     }
-
     request.fetchLimit = 1
 
     do {
-      if let trip = try context.fetch(request).first {
-        // Prefer Trip.name if present and non-empty
-        if let nameAttr = trip.entity.attributesByName["name"], nameAttr.attributeType == .stringAttributeType {
-          if let name = trip.value(forKey: "name") as? String {
-            let t = name.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !t.isEmpty { return t }
-          }
-        }
+      if let trip = try context.fetch(request).first,
+         let nameAttr = trip.entity.attributesByName["name"],
+         nameAttr.attributeType == .stringAttributeType,
+         let name = trip.value(forKey: "name") as? String {
+        let t = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !t.isEmpty { return t }
       }
     } catch {
-      // Silent fallback
+      // Silent fallback to dash.
     }
 
     return dash
   }
+
 }
 
-// MARK: - PicMemoVoiceNoteSheet
+// MARK: - CatchReportVoiceNoteSheet
 
-private struct PicMemoVoiceNoteSheet: View {
+private struct CatchReportVoiceNoteSheet: View {
   @Binding var isPresented: Bool
   let onSaved: (LocalVoiceNote) -> Void
 
@@ -1286,23 +1396,23 @@ private struct PicMemoVoiceNoteSheet: View {
     NavigationView {
       VStack(spacing: 16) {
         Text("Record a quick voice memo for this catch.")
-          .font(.headline)
-          .foregroundColor(.white)
+          .font(.brandHeadline)
+          .foregroundColor(.brandTextPrimary)
           .multilineTextAlignment(.center)
           .padding(.top, 8)
 
         ZStack {
           Circle()
-            .strokeBorder(Color.white.opacity(0.35), lineWidth: 2)
+            .strokeBorder(Color.brandTextPrimary.opacity(0.35), lineWidth: 2)
             .frame(width: 120, height: 120)
 
           Circle()
-            .fill(recorder.isRecording ? Color.red.opacity(0.7) : Color.white.opacity(0.15))
+            .fill(recorder.isRecording ? Color.brandError.opacity(0.7) : Color.brandStrokeStrong)
             .frame(width: 100, height: 100)
 
           Image(systemName: recorder.isRecording ? "stop.fill" : "mic.fill")
             .font(.system(size: 36, weight: .bold))
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
         }
         .padding(.vertical, 8)
         .onTapGesture { toggleRecording() }
@@ -1313,19 +1423,19 @@ private struct PicMemoVoiceNoteSheet: View {
               ? "Transcript will appear here as you speak…"
               : recorder.partialTranscript
           )
-          .font(.body)
-          .foregroundColor(.white.opacity(0.9))
+          .font(.brandBody)
+          .foregroundColor(.brandTextPrimary.opacity(0.9))
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding()
-          .background(Color.white.opacity(0.08))
+          .background(Color.brandSurface)
           .cornerRadius(12)
         }
         .frame(maxHeight: 260)
 
         if let error = errorMessage {
           Text(error)
-            .font(.footnote)
-            .foregroundColor(.red)
+            .font(.brandFootnote)
+            .foregroundColor(.brandError)
             .multilineTextAlignment(.center)
             .padding(.horizontal)
         }
@@ -1339,23 +1449,23 @@ private struct PicMemoVoiceNoteSheet: View {
           }
           .frame(maxWidth: .infinity)
           .padding()
-          .background(Color.white.opacity(0.12))
+          .background(Color.brandStroke)
           .cornerRadius(12)
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
 
           Button("Save") {
             saveNote()
           }
           .frame(maxWidth: .infinity)
           .padding()
-          .background(Color.blue)
+          .background(Color.brandAccent)
           .cornerRadius(12)
-          .foregroundColor(.white)
+          .foregroundColor(.brandTextPrimary)
           .disabled(recorder.currentTempURL() == nil)
         }
       }
       .padding()
-      .background(Color.black.ignoresSafeArea())
+      .background(Color.brandBackground.ignoresSafeArea())
       .navigationBarHidden(true)
     }
   }
@@ -1402,12 +1512,12 @@ private struct PicMemoVoiceNoteSheet: View {
 
 // MARK: - Archived List
 
-private struct PicMemoArchiveListView: View {
-  let reports: [CatchReportPicMemo]
+struct CatchReportArchiveListView: View {
+  let reports: [CatchReport]
 
-  private var groupedArchived: [(date: String, reports: [CatchReportPicMemo])] {
+  private var groupedArchived: [(date: String, reports: [CatchReport])] {
     let grouped = Dictionary(grouping: reports) { report -> String in
-      ReportsListViewPicMemo.dayFormatter.string(from: report.createdAt)
+      ReportsListView.dayFormatter.string(from: report.createdAt)
     }
     return grouped
       .map { (
@@ -1416,8 +1526,8 @@ private struct PicMemoArchiveListView: View {
       ) 
       }
       .sorted { lhs, rhs in
-        guard let ld = ReportsListViewPicMemo.dayFormatter.date(from: lhs.date),
-              let rd = ReportsListViewPicMemo.dayFormatter.date(from: rhs.date)
+        guard let ld = ReportsListView.dayFormatter.date(from: lhs.date),
+              let rd = ReportsListView.dayFormatter.date(from: rhs.date)
         else { return lhs.date > rhs.date }
         return ld > rd
       }
@@ -1425,7 +1535,7 @@ private struct PicMemoArchiveListView: View {
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
       if reports.isEmpty {
         Text("No archived catches.")
           .foregroundColor(.secondary)
@@ -1433,22 +1543,22 @@ private struct PicMemoArchiveListView: View {
         List {
           ForEach(groupedArchived, id: \.date) { section in
             Text(section.date)
-              .font(.subheadline)
+              .font(.brandSubheadline)
               .foregroundColor(.secondary)
-              .listRowBackground(Color.black)
+              .listRowBackground(Color.brandBackground)
 
             ForEach(section.reports) { report in
               NavigationLink {
-                PicMemoDetailView(report: report)
+                CatchReportDetailView(report: report)
               } label: {
-                PicMemoRow(report: report, isArchived: true)
+                CatchReportRow(report: report, isArchived: true)
               }
-              .listRowBackground(Color.black)
+              .listRowBackground(Color.brandBackground)
             }
           }
         }
         .listStyle(.plain)
-        .background(Color.black)
+        .background(Color.brandBackground)
         .modifier(HideListBackgroundIfAvailable())
       }
     }

@@ -31,7 +31,7 @@ private enum AnglerFlightsAPI {
   private static func makeURL(path: String, queryItems: [URLQueryItem] = []) throws -> URL {
     AppLogging.log("AnglerFlights makeURL start — base(raw): '\(rawBaseURLString)', base(normalized): '\(baseURLString)', path: '\(path)'", level: .debug, category: .angler)
     guard let base = URL(string: baseURLString), let scheme = base.scheme, let host = base.host else {
-      AppLogging.log("AnglerFlights invalid API_BASE_URL — raw: '\(rawBaseURLString)', normalized: '\(baseURLString)'", level: .debug, category: .angler)
+      AppLogging.log("AnglerFlights invalid API_BASE_URL — raw: '\(rawBaseURLString)', normalized: '\(baseURLString)'", level: .error, category: .angler)
       throw NSError(domain: "AnglerFlights", code: -1000, userInfo: [
         NSLocalizedDescriptionKey: "Invalid API_BASE_URL (raw: '\(rawBaseURLString)', normalized: '\(baseURLString)')"
       ])
@@ -57,7 +57,7 @@ private enum AnglerFlightsAPI {
     }(), level: .debug, category: .angler)
 
     guard let url = comps.url else {
-      AppLogging.log("AnglerFlights makeURL failed to build URL for path: \(path)", level: .debug, category: .angler)
+      AppLogging.log("AnglerFlights makeURL failed to build URL for path: \(path)", level: .error, category: .angler)
       throw NSError(domain: "AnglerFlights", code: -1001, userInfo: [
         NSLocalizedDescriptionKey: "Failed to build URL for path: \(path)"
       ])
@@ -93,14 +93,14 @@ struct AnglerFlights: View {
     // Compose endpoints from config (fall back to environment-aware projectURL if composition fails)
     private let itinerariesEndpoint: URL = {
       do { return try AnglerFlightsAPI.flightDetailsURL() } catch {
-        AppLogging.log("AnglerFlights — failed to compose itinerariesEndpoint, falling back to projectURL: \(error.localizedDescription)", level: .debug, category: .angler)
+        AppLogging.log("AnglerFlights — failed to compose itinerariesEndpoint, falling back to projectURL: \(error.localizedDescription)", level: .warn, category: .angler)
         return AppEnvironment.shared.projectURL.appendingPathComponent("functions/v1/flight-details")
       }
     }()
 
     private let statusEndpoint: URL = {
       do { return try AnglerFlightsAPI.flightStatusURL() } catch {
-        AppLogging.log("AnglerFlights — failed to compose statusEndpoint, falling back to projectURL: \(error.localizedDescription)", level: .debug, category: .angler)
+        AppLogging.log("AnglerFlights — failed to compose statusEndpoint, falling back to projectURL: \(error.localizedDescription)", level: .warn, category: .angler)
         return AppEnvironment.shared.projectURL.appendingPathComponent("functions/v1/flight-status")
       }
     }()
@@ -110,22 +110,22 @@ struct AnglerFlights: View {
   var body: some View {
     NavigationView {
       ZStack {
-        Color.black.ignoresSafeArea()
+        Color.brandBackground.ignoresSafeArea()
         VStack(spacing: 18) {
           header
 
           // Messages
           if let errorText = errorText {
             Text(errorText)
-              .font(.footnote)
-              .foregroundColor(.red)
+              .font(.brandFootnote)
+              .foregroundColor(.brandError)
               .multilineTextAlignment(.center)
               .padding(.horizontal, 16)
           }
           if let infoText = infoText {
             Text(infoText)
-              .font(.footnote)
-              .foregroundColor(.green)
+              .font(.brandFootnote)
+              .foregroundColor(.brandSuccess)
               .multilineTextAlignment(.center)
               .padding(.horizontal, 16)
           }
@@ -140,8 +140,8 @@ struct AnglerFlights: View {
       .toolbar {
         ToolbarItem(placement: .principal) {
           Text("Your flight itineraries")
-            .font(.headline.weight(.semibold))
-            .foregroundColor(.white)
+            .font(.brandHeadline.weight(.semibold))
+            .foregroundColor(.brandTextPrimary)
         }
       }
     }
@@ -190,8 +190,8 @@ struct AnglerFlights: View {
       if itineraries.isEmpty {
         VStack(spacing: 8) {
           Text("No itineraries yet.")
-            .foregroundColor(.gray)
-            .font(.subheadline)
+            .foregroundColor(.brandTextSecondary)
+            .font(.brandSubheadline)
         }
         .padding(.top, 8)
       } else {
@@ -203,7 +203,7 @@ struct AnglerFlights: View {
             } label: {
               ItineraryRow(itinerary: itin)
             }
-            .listRowBackground(Color.white.opacity(0.06))
+            .listRowBackground(Color.brandStrokeSubtle)
             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
               Button(role: .destructive) {
                 Task { await deleteItinerary(itineraryId: itin.id) }
@@ -230,17 +230,17 @@ struct AnglerFlights: View {
     HStack(spacing: 6) {
       Image(systemName: systemImage)
       Text(title)
-        .font(.footnote.weight(.semibold))
+        .font(.brandFootnote.weight(.semibold))
     }
-    .foregroundColor(.white)
+    .foregroundColor(.brandTextPrimary)
     .padding(.horizontal, 12)
     .padding(.vertical, 8)
     .background(
       Group {
         if systemImage == "arrow.clockwise" && itineraries.isEmpty {
-          Color.gray
+          Color.brandTextSecondary
         } else {
-          Color.blue
+          Color.brandAccent
         }
       }
     )
@@ -289,12 +289,12 @@ struct AnglerFlights: View {
       guard (200 ..< 300).contains(code) else {
         let body = String(data: data, encoding: .utf8) ?? ""
         errorText = "Fetch failed (\(code))"
-        AppLogging.log("AnglerFlights — Itineraries GET failed (\(code)) body: \(body)", level: .debug, category: .catch)
+        AppLogging.log("AnglerFlights — Itineraries GET failed (\(code)) body: \(body)", level: .error, category: .angler)
         return
       }
       let decoded = try JSONDecoder().decode(ItinerariesListResponse.self, from: data)
       itineraries = decoded.itineraries
-      AppLogging.log("AnglerFlights — Itineraries GET — Decoded count: \(decoded.itineraries.count)", level: .debug, category: .angler)
+      AppLogging.log("AnglerFlights — Itineraries GET — Decoded count: \(decoded.itineraries.count)", level: .info, category: .angler)
       saveCachedItineraries(itineraries)
     } catch {
       errorText = "Network error: \(error.localizedDescription)"
@@ -346,11 +346,11 @@ struct AnglerFlights: View {
       guard (200 ..< 300).contains(code) else {
         let bodyStr = String(data: data, encoding: .utf8) ?? ""
         errorText = "Save failed (\(code))"
-        AppLogging.log("AnglerFlights — Itinerary POST failed (\(code)) body: \(bodyStr)", level: .debug, category: .catch)
+        AppLogging.log("AnglerFlights — Itinerary POST failed (\(code)) body: \(bodyStr)", level: .error, category: .angler)
         return
       }
       let decoded = try JSONDecoder().decode(UploadItineraryResponse.self, from: data)
-      AppLogging.log("AnglerFlights — Itinerary POST — Message: \(decoded.message)", level: .debug, category: .angler)
+      AppLogging.log("AnglerFlights — Itinerary POST — Message: \(decoded.message)", level: .info, category: .angler)
       infoText = decoded.message
       // Update list (upsert behavior)
       upsertItinerary(decoded.itinerary)
@@ -385,12 +385,12 @@ struct AnglerFlights: View {
       guard (200 ..< 300).contains(code) else {
         let bodyStr = String(data: data, encoding: .utf8) ?? ""
         errorText = "Delete failed (\(code))"
-        AppLogging.log("AnglerFlights — Itinerary DELETE failed (\(code)) body: \(bodyStr)", level: .debug, category: .catch)
+        AppLogging.log("AnglerFlights — Itinerary DELETE failed (\(code)) body: \(bodyStr)", level: .error, category: .angler)
         return
       }
       // Remove locally
       itineraries.removeAll { $0.id == itineraryId }
-      AppLogging.log("AnglerFlights — Itinerary DELETE — removed id=\(itineraryId)", level: .debug, category: .angler)
+      AppLogging.log("AnglerFlights — Itinerary DELETE — removed id=\(itineraryId)", level: .info, category: .angler)
       saveCachedItineraries(itineraries)
       infoText = "Itinerary deleted successfully"
     } catch {
@@ -422,7 +422,7 @@ struct AnglerFlights: View {
     AppLogging.log("AnglerFlights — Status POST — Status: \(code)", level: .debug, category: .angler)
     guard (200 ..< 300).contains(code) else {
       let bodyStr = String(data: data, encoding: .utf8) ?? ""
-      AppLogging.log("AnglerFlights — Status POST failed (\(code)) body: \(bodyStr)", level: .debug, category: .angler)
+      AppLogging.log("AnglerFlights — Status POST failed (\(code)) body: \(bodyStr)", level: .error, category: .angler)
       throw NSError(domain: "FlightStatus", code: code, userInfo: [NSLocalizedDescriptionKey: "Status fetch failed (\(code))"])
     }
 
@@ -436,7 +436,7 @@ struct AnglerFlights: View {
 
     AppLogging.log("AnglerFlights — Status POST — decoding", level: .debug, category: .angler)
     let decoded = try JSONDecoder().decode(FlightStatusResponse.self, from: data)
-    AppLogging.log("AnglerFlights — Status POST — Decoded results count: \(decoded.results.count)", level: .debug, category: .angler)
+    AppLogging.log("AnglerFlights — Status POST — Decoded results count: \(decoded.results.count)", level: .info, category: .angler)
     return decoded.results
   }
 
@@ -476,23 +476,23 @@ private struct ItineraryRow: View {
     HStack(alignment: .center, spacing: 12) {
       VStack(alignment: .leading, spacing: 4) {
         Text("\(itinerary.airline) • \(itinerary.confirmationNumber)")
-          .foregroundColor(.white)
-          .font(.headline)
+          .foregroundColor(.brandTextPrimary)
+          .font(.brandHeadline)
         if let firstOutbound = itinerary.outboundSegments.first, let lastOutbound = itinerary.outboundSegments.last {
           // Show outbound origin to outbound final destination
           Text("\(firstOutbound.fromAirport) → \(lastOutbound.toAirport)")
-            .foregroundColor(.white.opacity(0.8))
-            .font(.subheadline)
+            .foregroundColor(.brandTextPrimary.opacity(0.8))
+            .font(.brandSubheadline)
         } else if let first = itinerary.outboundSegments.first ?? itinerary.returnSegments.first, let last = itinerary.returnSegments.last ?? itinerary.outboundSegments.last {
           // Fallback to previous behavior if outbound is missing
           Text("\(first.fromAirport) → \(last.toAirport)")
-            .foregroundColor(.white.opacity(0.8))
-            .font(.subheadline)
+            .foregroundColor(.brandTextPrimary.opacity(0.8))
+            .font(.brandSubheadline)
         }
       }
       Spacer()
       Image(systemName: "chevron.right")
-        .foregroundColor(.white.opacity(0.6))
+        .foregroundColor(.brandTextPrimary.opacity(0.6))
     }
     .padding(.vertical, 8)
   }
@@ -510,11 +510,11 @@ private struct ItineraryDetailView: View {
   var body: some View {
     NavigationView {
       ZStack {
-        Color.black.ignoresSafeArea()
+        Color.brandBackground.ignoresSafeArea()
         VStack(alignment: .leading, spacing: 12) {
           Text("\(itinerary.airline) • \(itinerary.confirmationNumber)")
-            .font(.title2.weight(.semibold))
-            .foregroundColor(.white)
+            .font(.brandTitle2.weight(.semibold))
+            .foregroundColor(.brandTextPrimary)
             .padding(.top, 8)
 
           ScrollView {
@@ -530,25 +530,25 @@ private struct ItineraryDetailView: View {
             .padding(.bottom, 20)
           }
 
-          if let errorText { Text(errorText).foregroundColor(.red).font(.footnote).padding(.horizontal, 16) }
+          if let errorText { Text(errorText).foregroundColor(.brandError).font(.brandFootnote).padding(.horizontal, 16) }
         }
       }
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
-          Button(action: { dismiss() }) { Image(systemName: "chevron.left").foregroundColor(.white) }
+          Button(action: { dismiss() }) { Image(systemName: "chevron.left").foregroundColor(.brandTextPrimary) }
         }
         ToolbarItem(placement: .topBarTrailing) {
           Button(action: { Task { await loadStatus() } }) {
             HStack(spacing: 6) {
               Image(systemName: "wifi")
               Text(isLoading ? "Loading Status…" : "Get Status")
-                .font(.footnote.weight(.semibold))
+                .font(.brandFootnote.weight(.semibold))
             }
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Color.blue)
+            .background(Color.brandAccent)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
           }
           .disabled(isLoading)
@@ -560,24 +560,24 @@ private struct ItineraryDetailView: View {
 
   private func segmentSection(title: String, segments: [FlightSegment]) -> some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text(title).foregroundColor(.white).font(.headline)
+      Text(title).foregroundColor(.brandTextPrimary).font(.brandHeadline)
       ForEach(segments) { seg in
         VStack(alignment: .leading, spacing: 6) {
           HStack {
             Text("\(seg.fromAirport) → \(seg.toAirport)")
-              .foregroundColor(.white)
-              .font(.subheadline.weight(.semibold))
+              .foregroundColor(.brandTextPrimary)
+              .font(.brandSubheadline.weight(.semibold))
             Spacer()
             StatusPill(status: pillStatus(for: seg))
           }
-          Text("Flight \(seg.flightNumber)").foregroundColor(.white.opacity(0.9)).font(.footnote)
-          Text("Departs: \(formattedDateTime(seg.departureDatetime))").foregroundColor(.white.opacity(0.8)).font(.footnote)
-          Text("Arrives: \(formattedDateTime(seg.arrivalDatetime))").foregroundColor(.white.opacity(0.8)).font(.footnote)
+          Text("Flight \(seg.flightNumber)").foregroundColor(.brandTextPrimary.opacity(0.9)).font(.brandFootnote)
+          Text("Departs: \(formattedDateTime(seg.departureDatetime))").foregroundColor(.brandTextPrimary.opacity(0.8)).font(.brandFootnote)
+          Text("Arrives: \(formattedDateTime(seg.arrivalDatetime))").foregroundColor(.brandTextPrimary.opacity(0.8)).font(.brandFootnote)
         }
         .padding(12)
-        .background(Color.white.opacity(0.06))
+        .background(Color.brandStrokeSubtle)
         .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandStroke, lineWidth: 1))
       }
     }
   }
@@ -598,19 +598,8 @@ private struct ItineraryDetailView: View {
   }
 
   private func formattedDateTime(_ isoString: String) -> String {
-    // Try ISO8601 with fractional seconds and without
-    let isoFormatter = ISO8601DateFormatter()
-    isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    var date: Date? = isoFormatter.date(from: isoString)
-    if date == nil {
-      isoFormatter.formatOptions = [.withInternetDateTime]
-      date = isoFormatter.date(from: isoString)
-    }
-    guard let d = date else { return isoString }
-    let out = DateFormatter()
-    out.dateStyle = .medium
-    out.timeStyle = .short
-    return out.string(from: d)
+    guard let d = DateFormatting.parseISO(isoString) else { return isoString }
+    return DateFormatting.mediumDateTime.string(from: d)
   }
 
   private func loadStatus() async {
@@ -625,7 +614,7 @@ private struct ItineraryDetailView: View {
       statusResults = try await statusLoader(segments)
       AppLogging.log("ItineraryDetailView — Load Status — results count=\(statusResults.count)", level: .debug, category: .angler)
     } catch {
-      AppLogging.log("ItineraryDetailView — Load Status — error: \(error.localizedDescription)", level: .debug, category: .angler)
+      AppLogging.log("ItineraryDetailView — Load Status — error: \(error.localizedDescription)", level: .error, category: .angler)
       errorText = error.localizedDescription
     }
     AppLogging.log("ItineraryDetailView — Load Status — end", level: .debug, category: .angler)
@@ -636,10 +625,10 @@ private struct StatusPill: View {
   let status: String?
   @ViewBuilder
   var body: some View {
-    let mapped = map(status: status) ?? (text: "Unknown", color: Color.gray)
+    let mapped = map(status: status) ?? (text: "Unknown", color: Color.brandTextSecondary)
     Text(mapped.text)
-      .font(.caption.weight(.semibold))
-      .foregroundColor(.white)
+      .font(.brandCaption.weight(.semibold))
+      .foregroundColor(.brandTextPrimary)
       .padding(.horizontal, 8)
       .padding(.vertical, 4)
       .background(mapped.color)
@@ -694,7 +683,7 @@ private struct AddItinerarySheet: View {
   var body: some View {
     NavigationView {
       ZStack {
-        Color.black.ignoresSafeArea()
+        Color.brandBackground.ignoresSafeArea()
         ScrollView {
           VStack(alignment: .leading, spacing: 16) {
             Picker("Mode", selection: $mode) {
@@ -720,12 +709,12 @@ private struct AddItinerarySheet: View {
                 Button(action: { showingDocPicker = true }) {
                   HStack(spacing: 6) {
                     Image(systemName: "doc")
-                    Text("Pick Document").font(.footnote.weight(.semibold))
+                    Text("Pick Document").font(.brandFootnote.weight(.semibold))
                   }
-                  .foregroundColor(.white)
+                  .foregroundColor(.brandTextPrimary)
                   .padding(.horizontal, 12)
                   .padding(.vertical, 8)
-                  .background(Color.black)
+                  .background(Color.brandBackground)
                   .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
                 .frame(maxWidth: 180)
@@ -769,12 +758,12 @@ private struct AddItinerarySheet: View {
                   .tint(.white)
               }
               Text(isSubmitting ? "Submitting…" : "Submit")
-                .font(.footnote.weight(.semibold))
+                .font(.brandFootnote.weight(.semibold))
             }
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background((isValid && !isSubmitting) ? Color.blue : Color.gray)
+            .background((isValid && !isSubmitting) ? Color.brandAccent : Color.brandTextSecondary)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
           }
           .disabled(!isValid || isSubmitting)
@@ -841,14 +830,14 @@ private struct AddItinerarySheet: View {
 
   private func labeledField(_ title: String, text: Binding<String>, placeholder: String) -> some View {
     VStack(alignment: .leading, spacing: 6) {
-      Text(title).foregroundColor(.white).font(.footnote.weight(.semibold))
+      Text(title).foregroundColor(.brandTextPrimary).font(.brandFootnote.weight(.semibold))
       TextField(placeholder, text: text)
         .textInputAutocapitalization(.never)
         .autocorrectionDisabled(true)
         .keyboardType(.asciiCapable)
-        .foregroundColor(.white)
+        .foregroundColor(.brandTextPrimary)
         .padding(10)
-        .background(Color.white.opacity(0.08))
+        .background(Color.brandSurface)
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
   }
@@ -882,20 +871,20 @@ private struct SegmentEditor: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
       HStack {
-        Text(title).foregroundColor(.white).font(.headline)
+        Text(title).foregroundColor(.brandTextPrimary).font(.brandHeadline)
         Spacer()
       }
 
       ForEach(segments) { seg in
         VStack(alignment: .leading, spacing: 4) {
           Text("\(seg.fromAirport) → \(seg.toAirport) • \(seg.flightNumber)")
-            .foregroundColor(.white)
-            .font(.subheadline)
-          Text("Departs: \(seg.departureDatetime)").foregroundColor(.white.opacity(0.8)).font(.caption)
-          Text("Arrives: \(seg.arrivalDatetime)").foregroundColor(.white.opacity(0.8)).font(.caption)
+            .foregroundColor(.brandTextPrimary)
+            .font(.brandSubheadline)
+          Text("Departs: \(seg.departureDatetime)").foregroundColor(.brandTextPrimary.opacity(0.8)).font(.brandCaption)
+          Text("Arrives: \(seg.arrivalDatetime)").foregroundColor(.brandTextPrimary.opacity(0.8)).font(.brandCaption)
         }
         .padding(8)
-        .background(Color.white.opacity(0.06))
+        .background(Color.brandStrokeSubtle)
         .clipShape(RoundedRectangle(cornerRadius: 8))
       }
 
@@ -907,53 +896,53 @@ private struct SegmentEditor: View {
 
           HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
-              Text("Departure Date").foregroundColor(.white).font(.footnote.weight(.semibold))
+              Text("Departure Date").foregroundColor(.brandTextPrimary).font(.brandFootnote.weight(.semibold))
               DatePicker("", selection: $departureDate, displayedComponents: .date)
                 .labelsHidden()
                 .datePickerStyle(.compact)
-                .tint(.blue)
+                .tint(.brandAccent)
             }
             VStack(alignment: .leading, spacing: 6) {
-              Text("Departure Time").foregroundColor(.white).font(.footnote.weight(.semibold))
+              Text("Departure Time").foregroundColor(.brandTextPrimary).font(.brandFootnote.weight(.semibold))
               DatePicker("", selection: $departureTime, displayedComponents: .hourAndMinute)
                 .labelsHidden()
                 .datePickerStyle(.compact)
-                .tint(.blue)
+                .tint(.brandAccent)
             }
           }
           HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
-              Text("Arrival Date").foregroundColor(.white).font(.footnote.weight(.semibold))
+              Text("Arrival Date").foregroundColor(.brandTextPrimary).font(.brandFootnote.weight(.semibold))
               DatePicker("", selection: $arrivalDate, displayedComponents: .date)
                 .labelsHidden()
                 .datePickerStyle(.compact)
-                .tint(.blue)
+                .tint(.brandAccent)
             }
             VStack(alignment: .leading, spacing: 6) {
-              Text("Arrival Time").foregroundColor(.white).font(.footnote.weight(.semibold))
+              Text("Arrival Time").foregroundColor(.brandTextPrimary).font(.brandFootnote.weight(.semibold))
               DatePicker("", selection: $arrivalTime, displayedComponents: .hourAndMinute)
                 .labelsHidden()
                 .datePickerStyle(.compact)
-                .tint(.blue)
+                .tint(.brandAccent)
             }
           }
 
           Button(action: applySegment) {
-            HStack(spacing: 6) { Text("Apply").font(.footnote.weight(.semibold)) }
-              .foregroundColor(.white)
+            HStack(spacing: 6) { Text("Apply").font(.brandFootnote.weight(.semibold)) }
+              .foregroundColor(.brandTextPrimary)
               .padding(.horizontal, 12)
               .padding(.vertical, 8)
-              .background(Color.blue)
+              .background(Color.brandAccent)
               .clipShape(RoundedRectangle(cornerRadius: 10))
           }
           .disabled(!canAdd)
         } else {
           Button(action: { didApply = false }) {
-            HStack(spacing: 6) { Image(systemName: "plus"); Text("Add another segment").font(.footnote.weight(.semibold)) }
-              .foregroundColor(.white)
+            HStack(spacing: 6) { Image(systemName: "plus"); Text("Add another segment").font(.brandFootnote.weight(.semibold)) }
+              .foregroundColor(.brandTextPrimary)
               .padding(.horizontal, 12)
               .padding(.vertical, 8)
-              .background(Color.white.opacity(0.08))
+              .background(Color.brandSurface)
               .clipShape(RoundedRectangle(cornerRadius: 10))
           }
         }
@@ -1004,14 +993,14 @@ private struct SegmentEditor: View {
 
   private func field(_ title: String, text: Binding<String>, placeholder: String) -> some View {
     VStack(alignment: .leading, spacing: 6) {
-      Text(title).foregroundColor(.white).font(.footnote.weight(.semibold))
+      Text(title).foregroundColor(.brandTextPrimary).font(.brandFootnote.weight(.semibold))
       TextField(placeholder, text: text)
         .textInputAutocapitalization(.characters)
         .autocorrectionDisabled(true)
         .keyboardType(.asciiCapable)
-        .foregroundColor(.white)
+        .foregroundColor(.brandTextPrimary)
         .padding(10)
-        .background(Color.white.opacity(0.08))
+        .background(Color.brandSurface)
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
   }
@@ -1025,12 +1014,12 @@ private struct PhotosPickerButton: View {
     PhotosPicker(selection: $photoItem, matching: .images, photoLibrary: .shared()) {
       HStack(spacing: 6) {
         Image(systemName: "photo.on.rectangle")
-        Text("Pick Photo").font(.footnote.weight(.semibold))
+        Text("Pick Photo").font(.brandFootnote.weight(.semibold))
       }
-      .foregroundColor(.white)
+      .foregroundColor(.brandTextPrimary)
       .padding(.horizontal, 12)
       .padding(.vertical, 8)
-      .background(Color.black)
+      .background(Color.brandBackground)
       .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
     .onChange(of: photoItem) { newItem in
@@ -1083,12 +1072,12 @@ private struct DocumentPickersRow: View {
       Button(action: onDocTap) {
         HStack(spacing: 6) {
           Image(systemName: "doc")
-          Text("Pick Document").font(.footnote.weight(.semibold))
+          Text("Pick Document").font(.brandFootnote.weight(.semibold))
         }
-        .foregroundColor(.white)
+        .foregroundColor(.brandTextPrimary)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Color.blue)
+        .background(Color.brandAccent)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
       }
     }

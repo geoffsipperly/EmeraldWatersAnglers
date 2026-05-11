@@ -16,7 +16,7 @@ struct OpsTicketsListView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.brandBackground.ignoresSafeArea()
 
             if isLoading && tickets.isEmpty {
                 ProgressView()
@@ -24,14 +24,14 @@ struct OpsTicketsListView: View {
             } else if tickets.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "ticket")
-                        .font(.largeTitle)
-                        .foregroundColor(.gray)
+                        .font(.brandLargeTitle)
+                        .foregroundColor(.brandTextSecondary)
                     Text("No tickets yet")
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(.brandHeadline)
+                        .foregroundColor(.brandTextPrimary)
                     Text("Tap + to create your first ticket.")
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
+                        .font(.brandSubheadline)
+                        .foregroundColor(.brandTextSecondary)
                 }
             } else {
                 ticketList
@@ -43,7 +43,7 @@ struct OpsTicketsListView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button { showCreate = true } label: {
                     Image(systemName: "plus")
-                        .foregroundColor(.white)
+                        .foregroundColor(.brandTextPrimary)
                 }
             }
         }
@@ -78,7 +78,7 @@ struct OpsTicketsListView: View {
                             } label: {
                                 ticketRow(ticket)
                             }
-                            .listRowBackground(Color.black)
+                            .listRowBackground(Color.brandBackground)
                         }
                     } header: {
                         stageBadge(stage)
@@ -106,19 +106,19 @@ struct OpsTicketsListView: View {
     private func ticketRow(_ ticket: OpsTicket) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(ticket.taskName)
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(.white)
+                .font(.brandSubheadline.weight(.semibold))
+                .foregroundColor(.brandTextPrimary)
 
             HStack(spacing: 12) {
                 if let owner = ticket.ownerName, !owner.isEmpty {
                     Label(owner, systemImage: "person")
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .font(.brandCaption)
+                        .foregroundColor(.brandTextSecondary)
                 }
                 if let due = ticket.dueDate, !due.isEmpty {
                     Label(due, systemImage: "calendar")
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .font(.brandCaption)
+                        .foregroundColor(.brandTextSecondary)
                 }
             }
         }
@@ -127,8 +127,8 @@ struct OpsTicketsListView: View {
 
     private func stageBadge(_ stage: String) -> some View {
         Text(stageLabel(stage))
-            .font(.caption2.weight(.medium))
-            .foregroundColor(.black)
+            .font(.brandCaption2.weight(.medium))
+            .foregroundColor(.brandTextOnLight)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(stageColor(stage), in: Capsule())

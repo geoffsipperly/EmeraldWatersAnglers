@@ -5,8 +5,21 @@ import Foundation
 import UIKit
 
 // MARK: - Upload service for farmed reports
+//
+// Explicitly `nonisolated`: the project sets SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor,
+// which would otherwise make this class `@MainActor`. That routes its deinit through
+// `swift_task_deinitOnExecutorMainActorBackDeploy`, which hits a TaskLocal scope
+// double-free in iOS 26.2 simruntime when the enclosing SwiftUI View is destroyed.
+// The class has no stored properties that require main-thread access, so nonisolated
+// is the semantically correct choice.
 
-final class UploadFarmedReports {
+nonisolated final class UploadFarmedReports {
+
+  private static let sharedEncoder: JSONEncoder = {
+    let e = JSONEncoder()
+    e.outputFormatting = [.withoutEscapingSlashes]
+    return e
+  }()
 
   // MARK: - Error types
 
@@ -46,6 +59,7 @@ final class UploadFarmedReports {
     let guideName: String?
     let river: String
     let meta: MetaDTO
+    let mlTrainingOptOut: Bool?
   }
 
   private struct MetaDTO: Codable {
@@ -123,7 +137,7 @@ final class UploadFarmedReports {
     let name = RiverLocator.shared.riverName(near: location)
     if name.isEmpty {
       return WaterBodyLocator.shared.waterBodyName(at: location)
-             ?? CommunityService.shared.activeCommunityConfig.resolvedDefaultRiver
+             ?? CommunityService.shared.activeCommunityConfigSnapshot.resolvedDefaultRiver
              ?? "Unknown"
     }
     return name
@@ -151,14 +165,9 @@ final class UploadFarmedReports {
     // Filter to reports with GPS coordinates
     let withGPS = pending.filter { $0.lat != nil && $0.lon != nil }
 
-    #if DEBUG
-    let skipped = pending.count - withGPS.count
-    if skipped > 0 {
-      for report in pending where report.lat == nil || report.lon == nil {
-        print("[UploadFarmedReports] Skipping report \(report.id) — no GPS coordinates")
-      }
+    for report in pending where report.lat == nil || report.lon == nil {
+      AppLogging.log("[UploadFarmedReports] Skipping report \(report.id) — no GPS coordinates", level: .warn, category: .upload)
     }
-    #endif
 
     guard !withGPS.isEmpty else {
       completion(.failure(UploadError.encodingFailed("No reports have GPS coordinates")))
@@ -166,13 +175,14 @@ final class UploadFarmedReports {
     }
 
     // Build DTOs (only after confirming we have reports to send)
-    let isoFormatter = ISO8601DateFormatter()
-    isoFormatter.formatOptions = [.withInternetDateTime]
+    let isoFormatter = DateFormatting.iso8601
 
     let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
-    let device = "\(UIDevice.current.model) \(UIDevice.current.systemVersion)"
+    // UIDevice.current is MainActor-isolated by Apple; use the cached snapshot
+    // from UploadCatchReport.Config to avoid the cross-actor read here.
+    let device = UploadCatchReport.Config.defaultDeviceDescription
 
-    let communityId = CommunityService.shared.activeCommunityId
+    let communityId = CommunityService.shared.activeCommunityIdSnapshot
 
     let dtos: [NoCatchReportDTO] = withGPS.map { report in
       let river = Self.resolveRiverName(lat: report.lat!, lon: report.lon!)
@@ -190,13 +200,13 @@ final class UploadFarmedReports {
           appVersion: appVersion,
           device: device,
           platform: "iOS"
-        )
+        ),
+        mlTrainingOptOut: report.mlTrainingOptOut
       )
     }
 
-    // Encode
-    let encoder = JSONEncoder()
-    encoder.outputFormatting = [.withoutEscapingSlashes]
+    // Encode (reuse static instance)
+    let encoder = Self.sharedEncoder
 
     let bodyData: Data
     do {
@@ -208,7 +218,7 @@ final class UploadFarmedReports {
 
     #if DEBUG
     if let jsonString = String(data: bodyData, encoding: .utf8) {
-      AppLogging.log("[UploadFarmedReports] Payload (\(bodyData.count) bytes):\n\(jsonString.prefix(2000))", level: .debug, category: .network)
+      AppLogging.log({ "[UploadFarmedReports] Payload (\(bodyData.count) bytes):\n\(jsonString.prefix(2000))" }, level: .debug, category: .network)
     }
     #endif
 
@@ -234,7 +244,7 @@ final class UploadFarmedReports {
       let body = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
 
       #if DEBUG
-      AppLogging.log("[UploadFarmedReports] Response \(statusCode): \(body.prefix(1000))", level: .debug, category: .network)
+      AppLogging.log({ "[UploadFarmedReports] Response \(statusCode): \(body.prefix(1000))" }, level: .debug, category: .network)
       #endif
 
       guard (200...299).contains(statusCode) else {

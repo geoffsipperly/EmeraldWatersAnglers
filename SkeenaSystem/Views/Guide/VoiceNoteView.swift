@@ -10,8 +10,8 @@ import SwiftUI
 // MARK: - Debug (OFF by default)
 
 // =====================================================
-private let DEBUG_NOTES_LOGGING = false
-@inline(__always) private func VLog(_ msg: @autoclosure () -> String) {
+nonisolated private let DEBUG_NOTES_LOGGING = false
+@inline(__always) private nonisolated func VLog(_ msg: @autoclosure () -> String) {
   if DEBUG_NOTES_LOGGING { print("🧭 VoiceNote | \(msg())") }
 }
 
@@ -21,7 +21,7 @@ private let DEBUG_NOTES_LOGGING = false
 // =====================================================
 enum VoiceNoteStatus: String, Codable { case savedPendingUpload, uploaded }
 
-struct LocalVoiceNote: Identifiable, Codable, Equatable {
+nonisolated struct LocalVoiceNote: Identifiable, Codable, Equatable, Sendable {
   let id: UUID
   var createdAt: Date
   var durationSec: Double?
@@ -43,11 +43,26 @@ struct LocalVoiceNote: Identifiable, Codable, Equatable {
 // MARK: - Storage
 
 // =====================================================
-final class VoiceNoteStore: ObservableObject {
+/// `nonisolated` so the upload pipeline can read voice-note metadata
+/// synchronously. All mutations write through `setNotesOnMain`. See
+/// `CatchReportStore` for the full pattern rationale.
+nonisolated final class VoiceNoteStore: ObservableObject, @unchecked Sendable {
   static let shared = VoiceNoteStore()
-  @Published private(set) var notes: [LocalVoiceNote] = []
 
-  private let fm = FileManager.default
+  // See `CatchReportStore` for why we drive the publisher manually instead
+  // of using `@Published` (property wrappers don't combine with `nonisolated`).
+  private let _notes = CurrentValueSubject<[LocalVoiceNote], Never>([])
+  private(set) var notes: [LocalVoiceNote] {
+    get { _notes.value }
+    set {
+      objectWillChange.send()
+      _notes.send(newValue)
+    }
+  }
+  var notesPublisher: AnyPublisher<[LocalVoiceNote], Never> { _notes.eraseToAnyPublisher() }
+
+  // FileManager isn't formally Sendable but `.default` is safe to share.
+  nonisolated(unsafe) private let fm = FileManager.default
   private let notesDirName = "VoiceNotes"
   private var notesDirURL: URL {
     fm.urls(for: .documentDirectory, in: .userDomainMask).first!
@@ -83,10 +98,20 @@ final class VoiceNoteStore: ObservableObject {
           try? fm.moveItem(at: url, to: bad)
         }
       }
-      notes = loaded.sorted(by: { $0.createdAt > $1.createdAt })
+      setNotesOnMain(loaded.sorted(by: { $0.createdAt > $1.createdAt }))
       VLog("Loaded \(notes.count) notes from disk")
     } catch {
       VLog("ERROR listing notes dir: \(error.localizedDescription)")
+    }
+  }
+
+  /// Set `notes` on the main thread. Mirrors `CatchReportStore.setReportsOnMain`
+  /// — runs synchronously when already on main to avoid async ordering races.
+  private func setNotesOnMain(_ newValue: [LocalVoiceNote]) {
+    if Thread.isMainThread {
+      self.notes = newValue
+    } else {
+      DispatchQueue.main.async { self.notes = newValue }
     }
   }
 
@@ -509,12 +534,12 @@ struct MicRippleView: View {
   var body: some View {
     ZStack {
       Circle()
-        .strokeBorder(Color.white.opacity(0.25), lineWidth: 2)
+        .strokeBorder(Color.brandTextPrimary.opacity(0.25), lineWidth: 2)
         .scaleEffect(0.9 + 0.25 * max(0, min(1, level)))
         .opacity(0.4 + 0.3 * Double(level))
 
       Circle()
-        .fill(Color.white.opacity(0.10))
+        .fill(Color.brandTextPrimary.opacity(0.10))
         .frame(width: 110, height: 110)
 
       Image(systemName: "mic.fill")
@@ -542,7 +567,7 @@ struct VoiceNoteView: View {
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
       VStack(spacing: 14) {
         topBar
         Spacer(minLength: 8)
@@ -555,23 +580,23 @@ struct VoiceNoteView: View {
         if recorder.isRecording { actionBar }
 
         if let msg = errorMessage {
-          Text(msg).font(.footnote).foregroundColor(.red).multilineTextAlignment(.center).padding(.top, 4)
+          Text(msg).font(.brandFootnote).foregroundColor(.brandError).multilineTextAlignment(.center).padding(.top, 4)
         } else if let summary = uploadSummary {
-          Text(summary).font(.footnote).foregroundColor(.green).multilineTextAlignment(.center).padding(.top, 4)
+          Text(summary).font(.brandFootnote).foregroundColor(.brandSuccess).multilineTextAlignment(.center).padding(.top, 4)
         }
 
         Spacer(minLength: 10)
       }
       .padding(.horizontal, 16)
       .padding(.top, 12)
-      .foregroundColor(.white)
+      .foregroundColor(.brandTextPrimary)
       .disabled(isUploading)
       .overlay {
         if isUploading {
           ProgressView("Uploading…")
             .progressViewStyle(.circular)
             .padding(14)
-            .background(Color.black.opacity(0.7))
+            .background(Color.brandScrim.opacity(0.7))
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
       }
@@ -587,12 +612,9 @@ struct VoiceNoteView: View {
       Button {
         dismiss()
       } label: {
-        HStack(spacing: 6) {
-          Image(systemName: "chevron.left").font(.headline.weight(.bold))
-          Text("Back").font(.subheadline.weight(.semibold))
-        }
+        Image(systemName: "chevron.left").font(.brandHeadline.weight(.bold))
         .padding(.horizontal, 12).padding(.vertical, 8)
-        .background(Color.white.opacity(0.12))
+        .background(Color.brandStroke)
         .clipShape(Capsule())
       }
 
@@ -601,7 +623,7 @@ struct VoiceNoteView: View {
       // Upload icon (uploads all pending)
       Button(action: startUploadAll) {
         Image(systemName: "arrow.up.circle.fill")
-          .font(.title2)
+          .font(.brandTitle2)
       }
       .accessibilityIdentifier("uploadAllNotesButton")
     }
@@ -614,16 +636,16 @@ struct VoiceNoteView: View {
         .shadow(radius: 8).padding(.bottom, 6)
 
       Text(CommunityService.shared.activeCommunityName)
-        .font(.largeTitle)
+        .font(.brandLargeTitle)
         .fontWeight(.bold)
         .multilineTextAlignment(.center)
         .padding(.horizontal)
-        .foregroundColor(.white)
+        .foregroundColor(.brandTextPrimary)
 
       Text("Steelhead Paradise")
-        .font(.title3)
+        .font(.brandTitle3)
         .fontWeight(.medium)
-        .foregroundColor(.gray)
+        .foregroundColor(.brandTextSecondary)
         .multilineTextAlignment(.center)
     }
   }
@@ -634,7 +656,7 @@ struct VoiceNoteView: View {
       // Start recording
       Button(action: startRecordingTapped) {
         ZStack {
-          Circle().fill(Color.white.opacity(0.10)).frame(width: 96, height: 96)
+          Circle().fill(Color.brandTextPrimary.opacity(0.10)).frame(width: 96, height: 96)
           Image(systemName: "mic.fill").font(.system(size: 34, weight: .bold))
         }
       }
@@ -642,7 +664,7 @@ struct VoiceNoteView: View {
 
       // Recent notes (last two)
       if store.lastTwo().isEmpty {
-        Text("No notes yet").foregroundColor(.gray)
+        Text("No notes yet").foregroundColor(.brandTextSecondary)
       } else {
         VStack(spacing: 8) {
           ForEach(store.lastTwo()) { note in
@@ -655,10 +677,10 @@ struct VoiceNoteView: View {
         Button {
           showAllNotes = true
         } label: {
-          Text("Show more").font(.footnote.weight(.semibold))
-            .foregroundColor(.white)
+          Text("Show more").font(.brandFootnote.weight(.semibold))
+            .foregroundColor(.brandTextPrimary)
             .padding(.horizontal, 10).padding(.vertical, 6)
-            .background(Color.white.opacity(0.12)).clipShape(Capsule())
+            .background(Color.brandStroke).clipShape(Capsule())
         }
         .sheet(isPresented: $showAllNotes) { NoteListView() }
       }
@@ -670,9 +692,9 @@ struct VoiceNoteView: View {
       MicRippleView(level: recorder.meterLevel)
       ScrollView {
         Text(recorder.partialTranscript.isEmpty ? "Listening…" : recorder.partialTranscript)
-          .font(.body).foregroundColor(.white)
+          .font(.brandBody).foregroundColor(.brandTextPrimary)
           .frame(maxWidth: .infinity, alignment: .leading)
-          .padding().background(Color.white.opacity(0.06))
+          .padding().background(Color.brandStrokeSubtle)
           .clipShape(RoundedRectangle(cornerRadius: 12))
       }
       .frame(maxHeight: 240)
@@ -680,16 +702,16 @@ struct VoiceNoteView: View {
       if recorder.isPaused {
         Button(action: resumeTapped) {
           HStack(spacing: 8) { Image(systemName: "play.fill"); Text("Resume") }
-            .font(.headline.weight(.semibold))
+            .font(.brandHeadline.weight(.semibold))
             .padding(.horizontal, 16).padding(.vertical, 10)
-            .background(Color.white.opacity(0.12)).clipShape(Capsule())
+            .background(Color.brandStroke).clipShape(Capsule())
         }
       } else {
         Button(action: pauseTapped) {
           HStack(spacing: 8) { Image(systemName: "pause.fill"); Text("Pause") }
-            .font(.headline.weight(.semibold))
+            .font(.brandHeadline.weight(.semibold))
             .padding(.horizontal, 16).padding(.vertical, 10)
-            .background(Color.white.opacity(0.12)).clipShape(Capsule())
+            .background(Color.brandStroke).clipShape(Capsule())
         }
       }
     }
@@ -699,15 +721,15 @@ struct VoiceNoteView: View {
     HStack(spacing: 12) {
       Button(role: .destructive) { discardTapped() } label: {
         Text("Discard")
-          .font(.headline.weight(.semibold))
+          .font(.brandHeadline.weight(.semibold))
           .frame(maxWidth: .infinity).padding(.vertical, 12)
-          .background(Color.white.opacity(0.06)).clipShape(RoundedRectangle(cornerRadius: 12))
+          .background(Color.brandStrokeSubtle).clipShape(RoundedRectangle(cornerRadius: 12))
       }
       Button { saveTapped() } label: {
         Text("Save")
-          .font(.headline.weight(.semibold))
+          .font(.brandHeadline.weight(.semibold))
           .frame(maxWidth: .infinity).padding(.vertical, 12)
-          .background(Color.white.opacity(0.18)).clipShape(RoundedRectangle(cornerRadius: 12))
+          .background(Color.brandTextPrimary.opacity(0.18)).clipShape(RoundedRectangle(cornerRadius: 12))
       }
       .accessibilityIdentifier("saveNoteButton")
     }
@@ -717,29 +739,29 @@ struct VoiceNoteView: View {
   private func noteRow(_ note: LocalVoiceNote) -> some View {
     HStack(spacing: 12) {
       Image(systemName: "waveform")
-        .font(.title3.weight(.semibold))
+        .font(.brandTitle3.weight(.semibold))
         .frame(width: 28, height: 28)
         .padding(10)
-        .background(Color.white.opacity(0.12))
+        .background(Color.brandStroke)
         .clipShape(RoundedRectangle(cornerRadius: 10))
 
       VStack(alignment: .leading, spacing: 4) {
-        Text(note.createdAt, style: .date).font(.subheadline.weight(.semibold))
+        Text(note.createdAt, style: .date).font(.brandSubheadline.weight(.semibold))
         Text(note.transcript.isEmpty ? "(no transcript)" : note.transcript)
-          .font(.footnote).lineLimit(1).foregroundColor(.white.opacity(0.9))
+          .font(.brandFootnote).lineLimit(1).foregroundColor(.brandTextPrimary.opacity(0.9))
       }
       Spacer()
       Text(note.status == .uploaded ? "uploaded" : "saved locally")
-        .font(.caption2.weight(.bold))
+        .font(.brandCaption2.weight(.bold))
         .padding(.horizontal, 8).padding(.vertical, 4)
-        .background(note.status == .uploaded ? Color.green.opacity(0.22) : Color.white.opacity(0.12))
+        .background(note.status == .uploaded ? Color.brandSuccess.opacity(0.22) : Color.brandStroke)
         .clipShape(Capsule())
     }
     .padding(.vertical, 12)
     .padding(.horizontal, 14)
-    .background(Color.white.opacity(0.06))
+    .background(Color.brandStrokeSubtle)
     .clipShape(RoundedRectangle(cornerRadius: 12))
-    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.10), lineWidth: 1))
+    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandTextPrimary.opacity(0.10), lineWidth: 1))
     .contextMenu {
       if note.status == .savedPendingUpload {
         Button {
@@ -866,7 +888,7 @@ struct NoteListView: View {
   var body: some View {
     NavigationView {
       ZStack {
-        Color.black.ignoresSafeArea()
+        Color.brandBackground.ignoresSafeArea()
         listContent()
       }
       .navigationTitle("Note History")
@@ -876,14 +898,11 @@ struct NoteListView: View {
           Button {
             dismiss()
           } label: {
-            HStack(spacing: 6) {
-              Image(systemName: "chevron.left").font(.headline.weight(.bold))
-              Text("Back").font(.subheadline.weight(.semibold))
-            }
+            Image(systemName: "chevron.left").font(.brandHeadline.weight(.bold))
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(Color.white.opacity(0.12))
-            .foregroundColor(.white)
+            .background(Color.brandStroke)
+            .foregroundColor(.brandTextPrimary)
             .clipShape(Capsule())
           }
         }
@@ -905,19 +924,19 @@ struct NoteListView: View {
         HStack {
           VStack(alignment: .leading, spacing: 4) {
             Text(note.createdAt, style: .date)
-              .font(.subheadline.weight(.semibold))
-              .foregroundColor(.white)
+              .font(.brandSubheadline.weight(.semibold))
+              .foregroundColor(.brandTextPrimary)
             Text(note.transcript.isEmpty ? "(no transcript)" : note.transcript)
-              .font(.footnote)
-              .foregroundColor(.white.opacity(0.9))
+              .font(.brandFootnote)
+              .foregroundColor(.brandTextPrimary.opacity(0.9))
               .lineLimit(2)
           }
           Spacer()
           Text(note.status == .uploaded ? "uploaded" : "saved locally")
-            .font(.caption2.weight(.bold))
-            .foregroundColor(.white)
+            .font(.brandCaption2.weight(.bold))
+            .foregroundColor(.brandTextPrimary)
             .padding(.horizontal, 8).padding(.vertical, 4)
-            .background(note.status == .uploaded ? Color.green.opacity(0.25) : Color.white.opacity(0.15))
+            .background(note.status == .uploaded ? Color.brandSuccess.opacity(0.25) : Color.brandStrokeStrong)
             .clipShape(Capsule())
         }
         .contentShape(Rectangle())

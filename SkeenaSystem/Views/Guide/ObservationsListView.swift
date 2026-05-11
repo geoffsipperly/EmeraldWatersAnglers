@@ -10,7 +10,7 @@ private struct DarkDetailTextEditor: UIViewRepresentable {
 
   func makeUIView(context: Context) -> UITextView {
     let tv = UITextView()
-    tv.backgroundColor = UIColor.white.withAlphaComponent(0.08)
+    tv.backgroundColor = UIColor.brandSurface
     tv.textColor = .white
     tv.font = UIFont.preferredFont(forTextStyle: .body)
     tv.isEditable = true
@@ -71,8 +71,10 @@ struct ObservationsListView: View {
   // MARK: - Filtering
 
   private func isArchived(_ obs: Observation) -> Bool {
-    let twoWeeksAgo = Calendar.current.date(byAdding: .day, value: -14, to: Date()) ?? Date.distantPast
-    return obs.createdAt < twoWeeksAgo
+    AppEnvironment.shared.shouldArchive(
+      uploaded: obs.status == .uploaded,
+      createdAt: obs.createdAt
+    )
   }
 
   private var activeObservations: [Observation] {
@@ -111,13 +113,13 @@ struct ObservationsListView: View {
           VStack(spacing: 12) {
             Image(systemName: "waveform")
               .font(.system(size: 48))
-              .foregroundColor(.gray)
+              .foregroundColor(.brandTextSecondary)
             Text("No observations yet")
-              .font(.headline)
-              .foregroundColor(.gray)
+              .font(.brandHeadline)
+              .foregroundColor(.brandTextSecondary)
             Text("Record a field observation to get started.")
-              .font(.subheadline)
-              .foregroundColor(.gray.opacity(0.7))
+              .font(.brandSubheadline)
+              .foregroundColor(.brandTextSecondary.opacity(0.7))
           }
         } else {
           List {
@@ -126,15 +128,15 @@ struct ObservationsListView: View {
               Section {
                 ForEach(grouped(pendingObservations), id: \.date) { group in
                   Text(group.date)
-                    .font(.caption)
-                    .foregroundColor(.gray)
-                    .listRowBackground(Color.black)
+                    .font(.brandCaption)
+                    .foregroundColor(.brandTextSecondary)
+                    .listRowBackground(Color.brandBackground)
 
                   ForEach(group.items) { obs in
                     NavigationLink(destination: ObservationDetailView(observation: obs)) {
                       ObservationRow(observation: obs)
                     }
-                    .listRowBackground(Color.black)
+                    .listRowBackground(Color.brandBackground)
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                       Button(role: .destructive) {
                         // Delete audio too
@@ -163,15 +165,15 @@ struct ObservationsListView: View {
               Section {
                 ForEach(grouped(uploadedObservations), id: \.date) { group in
                   Text(group.date)
-                    .font(.caption)
-                    .foregroundColor(.gray)
-                    .listRowBackground(Color.black)
+                    .font(.brandCaption)
+                    .foregroundColor(.brandTextSecondary)
+                    .listRowBackground(Color.brandBackground)
 
                   ForEach(group.items) { obs in
                     NavigationLink(destination: ObservationDetailView(observation: obs)) {
                       ObservationRow(observation: obs)
                     }
-                    .listRowBackground(Color.black)
+                    .listRowBackground(Color.brandBackground)
                   }
                 }
               } header: {
@@ -189,15 +191,15 @@ struct ObservationsListView: View {
                 NavigationLink(destination: ObservationArchiveListView(observations: archivedObservations)) {
                   HStack {
                     Image(systemName: "archivebox")
-                      .foregroundColor(.gray)
+                      .foregroundColor(.brandTextSecondary)
                     Text("Archived observations")
-                      .foregroundColor(.white)
+                      .foregroundColor(.brandTextPrimary)
                     Spacer()
                     Text("\(archivedObservations.count)")
-                      .foregroundColor(.gray)
+                      .foregroundColor(.brandTextSecondary)
                   }
                 }
-                .listRowBackground(Color.black)
+                .listRowBackground(Color.brandBackground)
               }
             }
           }
@@ -213,12 +215,12 @@ struct ObservationsListView: View {
               ProgressView()
                 .tint(.white)
               Text("Uploading… \(Int(uploadProgress * 100))%")
-                .font(.footnote.weight(.semibold))
-                .foregroundColor(.white)
+                .font(.brandFootnote.weight(.semibold))
+                .foregroundColor(.brandTextPrimary)
               Spacer()
             }
             .padding()
-            .background(Color.blue.opacity(0.9))
+            .background(Color.brandAccent.opacity(0.9))
             .cornerRadius(12)
             .padding()
           }
@@ -230,18 +232,10 @@ struct ObservationsListView: View {
     .toolbar {
       ToolbarItem(placement: .navigationBarTrailing) {
         Button {
-          showRecordObservation = true
-        } label: {
-          Image(systemName: "plus")
-            .font(.title3)
-        }
-      }
-      ToolbarItem(placement: .navigationBarTrailing) {
-        Button {
           startUpload()
         } label: {
           Image(systemName: "arrow.up.circle")
-            .font(.title3)
+            .font(.brandTitle3)
         }
         .disabled(pendingObservations.isEmpty || isUploading)
       }
@@ -262,7 +256,7 @@ struct ObservationsListView: View {
 
   private func statusPill(_ text: String, color: Color) -> some View {
     Text(text)
-      .font(.caption2.weight(.semibold))
+      .font(.brandCaption2.weight(.semibold))
       .padding(.horizontal, 8)
       .padding(.vertical, 3)
       .background(color.opacity(0.2))
@@ -279,8 +273,14 @@ struct ObservationsListView: View {
     Task {
       await AuthStore.shared.refreshFromSupabase()
 
+      // v5: read the member_number on MainActor and pass it through. The
+      // uploader is intentionally `nonisolated` and cannot touch
+      // AuthService.shared directly.
+      let memberId = AuthService.shared.currentMemberId ?? ""
+
       uploader.upload(
         observations: pendingObservations,
+        memberId: memberId,
         progress: { p in
           DispatchQueue.main.async { self.uploadProgress = p }
         },
@@ -311,19 +311,19 @@ private struct ObservationRow: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
       Text(observation.transcript.isEmpty ? "No transcript" : observation.transcript)
-        .font(.body)
-        .foregroundColor(.white)
+        .font(.brandBody)
+        .foregroundColor(.brandTextPrimary)
         .lineLimit(2)
 
       HStack {
         Text(Self.timeFormatter.string(from: observation.createdAt))
-          .font(.caption)
-          .foregroundColor(.gray)
+          .font(.brandCaption)
+          .foregroundColor(.brandTextSecondary)
 
         if observation.lat != nil {
           Image(systemName: "location.fill")
-            .font(.caption2)
-            .foregroundColor(.gray)
+            .font(.brandCaption2)
+            .foregroundColor(.brandTextSecondary)
         }
 
         Spacer()
@@ -366,26 +366,26 @@ struct ObservationDetailView: View {
           )
           Spacer()
           Text(Self.dateFormatter.string(from: observation.createdAt))
-            .font(.caption)
-            .foregroundColor(.gray)
+            .font(.brandCaption)
+            .foregroundColor(.brandTextSecondary)
         }
 
         // Transcript
         VStack(alignment: .leading, spacing: 4) {
           Text("Transcript")
-            .font(.caption)
-            .foregroundColor(.gray)
+            .font(.brandCaption)
+            .foregroundColor(.brandTextSecondary)
 
           if canEdit {
             DarkDetailTextEditor(text: $editedTranscript)
               .frame(minHeight: 120)
           } else {
             Text(observation.transcript.isEmpty ? "No transcript" : observation.transcript)
-              .font(.body)
-              .foregroundColor(.white.opacity(0.9))
+              .font(.brandBody)
+              .foregroundColor(.brandTextPrimary.opacity(0.9))
               .padding()
               .frame(maxWidth: .infinity, alignment: .leading)
-              .background(Color.white.opacity(0.08))
+              .background(Color.brandSurface)
               .cornerRadius(12)
           }
         }
@@ -394,22 +394,22 @@ struct ObservationDetailView: View {
         if let noteId = observation.voiceNoteId {
           VStack(alignment: .leading, spacing: 4) {
             Text("Voice Memo")
-              .font(.caption)
-              .foregroundColor(.gray)
+              .font(.brandCaption)
+              .foregroundColor(.brandTextSecondary)
 
             Button {
               playAudio(noteId: noteId)
             } label: {
               HStack {
                 Image(systemName: "play.circle.fill")
-                  .font(.title2)
+                  .font(.brandTitle2)
                 Text("Play recording")
-                  .font(.subheadline)
+                  .font(.brandSubheadline)
               }
-              .foregroundColor(.blue)
+              .foregroundColor(.brandAccent)
               .padding()
               .frame(maxWidth: .infinity, alignment: .leading)
-              .background(Color.white.opacity(0.08))
+              .background(Color.brandSurface)
               .cornerRadius(12)
             }
           }
@@ -419,24 +419,24 @@ struct ObservationDetailView: View {
         if let lat = observation.lat, let lon = observation.lon {
           VStack(alignment: .leading, spacing: 4) {
             Text("Location")
-              .font(.caption)
-              .foregroundColor(.gray)
+              .font(.brandCaption)
+              .foregroundColor(.brandTextSecondary)
 
             HStack {
               Image(systemName: "location.fill")
-                .foregroundColor(.blue)
+                .foregroundColor(.brandAccent)
               Text(String(format: "%.4f, %.4f", lat, lon))
-                .font(.footnote)
-                .foregroundColor(.white.opacity(0.8))
+                .font(.brandFootnote)
+                .foregroundColor(.brandTextPrimary.opacity(0.8))
               if let acc = observation.horizontalAccuracy {
                 Text("(±\(Int(acc))m)")
-                  .font(.caption)
-                  .foregroundColor(.gray)
+                  .font(.brandCaption)
+                  .foregroundColor(.brandTextSecondary)
               }
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white.opacity(0.08))
+            .background(Color.brandSurface)
             .cornerRadius(12)
           }
         }
@@ -449,18 +449,18 @@ struct ObservationDetailView: View {
             showSavedAlert = true
           } label: {
             Text("Save Changes")
-              .font(.headline)
+              .font(.brandHeadline)
               .frame(maxWidth: .infinity)
               .padding()
-              .background(Color.blue)
-              .foregroundColor(.white)
+              .background(Color.brandAccent)
+              .foregroundColor(.brandTextPrimary)
               .cornerRadius(12)
           }
         }
       }
       .padding()
     }
-    .background(Color.black.ignoresSafeArea())
+    .background(Color.brandBackground.ignoresSafeArea())
     .navigationTitle("Observation")
     .preferredColorScheme(.dark)
     .alert("Saved", isPresented: $showSavedAlert) {
@@ -486,7 +486,7 @@ struct ObservationDetailView: View {
 
   private func statusPill(_ text: String, color: Color) -> some View {
     Text(text)
-      .font(.caption2.weight(.semibold))
+      .font(.brandCaption2.weight(.semibold))
       .padding(.horizontal, 8)
       .padding(.vertical, 3)
       .background(color.opacity(0.2))
@@ -513,12 +513,12 @@ private struct ObservationArchiveListView: View {
         NavigationLink(destination: ObservationDetailView(observation: obs)) {
           ObservationRow(observation: obs)
         }
-        .listRowBackground(Color.black)
+        .listRowBackground(Color.brandBackground)
       }
     }
     .listStyle(.plain)
     .onAppear { UITableView.appearance().backgroundColor = .clear }
-    .background(Color.black.ignoresSafeArea())
+    .background(Color.brandBackground.ignoresSafeArea())
     .navigationTitle("Archived Observations")
     .preferredColorScheme(.dark)
   }

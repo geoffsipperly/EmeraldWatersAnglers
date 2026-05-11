@@ -70,6 +70,38 @@ struct FishingForecastRequestView: View {
     return url
   }
 
+  // MARK: - Ordering
+
+  /// Orders water sources for the conditions list by metric availability,
+  /// then alphabetically (case-insensitive) within each bucket. Buckets:
+  ///   0 — both water level and water temperature available
+  ///   1 — water level only
+  ///   2 — water temperature only
+  ///   3 — neither (or no batch entry yet)
+  ///
+  /// Exposed as a `static` taking closures so the regression test can pin
+  /// the bucketing without standing up `BatchCondition` (a private type)
+  /// or the full view.
+  static func sortByConditions(
+    sources: [String],
+    hasLevel: (String) -> Bool,
+    hasTemp: (String) -> Bool
+  ) -> [String] {
+    func bucket(_ name: String) -> Int {
+      switch (hasLevel(name), hasTemp(name)) {
+      case (true, true):   return 0
+      case (true, false):  return 1
+      case (false, true):  return 2
+      case (false, false): return 3
+      }
+    }
+    return sources.sorted { lhs, rhs in
+      let (a, b) = (bucket(lhs), bucket(rhs))
+      if a != b { return a < b }
+      return lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
+    }
+  }
+
   // MARK: - State
 
   @State private var loadingRiver: String?
@@ -95,22 +127,31 @@ struct FishingForecastRequestView: View {
           AppHeader()
             .padding(.top, 20)
 
-          // Water body rows — rivers + water bodies, stacked vertically
+          // Water body rows — rivers + water bodies, stacked vertically.
+          // Ordered by metric availability so guides land on the most-
+          // useful fisheries first; ties break alphabetically. Pre-batch
+          // (empty `batchConditions`) every source falls into the "neither"
+          // bucket, so the list reads alphabetically until the batch
+          // arrives, then re-sorts.
           let rivers = CommunityService.shared.activeCommunityConfig.resolvedLodgeRivers
           let waterBodies = CommunityService.shared.activeCommunityConfig.resolvedLodgeWaterBodies
-          let allWaterSources = (rivers + waterBodies).sorted()
+          let allWaterSources = Self.sortByConditions(
+            sources: rivers + waterBodies,
+            hasLevel: { batchConditions[$0]?.waterLevelFt != nil },
+            hasTemp: { batchConditions[$0]?.waterTempC != nil }
+          )
 
           if allWaterSources.isEmpty {
             VStack(spacing: 12) {
               Image(systemName: "mappin.slash")
-                .font(.title)
-                .foregroundColor(.gray)
+                .font(.brandTitle)
+                .foregroundColor(.brandTextSecondary)
               Text("No locations configured")
-                .font(.headline)
-                .foregroundColor(.white)
+                .font(.brandHeadline)
+                .foregroundColor(.brandTextPrimary)
               Text("Please contact your community administrator.")
-                .font(.subheadline)
-                .foregroundColor(.gray)
+                .font(.brandSubheadline)
+                .foregroundColor(.brandTextSecondary)
                 .multilineTextAlignment(.center)
             }
             .padding(.vertical, 40)
@@ -122,12 +163,12 @@ struct FishingForecastRequestView: View {
                 Spacer()
                 HStack(spacing: 12) {
                   Text("Level")
-                    .font(.caption2)
-                    .foregroundColor(.gray)
+                    .font(.brandCaption2)
+                    .foregroundColor(.brandTextSecondary)
                     .frame(width: 70, alignment: .center)
                   Text("Temp")
-                    .font(.caption2)
-                    .foregroundColor(.gray)
+                    .font(.brandCaption2)
+                    .foregroundColor(.brandTextSecondary)
                     .frame(width: 70, alignment: .center)
                 }
                 // Match chevron + padding space
@@ -150,8 +191,8 @@ struct FishingForecastRequestView: View {
           // Station note (from xcconfig) — only show when locations are configured
           if !allWaterSources.isEmpty, let notes = Bundle.main.object(forInfoDictionaryKey: "FORECAST_NOTES") as? String, !notes.isEmpty {
             Text(notes)
-              .font(.caption2)
-              .foregroundColor(.gray)
+              .font(.brandCaption2)
+              .foregroundColor(.brandTextSecondary)
               .multilineTextAlignment(.center)
               .padding(.horizontal, 24)
           }
@@ -163,11 +204,11 @@ struct FishingForecastRequestView: View {
             } label: {
               HStack(spacing: 6) {
                 Image(systemName: "cloud.sun.rain")
-                  .font(.subheadline)
+                  .font(.brandSubheadline)
                 Text("Get extended forecast")
-                  .font(.subheadline.weight(.medium))
+                  .font(.brandSubheadline.weight(.medium))
               }
-              .foregroundColor(.blue)
+              .foregroundColor(.brandAccent)
             }
             .buttonStyle(.plain)
           }
@@ -175,8 +216,8 @@ struct FishingForecastRequestView: View {
           // Error (if any)
           if let err = errorText {
             Text(err)
-              .font(.caption)
-              .foregroundColor(.red.opacity(0.9))
+              .font(.brandCaption)
+              .foregroundColor(.brandError.opacity(0.9))
               .multilineTextAlignment(.center)
               .padding(.horizontal, 20)
           }
@@ -188,6 +229,18 @@ struct FishingForecastRequestView: View {
     .task { fetchBatchConditions() }
     .navigationTitle("Conditions")
     .navigationBarBackButtonHidden(true)
+    .toolbar {
+      ToolbarItem(placement: .navigationBarLeading) {
+        Button {
+          dismiss()
+        } label: {
+          Image(systemName: "chevron.left")
+            .foregroundColor(.brandTextPrimary)
+        }
+        .accessibilityIdentifier("conditionsBackButton")
+        .accessibilityLabel("Back")
+      }
+    }
     .navigationDestination(isPresented: $goToResult) {
       if let res = result {
         FishingForecastResultView(result: res)
@@ -202,31 +255,42 @@ struct FishingForecastRequestView: View {
     HStack(spacing: 0) {
       // River name — left-justified
       Text(name)
-        .font(.subheadline.weight(.semibold))
-        .foregroundColor(.white)
+        .font(.brandSubheadline.weight(.semibold))
+        .foregroundColor(.brandTextPrimary)
         .lineLimit(1)
 
       Spacer(minLength: 12)
 
-      // Metrics from batch response (or loading placeholder)
+      // Metrics from batch response (or loading placeholder). Backend always
+      // returns water level in feet and temperature in °C; we display in the
+      // units configured for the active community.
       if let condition = batchConditions[name] {
+        let community = CommunityService.shared.activeCommunityConfig
         HStack(spacing: 12) {
           if let level = condition.waterLevelFt {
-            metricLabel(value: String(format: "%.2f", level), unit: "ft", icon: "water.waves")
-              .frame(width: 70)
+            metricLabel(
+              value: String(format: "%.2f", community.displayLevelFt(level)),
+              unit: community.waterLevelUnit,
+              icon: "water.waves"
+            )
+            .frame(width: 70)
           } else {
             Text("--")
-              .font(.caption)
-              .foregroundColor(.gray.opacity(0.5))
+              .font(.brandCaption)
+              .foregroundColor(.brandTextSecondary.opacity(0.5))
               .frame(width: 70)
           }
           if let temp = condition.waterTempC {
-            metricLabel(value: String(format: "%.1f", temp), unit: "\u{00B0}C", icon: "thermometer.medium")
-              .frame(width: 70)
+            metricLabel(
+              value: String(format: "%.1f", community.displayTempC(temp)),
+              unit: community.tempUnit,
+              icon: "thermometer.medium"
+            )
+            .frame(width: 70)
           } else {
             Text("--")
-              .font(.caption)
-              .foregroundColor(.gray.opacity(0.5))
+              .font(.brandCaption)
+              .foregroundColor(.brandTextSecondary.opacity(0.5))
               .frame(width: 70)
           }
         }
@@ -238,17 +302,17 @@ struct FishingForecastRequestView: View {
 
       // Disclosure chevron
       Image(systemName: "chevron.right")
-        .font(.caption)
-        .foregroundColor(.gray)
+        .font(.brandCaption)
+        .foregroundColor(.brandTextSecondary)
         .padding(.leading, 12)
     }
     .padding(.horizontal, 16)
     .padding(.vertical, 14)
-    .background(isLoading ? Color.white.opacity(0.08) : Color.black)
+    .background(isLoading ? Color.brandSurface : Color.brandBackground)
     .clipShape(RoundedRectangle(cornerRadius: 10))
     .overlay(
       RoundedRectangle(cornerRadius: 10)
-        .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+        .stroke(Color.brandStrokeStrong, lineWidth: 0.5)
     )
     .overlay {
       if isLoading {
@@ -262,14 +326,14 @@ struct FishingForecastRequestView: View {
   private func metricLabel(value: String, unit: String, icon: String) -> some View {
     HStack(spacing: 3) {
       Image(systemName: icon)
-        .font(.caption2)
-        .foregroundColor(.gray)
+        .font(.brandCaption2)
+        .foregroundColor(.brandTextSecondary)
       Text(value)
-        .font(.caption.monospacedDigit())
-        .foregroundColor(.white)
+        .font(.brandCaption.monospacedDigit())
+        .foregroundColor(.brandTextPrimary)
       Text(unit)
-        .font(.caption2)
-        .foregroundColor(.gray)
+        .font(.brandCaption2)
+        .foregroundColor(.brandTextSecondary)
     }
   }
 
@@ -357,7 +421,7 @@ struct FishingForecastRequestView: View {
         }
 
         let rawResponse = String(data: data, encoding: .utf8) ?? "<non-utf8>"
-        AppLogging.log("[Forecast] batch response HTTP \(http.statusCode): \(rawResponse.prefix(500))", level: .debug, category: .trip)
+        AppLogging.log({ "[Forecast] batch response HTTP \(http.statusCode): \(rawResponse.prefix(500))" }, level: .debug, category: .trip)
 
         let dec = JSONDecoder()
         dec.keyDecodingStrategy = .convertFromSnakeCase
@@ -370,13 +434,13 @@ struct FishingForecastRequestView: View {
           // Water bodies: "Puget Sound" → "Puget Sound" (exact match)
           let displayName = allSources.first(where: { AppEnvironment.stripRiverSuffix($0) == condition.name }) ?? condition.name
           dict[displayName] = condition
-          AppLogging.log("[Forecast] batch — \(condition.name): type=\(condition.waterType ?? "?"), level=\(condition.waterLevelFt.map { String(format: "%.2f", $0) } ?? "nil")ft, temp=\(condition.waterTempC.map { String(format: "%.1f", $0) } ?? "nil")°C", level: .debug, category: .trip)
+          AppLogging.log({ "[Forecast] batch — \(condition.name): type=\(condition.waterType ?? "?"), level=\(condition.waterLevelFt.map { String(format: "%.2f", $0) } ?? "nil")ft, temp=\(condition.waterTempC.map { String(format: "%.1f", $0) } ?? "nil")°C" }, level: .debug, category: .trip)
         }
         self.batchConditions = dict
-        AppLogging.log("[Forecast] batch loaded \(dict.count) conditions for date: \(batch.date)", level: .debug, category: .trip)
+        AppLogging.log("[Forecast] batch loaded \(dict.count) conditions for date: \(batch.date)", level: .info, category: .trip)
 
       } catch {
-        AppLogging.log("[Forecast] batch fetch failed: \(error.localizedDescription)", level: .debug, category: .trip)
+        AppLogging.log("[Forecast] batch fetch failed: \(error.localizedDescription)", level: .warn, category: .trip)
         // Tiles remain functional, just without metrics
       }
       self.batchLoading = false
@@ -489,6 +553,7 @@ struct FishingForecastRequestView: View {
     let stationId: String?
     let source: String?
     let date: String?
+    let isTidal: Bool?
 
     let weather: LooseWeatherBlock?
     let tides: LooseTidesBlock?
@@ -522,12 +587,12 @@ struct FishingForecastRequestView: View {
     }
 
     struct LooseWaterLevelEntry: Decodable {
-      let date: String?
+      let recordedAt: String?
       let levelFt: Double?
     }
 
     struct LooseWaterTemperatureEntry: Decodable {
-      let date: String?
+      let recordedAt: String?
       let tempC: Double?
     }
   }
@@ -579,50 +644,61 @@ struct FishingForecastRequestView: View {
       )
     )
 
-    // Tides (create placeholders for any missing entries)
-    let t = loose.tides
-    let tides = RiverConditionsResponse.TidesBlock(
-      previousHigh: .init(
-        time: normalizeTime(t?.previousHigh?.time, defaultDate: date),
-        heightM: t?.previousHigh?.heightM ?? 0,
-        type: t?.previousHigh?.type ?? "high"
-      ),
-      nextHigh: .init(
-        time: normalizeTime(t?.nextHigh?.time, defaultDate: date),
-        heightM: t?.nextHigh?.heightM ?? 0,
-        type: t?.nextHigh?.type ?? "high"
-      ),
-      previousLow: .init(
-        time: normalizeTime(t?.previousLow?.time, defaultDate: date),
-        heightM: t?.previousLow?.heightM ?? 0,
-        type: t?.previousLow?.type ?? "low"
-      ),
-      nextLow: .init(
-        time: normalizeTime(t?.nextLow?.time, defaultDate: date),
-        heightM: t?.nextLow?.heightM ?? 0,
-        type: t?.nextLow?.type ?? "low"
+    // Tides — only materialize when the backend marks this water body as tidal.
+    // Non-tidal water bodies receive null tide fields; we surface this as nil so
+    // the result view can hide tide cards entirely.
+    let isTidal = loose.isTidal ?? false
+    let tides: RiverConditionsResponse.TidesBlock?
+    if isTidal {
+      let t = loose.tides
+      tides = RiverConditionsResponse.TidesBlock(
+        previousHigh: .init(
+          time: normalizeTime(t?.previousHigh?.time, defaultDate: date),
+          heightM: t?.previousHigh?.heightM ?? 0,
+          type: t?.previousHigh?.type ?? "high"
+        ),
+        nextHigh: .init(
+          time: normalizeTime(t?.nextHigh?.time, defaultDate: date),
+          heightM: t?.nextHigh?.heightM ?? 0,
+          type: t?.nextHigh?.type ?? "high"
+        ),
+        previousLow: .init(
+          time: normalizeTime(t?.previousLow?.time, defaultDate: date),
+          heightM: t?.previousLow?.heightM ?? 0,
+          type: t?.previousLow?.type ?? "low"
+        ),
+        nextLow: .init(
+          time: normalizeTime(t?.nextLow?.time, defaultDate: date),
+          heightM: t?.nextLow?.heightM ?? 0,
+          type: t?.nextLow?.type ?? "low"
+        )
       )
-    )
+    } else {
+      tides = nil
+    }
 
-    // Water levels (empty if missing or malformed)
+    // Water levels — hourly time-series (~96 entries over the last 4 days).
+    // Drop entries with null timestamps or null values rather than zero-filling,
+    // so gaps in the source data don't masquerade as legitimate readings.
     let levels: [RiverConditionsResponse.WaterLevelEntry] =
       (loose.waterLevels ?? [])
         .compactMap { entry in
-          guard let d = entry.date, let v = entry.levelFt else { return nil }
-          return .init(date: d, levelFt: v)
+          guard let t = entry.recordedAt, let v = entry.levelFt else { return nil }
+          return .init(recordedAt: t, levelFt: v)
         }
 
     let temps: [RiverConditionsResponse.WaterTemperatureEntry]? =
       (loose.waterTemperatures ?? [])
         .compactMap { entry in
-          guard let d = entry.date, let v = entry.tempC else { return nil }
-          return .init(date: d, tempC: v)
+          guard let t = entry.recordedAt, let v = entry.tempC else { return nil }
+          return .init(recordedAt: t, tempC: v)
         }
 
     return RiverConditionsResponse(
       river: river,
       stationId: stationId,
       date: date,
+      isTidal: isTidal,
       weather: weather,
       tides: tides,
       waterLevels: levels,

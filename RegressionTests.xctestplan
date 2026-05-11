@@ -1,0 +1,69 @@
+{
+  "configurations" : [
+    {
+      "id" : "B2C3D4E5-0002-0002-0002-000000000002",
+      "name" : "Regression Tests",
+      "options" : {
+        "environmentVariableEntries" : [
+          {
+            "key" : "UI_TEST_EMAIL",
+            "value" : "test@public.com"
+          },
+          {
+            "key" : "UI_TEST_PASSWORD",
+            "value" : "Fatbikesk123"
+          },
+          {
+            "key" : "PUBLIC_FLOW_SKIP_REGISTRATION",
+            "value" : "0"
+          },
+          {
+            "key" : "RESEARCHER_FLOW_EMAIL",
+            "value" : "geoff@madthinkerfishtech.com"
+          },
+          {
+            "key" : "RESEARCHER_FLOW_PASSWORD",
+            "value" : "Fatbikesk123"
+          }
+        ]
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true,
+    "defaultTestExecutionTimeAllowance" : 360
+  },
+  "testTargets" : [
+    {
+      "selectedTests" : [
+        "MLTrainingOptOutUploadTests",
+        "PublicUserAPITests"
+      ],
+      "target" : {
+        "containerPath" : "container:SkeenaSystem.xcodeproj",
+        "identifier" : "FD2182F62EF9C1E2001E905A",
+        "name" : "SkeenaSystemTests"
+      }
+    },
+    {
+      "selectedTests" : [
+        "CommunityTests",
+        "ExploreTests",
+        "FisheriesConditionsTests",
+        "HomeTests",
+        "OnboardingTests",
+        "PrivacyTests",
+        "ProfileTests",
+        "PublicUserFlowTests",
+        "RecordActivityTests",
+        "ResearcherUserFlowTests"
+      ],
+      "target" : {
+        "containerPath" : "container:SkeenaSystem.xcodeproj",
+        "identifier" : "FD6A18CE2F18487A0067DBFD",
+        "name" : "SkeenaSystemUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

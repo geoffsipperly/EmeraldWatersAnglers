@@ -34,7 +34,7 @@ enum MapPinImage {
         arcCenter: center, radius: 4,
         startAngle: 0, endAngle: .pi * 2, clockwise: true
       )
-      UIColor.white.setFill()
+      UIColor.brandTextPrimary.setFill()
       dot.fill()
     }
   }

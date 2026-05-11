@@ -15,6 +15,19 @@ enum LengthEstimateSource: String, Codable {
   case manual     // user correction
 }
 
+/// A species candidate surfaced to the chat UI when the ML top-1 confidence is
+/// below the "pick-from-capsules" trigger threshold. The first candidate is
+/// always the ML top-1 (rendered as primary/green); subsequent candidates are
+/// runner-ups above the visibility floor (rendered yellow).
+struct SpeciesCandidate: Equatable {
+  /// Raw model label, e.g. `"chinook_salmon"` or `"steelhead_holding"`.
+  let label: String
+  /// Softmax probability from ViT, 0.0–1.0.
+  let confidence: Float
+  /// True for the ML top-1; false for runner-ups. Drives capsule coloring.
+  let isPrimary: Bool
+}
+
 struct CatchPhotoAnalysis {
   let riverName: String?
   let species: String?
@@ -23,7 +36,26 @@ struct CatchPhotoAnalysis {
   let lifecycleStage: String?
   let featureVector: CatchPhotoAnalyzer.LengthFeatureVector?
   let lengthSource: LengthEstimateSource?
+  /// True when the heuristic clamped at the species' max length range —
+  /// i.e. raw input exceeded the global heuristic envelope ceiling.
+  /// Carried through to the chat flow so `formatLength` can render "+".
+  let lengthAtSpeciesCap: Bool
   let modelVersion: String?
+  /// Alternative species candidates when the ML top-1 confidence is ambiguous.
+  /// Empty when the model was confident enough to commit directly.
+  let speciesAlternatives: [SpeciesCandidate]
+  /// Top-1 ViT species softmax probability summed across lifecycle variants of
+  /// the same root species (e.g. `steelhead_holding + steelhead_traveler`). Nil
+  /// when the model returned no prediction or fell below the detection
+  /// threshold. Surfaced in the chat capsule as a `%` next to the species name.
+  let speciesConfidence: Float?
+  /// Conditional probability of the predicted lifecycle stage given the root
+  /// species — `probs[predicted] / (probs[<root>_holding] + probs[<root>_traveler])`.
+  /// Nil for species without a lifecycle dimension or when no prediction was made.
+  let lifecycleStageConfidence: Float?
+  /// Top-1 softmax probability from the ViTFishSex classifier. Nil when the sex
+  /// model returned no prediction.
+  let sexConfidence: Float?
 
   init(
     riverName: String?,
@@ -33,7 +65,12 @@ struct CatchPhotoAnalysis {
     lifecycleStage: String? = nil,
     featureVector: CatchPhotoAnalyzer.LengthFeatureVector? = nil,
     lengthSource: LengthEstimateSource? = nil,
-    modelVersion: String? = nil
+    lengthAtSpeciesCap: Bool = false,
+    modelVersion: String? = nil,
+    speciesAlternatives: [SpeciesCandidate] = [],
+    speciesConfidence: Float? = nil,
+    lifecycleStageConfidence: Float? = nil,
+    sexConfidence: Float? = nil
   ) {
     self.riverName = riverName
     self.species = species
@@ -42,7 +79,12 @@ struct CatchPhotoAnalysis {
     self.lifecycleStage = lifecycleStage
     self.featureVector = featureVector
     self.lengthSource = lengthSource
+    self.lengthAtSpeciesCap = lengthAtSpeciesCap
     self.modelVersion = modelVersion
+    self.speciesAlternatives = speciesAlternatives
+    self.speciesConfidence = speciesConfidence
+    self.lifecycleStageConfidence = lifecycleStageConfidence
+    self.sexConfidence = sexConfidence
   }
 }
 
@@ -51,18 +93,51 @@ final class CatchPhotoAnalyzer {
   private let riverLocator: RiverLocator
   private let waterBodyLocator: WaterBodyLocator
 
-  // ViT species model (raw MLModel)
-  private let coreMLModel: MLModel
+  // ViT species model (raw MLModel) — nil if bundle or compilation fails
+  private let coreMLModel: MLModel?
 
-  // YOLOv8 detector from best.mlpackage
-  private let detectorModel: best
+  // YOLOv8 detector from best.mlpackage — nil if bundle or compilation fails
+  private let detectorModel: best?
 
-  // Species labels for ViT
-    private let speciesLabels: [String] = [
-        "sea_run_trout",
-        "steelhead_holding",
-        "steelhead_traveler"
-    ]
+  // Cached on-demand models (avoid re-loading on every call)
+  private static var _sexModel: ViTFishSex?
+  #if canImport(MediaPipeTasksVision)
+  private static var _handLandmarker: HandLandmarker?
+  #endif
+
+  // Species labels for ViT — alphabetical order MUST match the Python ImageFolder
+  // training set order (see `docs/new-species-onboarding.md`). Reordering silently
+  // breaks the LengthRegressor, which consumes `species_index` as a feature.
+  static let speciesLabels: [String] = [
+      "atlantic_salmon_holding",
+      "atlantic_salmon_traveler",
+      "brook_trout",
+      "brown_trout",
+      "chinook_salmon",
+      "lingcod",
+      "musky",
+      "other",
+      "rainbow_trout",
+      "sea_run_trout",
+      "steelhead_holding",
+      "steelhead_traveler",
+      "striped_bass"
+  ]
+
+  // Species that aren't calibrated with the regressor — fall back to heuristic.
+  // Single source of truth: previously declared inline at two call sites, which
+  // diverged easily. Keep this in lockstep with `speciesLabels` when adding a
+  // species (see `/new-species` slash command).
+  static let regressorBypassSpecies: Set<String> = [
+      "sea_run_trout",
+      "other",
+      "brook_trout",
+      "brown_trout",
+      "lingcod",
+      "musky",
+      "rainbow_trout",
+      "striped_bass"
+  ]
 
 
   // MARK: - Init
@@ -74,13 +149,21 @@ final class CatchPhotoAnalyzer {
     let config = MLModelConfiguration()
 
     // Species model (ViTFishSpecies.mlpackage)
-    guard let speciesURL = Bundle.main.url(forResource: "ViTFishSpecies", withExtension: "mlmodelc") else {
-      fatalError("❌ Could not find ViTFishSpecies.mlmodelc in app bundle")
+    if let speciesURL = Bundle.main.url(forResource: "ViTFishSpecies", withExtension: "mlmodelc"),
+       let model = try? MLModel(contentsOf: speciesURL, configuration: config) {
+      self.coreMLModel = model
+    } else {
+      AppLogging.log("CatchPhotoAnalyzer: failed to load ViTFishSpecies model", level: .error, category: .ml)
+      self.coreMLModel = nil
     }
-    self.coreMLModel = try! MLModel(contentsOf: speciesURL, configuration: config)
 
     // YOLOv8 detector (best.mlpackage)
-    self.detectorModel = try! best(configuration: config)
+    if let detector = try? best(configuration: config) {
+      self.detectorModel = detector
+    } else {
+      AppLogging.log("CatchPhotoAnalyzer: failed to load YOLOv8 detector model", level: .error, category: .ml)
+      self.detectorModel = nil
+    }
   }
 
   // MARK: - Main analysis entry point
@@ -89,17 +172,27 @@ final class CatchPhotoAnalyzer {
     image: UIImage,
     location: CLLocation?
   ) async -> CatchPhotoAnalysis {
-    // 1. Location detection: river spines first, then water body polygons
+    // 1. Location detection: check both river spines and water body polygons,
+    //    pick whichever is closer when both match.
     var riverDisplay: String?
 
-    let riverName = riverLocator.riverName(near: location)
-    AppLogging.log("[Analyzer] RiverLocator result: '\(riverName)' for location: \(location?.coordinate.latitude ?? 0), \(location?.coordinate.longitude ?? 0)", level: .debug, category: .ml)
+    let riverResult = riverLocator.riverMatch(near: location)
+    let waterBodyResult = waterBodyLocator.waterBodyMatch(at: location)
+    AppLogging.log("[Analyzer] Location (\(location?.coordinate.latitude ?? 0), \(location?.coordinate.longitude ?? 0)) — river: \(riverResult?.name ?? "none") @ \(String(format: "%.2f", riverResult?.distanceKm ?? -1)) km, waterBody: \(waterBodyResult?.name ?? "none") @ \(String(format: "%.2f", waterBodyResult?.distanceKm ?? -1)) km", level: .debug, category: .ml)
 
-    if !riverName.isEmpty {
-      riverDisplay = riverName
-    } else if let waterBody = waterBodyLocator.waterBodyName(at: location) {
-      riverDisplay = waterBody
-      AppLogging.log("[Analyzer] Water body matched: \(waterBody)", level: .debug, category: .ml)
+    if let river = riverResult, let waterBody = waterBodyResult {
+      // Both matched — pick whichever is closer
+      if river.distanceKm <= waterBody.distanceKm {
+        riverDisplay = river.name
+        AppLogging.log("[Analyzer] River '\(river.name)' wins (closer)", level: .debug, category: .ml)
+      } else {
+        riverDisplay = waterBody.name
+        AppLogging.log("[Analyzer] Water body '\(waterBody.name)' wins (closer)", level: .debug, category: .ml)
+      }
+    } else if let river = riverResult {
+      riverDisplay = river.name
+    } else if let waterBody = waterBodyResult {
+      riverDisplay = waterBody.name
     } else {
       riverDisplay = nil
       AppLogging.log("[Analyzer] No location matched", level: .debug, category: .ml)
@@ -113,17 +206,54 @@ final class CatchPhotoAnalyzer {
 
     let speciesText: String?
     var detectedSpeciesLabel: String? = nil
-    let lowConfidenceThreshold: Float = 0.3
+    var speciesAlternatives: [SpeciesCandidate] = []
+    var speciesRootConfidence: Float? = nil
+    var lifecycleStageConfidence: Float? = nil
+    let lowConfidenceThreshold = AppEnvironment.shared.speciesDetectionThreshold
     if let vit = vitResult,
        vit.index >= 0,
-       vit.index < speciesLabels.count {
-      let rawLabel = speciesLabels[vit.index]
+       vit.index < Self.speciesLabels.count {
+      let rawLabel = Self.speciesLabels[vit.index]
       let prettyLabel = rawLabel.replacingOccurrences(of: "_", with: " ")
 
       if vit.confidence >= lowConfidenceThreshold {
         speciesText = "Species (model): \(prettyLabel)"
         detectedSpeciesLabel = rawLabel
         AppLogging.log({ "ViT species: \(prettyLabel), confidence: \(vit.confidence)" }, level: .info, category: .ml)
+
+        // Cumulative confidence across lifecycle variants of the same root
+        // (e.g. steelhead_holding + steelhead_traveler), and conditional
+        // lifecycle probability within that root. Surfaces in the chat
+        // capsules so the user sees what the model actually believed.
+        let stats = Self.confidenceStats(distribution: vit.distribution, predictedIndex: vit.index)
+        speciesRootConfidence = stats.rootConfidence
+        lifecycleStageConfidence = stats.lifecycleConditional
+
+        // Runner-up capsule logic: when top-1 is below the trigger, surface up to
+        // 2 candidates (primary + best runner-up above the visibility floor) so
+        // the user can correct an ambiguous classification with one tap instead
+        // of having to type the right species name.
+        //
+        // Also applies when top-1 is "other" (Bi-catch) — a strong salmonid
+        // runner-up (e.g. steelhead_holding 0.41 when top-1 is other 0.44)
+        // should still be offered. The capsule step renders
+        // [Bi-catch (green)] [Steelhead (yellow)]; user picks the real species
+        // with one tap, or confirms Bi-catch to stay in the name-it-yourself
+        // flow.
+        let env = AppEnvironment.shared
+        if vit.confidence < env.speciesRunnerUpTrigger {
+          speciesAlternatives = computeSpeciesAlternatives(
+            distribution: vit.distribution,
+            winnerIndex: vit.index,
+            minProb: env.speciesRunnerUpMinProb
+          )
+          AppLogging.log({
+            let names = speciesAlternatives.map {
+              String(format: "%@=%.2f%@", $0.label, $0.confidence, $0.isPrimary ? "★" : "")
+            }.joined(separator: ", ")
+            return "Runner-up capsules triggered (top1=\(String(format: "%.2f", vit.confidence)) < \(env.speciesRunnerUpTrigger)): [\(names)]"
+          }, level: .info, category: .ml)
+        }
       } else {
         AppLogging.log({ "ViT species below threshold: best=\(prettyLabel), confidence=\(vit.confidence) (min \(lowConfidenceThreshold))" }, level: .debug, category: .ml)
         speciesText = "Species: Unable to confidently detect"
@@ -134,15 +264,13 @@ final class CatchPhotoAnalyzer {
     }
 
     // 4. Sex via ViTFishSex (on full image)
-    let sexText: String? = if #available(iOS 16.0, *) {
-      if let sexLabel = runSexClassifier(on: image) {
-        "Sex (model): \(sexLabel)"
-      } else {
-        "Unknown"
-      }
+    let sexResult: (label: String, confidence: Float)? = if #available(iOS 16.0, *) {
+      runSexClassifier(on: image)
     } else {
-      "Unknown"
+      nil
     }
+    let sexText: String? = if let s = sexResult { "Sex (model): \(s.label)" } else { "Unknown" }
+    let sexConfidence: Float? = sexResult?.confidence
 
     // 5. Hand pose detection via MediaPipe
     let handMeasurement = detectHand(on: image)
@@ -151,11 +279,25 @@ final class CatchPhotoAnalyzer {
     var lengthText: String? = "Length estimate not available (photo estimate failed)"
     var featureVector: LengthFeatureVector?
     var lengthSource: LengthEstimateSource?
+    var lengthAtSpeciesCap: Bool = false
 
     if let fishBox = detection.fishBox {
-      if let personBox = detection.personBox {
-        AppLogging.log({ "Detector found person box with conf \(personBox.confidence)" }, level: .info, category: .ml)
-      }
+      // Gate the person box on confidence — low-confidence person detections
+      // (square boxes, partial-body false positives) silently corrupt the
+      // fish/person ratios used by both the heuristic and the regressor's
+      // feature vector. Below the threshold we treat the person as undetected.
+      let personConfThreshold = AppEnvironment.shared.personDetectMinConfidence
+      let qualifiedPersonBox: NormalizedBox? = {
+        guard let p = detection.personBox else { return nil }
+        if p.confidence >= personConfThreshold {
+          AppLogging.log({ "Detector found person box with conf \(p.confidence)" }, level: .info, category: .ml)
+          return p
+        }
+        AppLogging.log({
+          "Person box rejected: conf \(String(format: "%.2f", p.confidence)) < threshold \(String(format: "%.2f", personConfThreshold)) — treating as no person reference"
+        }, level: .info, category: .ml)
+        return nil
+      }()
 
       // Build feature vector from all detection results
       let speciesIdx = vitResult?.index ?? 0
@@ -163,7 +305,7 @@ final class CatchPhotoAnalyzer {
 
       let fv = buildFeatureVector(
         fishBox: fishBox,
-        personBox: detection.personBox,
+        personBox: qualifiedPersonBox,
         speciesIndex: speciesIdx,
         speciesConfidence: speciesConf,
         hand: handMeasurement,
@@ -214,9 +356,7 @@ final class CatchPhotoAnalyzer {
         return lines.joined(separator: "\n")
       }, level: .debug, category: .ml)
 
-      // Species that haven't been calibrated with the regressor — use heuristic only
-      let regressorBypassSpecies: Set<String> = ["sea_run_trout"]
-      let useRegressorForSpecies = !regressorBypassSpecies.contains(detectedSpeciesLabel ?? "")
+      let useRegressorForSpecies = !Self.regressorBypassSpecies.contains(detectedSpeciesLabel ?? "")
 
       // Always log regressor prediction for future training data
       if AppEnvironment.shared.useLengthRegressor, let predicted = predictLength(from: fv) {
@@ -245,12 +385,14 @@ final class CatchPhotoAnalyzer {
           let scaledResult = estimateLength(from: fishBox, imageSize: image.size, speciesLabel: detectedSpeciesLabel)
           lengthText = scaledResult.display
           lengthSource = .heuristic
+          lengthAtSpeciesCap = scaledResult.atSpeciesCap
           AppLogging.log({ "Using species-scaled heuristic for \(detectedSpeciesLabel ?? "unknown") (regressor not yet calibrated)" }, level: .info, category: .ml)
         }
       } else {
         let result = estimateLength(from: fishBox, imageSize: image.size)
         lengthText = result.display
         lengthSource = .heuristic
+        lengthAtSpeciesCap = result.atSpeciesCap
         AppLogging.log({ "Length heuristic fallback: \(result.display) (regressor \(AppEnvironment.shared.useLengthRegressor ? "failed" : "disabled"))" }, level: .debug, category: .ml)
       }
     } else {
@@ -264,22 +406,123 @@ final class CatchPhotoAnalyzer {
       estimatedLength: lengthText,
       featureVector: featureVector,
       lengthSource: lengthSource,
-      modelVersion: CatchPhotoAnalyzer._lengthRegressorVersion
+      lengthAtSpeciesCap: lengthAtSpeciesCap,
+      modelVersion: CatchPhotoAnalyzer._lengthRegressorVersion,
+      speciesAlternatives: speciesAlternatives,
+      speciesConfidence: speciesRootConfidence,
+      lifecycleStageConfidence: lifecycleStageConfidence,
+      sexConfidence: sexConfidence
     )
+  }
+
+  /// Splits a ViT label like `"steelhead_holding"` into `(root: "steelhead",
+  /// stage: "holding")`. Only the trailing words `holding` / `traveler` are
+  /// recognized as lifecycle stages — matches `splitSpecies()` in
+  /// `CatchChatViewModel`. For labels without a lifecycle suffix, returns
+  /// `(root: <label>, stage: nil)`.
+  static func splitLabel(_ raw: String) -> (root: String, stage: String?) {
+    let lifecycleSuffixes: Set<String> = ["holding", "traveler"]
+    if let underscoreIdx = raw.lastIndex(of: "_") {
+      let suffix = String(raw[raw.index(after: underscoreIdx)...]).lowercased()
+      if lifecycleSuffixes.contains(suffix) {
+        return (root: String(raw[..<underscoreIdx]), stage: suffix)
+      }
+    }
+    return (root: raw, stage: nil)
+  }
+
+  /// Cumulative species root probability + conditional lifecycle probability
+  /// derived from the ViT softmax distribution. Used by the chat capsules so
+  /// the user sees the model's actual confidence next to each prediction.
+  ///
+  /// - rootConfidence: sum of probabilities across all labels that share the
+  ///   predicted label's root (e.g. `steelhead_holding + steelhead_traveler`).
+  /// - lifecycleConditional: `probs[predicted] / rootConfidence` when the
+  ///   predicted label has a lifecycle suffix; nil otherwise.
+  private static func confidenceStats(
+    distribution probs: [Float],
+    predictedIndex: Int
+  ) -> (rootConfidence: Float, lifecycleConditional: Float?) {
+    guard predictedIndex >= 0,
+          predictedIndex < speciesLabels.count,
+          predictedIndex < probs.count else {
+      return (0, nil)
+    }
+    let predictedLabel = speciesLabels[predictedIndex]
+    let predictedRoot = splitLabel(predictedLabel).root
+
+    var rootSum: Float = 0
+    for (i, label) in speciesLabels.enumerated() where i < probs.count {
+      if splitLabel(label).root == predictedRoot {
+        rootSum += probs[i]
+      }
+    }
+
+    let predictedStage = splitLabel(predictedLabel).stage
+    let conditional: Float?
+    if predictedStage != nil, rootSum > 0 {
+      conditional = probs[predictedIndex] / rootSum
+    } else {
+      conditional = nil
+    }
+    return (rootConfidence: rootSum, lifecycleConditional: conditional)
+  }
+
+  /// Build up to 3 species candidates (primary + up to 2 runners-up) from the
+  /// full ViT softmax distribution. Each runner-up must clear `minProb`
+  /// independently. Returns an empty array if no runner-up clears the floor,
+  /// signalling that capsule UX should be skipped.
+  private func computeSpeciesAlternatives(
+    distribution probs: [Float],
+    winnerIndex: Int,
+    minProb: Float
+  ) -> [SpeciesCandidate] {
+    guard winnerIndex >= 0, winnerIndex < Self.speciesLabels.count else { return [] }
+
+    // Take the top 2 non-winner indices that clear the visibility floor,
+    // sorted by descending probability.
+    let runnersUp = (0 ..< probs.count)
+      .filter { $0 != winnerIndex && $0 < Self.speciesLabels.count && probs[$0] >= minProb }
+      .sorted { probs[$0] > probs[$1] }
+      .prefix(2)
+
+    // If no runner-up clears the visibility floor, skip capsules entirely —
+    // the model strongly prefers the winner, so there's no ambiguity worth
+    // surfacing to the user.
+    guard !runnersUp.isEmpty else { return [] }
+
+    var result: [SpeciesCandidate] = [
+      SpeciesCandidate(label: Self.speciesLabels[winnerIndex], confidence: probs[winnerIndex], isPrimary: true)
+    ]
+    for idx in runnersUp {
+      result.append(SpeciesCandidate(label: Self.speciesLabels[idx], confidence: probs[idx], isPrimary: false))
+    }
+    return result
   }
 
   // MARK: - ViT inference (species)
 
-  /// Runs the ViT species model on a UIImage and returns the best species index + softmax confidence.
-  private func runViT(on image: UIImage) -> (index: Int, confidence: Float)? {
-    guard let inputArray = try? makeInputArray(from: image) else {
+  /// Runs the ViT species model on a UIImage and returns the best species index,
+  /// the winner's softmax confidence, and the full probability distribution
+  /// (used downstream to surface runner-up candidates to the user).
+  ///
+  /// Uses Inception-style normalization (mean/std 0.5) — timm's default for
+  /// `vit_tiny_patch16_224`, which is what the species model was trained with.
+  /// Matching the training preprocessing is load-bearing: the previous
+  /// ImageNet-norm default silently produced wrong-distribution inputs.
+  ///
+  /// Emits a diagnostic log with the full softmax distribution, runner-up margin,
+  /// and entropy at the `.info` level so misclassifications can be debugged
+  /// without re-running with extra instrumentation.
+  private func runViT(on image: UIImage) -> (index: Int, confidence: Float, distribution: [Float])? {
+    guard let inputArray = try? makeInputArray(from: image, mean: [0.5, 0.5, 0.5], std: [0.5, 0.5, 0.5]) else {
       return nil
     }
 
     // Wrap the MLMultiArray in an MLFeatureProvider
     let provider = ViTInputFeatureProvider(imageArray: inputArray)
 
-    guard let output = try? coreMLModel.prediction(from: provider) else {
+    guard let output = try? coreMLModel?.prediction(from: provider) else {
       return nil
     }
 
@@ -291,34 +534,96 @@ final class CatchPhotoAnalyzer {
       return nil
     }
 
-    guard let bestIdx = argmax(logits) else { return nil }
+    // Compute the full softmax distribution once — reused for the returned
+    // winner confidence, the diagnostic log, and the runner-up capsule logic.
+    let probs = softmaxDistribution(logits)
+    guard let bestIdx = probs.indices.max(by: { probs[$0] < probs[$1] }) else { return nil }
+    let confidence = probs[bestIdx]
 
-    // Compute softmax confidence for the winning class
-    let confidence = softmaxConfidence(logits, at: bestIdx)
+    logViTBreakdown(probs: probs, logits: logits, bestIdx: bestIdx)
 
-    return (index: bestIdx, confidence: confidence)
+    return (index: bestIdx, confidence: confidence, distribution: probs)
   }
 
-  /// Computes the softmax probability for a specific index in a logits array.
-  private func softmaxConfidence(_ logits: MLMultiArray, at index: Int) -> Float {
-    // Find max for numerical stability
+  /// Computes the full softmax probability distribution from a logits array.
+  /// Numerically stable (subtracts max before exp).
+  private func softmaxDistribution(_ logits: MLMultiArray) -> [Float] {
+    guard logits.count > 0 else { return [] }  // swiftlint:disable:this empty_count
+
     var maxVal: Float = -.greatestFiniteMagnitude
     for i in 0 ..< logits.count {
       maxVal = max(maxVal, logits[i].floatValue)
     }
 
-    // Compute exp(logit - max) and sum
-    var sumExp: Float = 0.0
-    var targetExp: Float = 0.0
+    var exps = [Float](repeating: 0, count: logits.count)
+    var sumExp: Float = 0
     for i in 0 ..< logits.count {
       let e = exp(logits[i].floatValue - maxVal)
+      exps[i] = e
       sumExp += e
-      if i == index {
-        targetExp = e
-      }
     }
 
-    return targetExp / sumExp
+    guard sumExp > 0 else { return exps }
+    for i in 0 ..< exps.count {
+      exps[i] /= sumExp
+    }
+    return exps
+  }
+
+  /// Emits a structured diagnostic log showing the full ViT species distribution,
+  /// runner-up margin, and entropy — everything you need to understand why a
+  /// given class was picked. Flags close calls (small margin / high entropy) so
+  /// they stand out when scanning logs.
+  private func logViTBreakdown(probs: [Float], logits: MLMultiArray, bestIdx: Int) {
+    // Sorted (probability, originalIndex) pairs, descending.
+    let ranked = probs.enumerated()
+      .map { (idx: $0.offset, prob: $0.element) }
+      .sorted { $0.prob > $1.prob }
+
+    // Top-1 vs Top-2 margin (0 if only one class).
+    let margin: Float = ranked.count >= 2 ? ranked[0].prob - ranked[1].prob : ranked.first?.prob ?? 0
+
+    // Shannon entropy in nats. Uniform over N classes = ln(N). Peaky ≈ 0.
+    // Max possible entropy for sanity framing: ln(numClasses).
+    var entropy: Float = 0
+    for p in probs where p > 0 {
+      entropy -= p * log(p)
+    }
+    let maxEntropy = log(Float(max(probs.count, 1)))
+    let normalizedEntropy = maxEntropy > 0 ? entropy / maxEntropy : 0
+
+    // Heuristic close-call flag — surfaces the cases worth eyeballing.
+    let closeCall = margin < 0.15 || normalizedEntropy > 0.7
+
+    AppLogging.log({
+      var lines = ["── ViT species breakdown ──"]
+      for (rank, item) in ranked.enumerated() {
+        let label = item.idx < Self.speciesLabels.count ? Self.speciesLabels[item.idx] : "idx\(item.idx)"
+        let logitValue = item.idx < logits.count ? logits[item.idx].floatValue : 0
+        let marker = (item.idx == bestIdx) ? "★" : " "
+        lines.append(String(
+          format: "  %@ %d. %-22@ %.3f (logit %.3f)",
+          marker, rank + 1, label as NSString, item.prob, logitValue
+        ))
+      }
+      lines.append(String(
+        format: "  margin (top1-top2): %.3f  |  entropy: %.3f nats (%.0f%% of max)%@",
+        margin,
+        entropy,
+        normalizedEntropy * 100,
+        closeCall ? "  ⚠️ CLOSE CALL" : ""
+      ))
+      return lines.joined(separator: "\n")
+    }, level: .info, category: .ml)
+  }
+
+  /// Computes the softmax probability for a specific index in a logits array.
+  /// Kept for any callers still using it directly; new code should prefer
+  /// `softmaxDistribution(_:)` which returns the full vector in one pass.
+  private func softmaxConfidence(_ logits: MLMultiArray, at index: Int) -> Float {
+    let probs = softmaxDistribution(logits)
+    guard index >= 0, index < probs.count else { return 0 }
+    return probs[index]
   }
 
   /// Returns the index of the largest value in the MLMultiArray (assumed 1-D or flattenable).
@@ -340,17 +645,21 @@ final class CatchPhotoAnalyzer {
 
   // MARK: - ViT sex classifier (iOS 16+)
 
-  /// Runs the ViTFishSex model on a UIImage and returns "male" / "female" or nil.
+  /// Runs the ViTFishSex model on a UIImage and returns the predicted label
+  /// ("male" / "female") together with its softmax probability. Nil when the
+  /// model fails to load or run.
   @available(iOS 16.0, *)
-  private func runSexClassifier(on image: UIImage) -> String? {
+  private func runSexClassifier(on image: UIImage) -> (label: String, confidence: Float)? {
     guard let inputArray = try? makeInputArray(from: image, mean: [0.5, 0.5, 0.5], std: [0.5, 0.5, 0.5]) else {
       AppLogging.log("runSexClassifier: failed to create input array", level: .error, category: .ml)
       return nil
     }
 
-    // Create the sex model on demand. If you want, we can later cache it.
-    let config = MLModelConfiguration()
-    guard let model = try? ViTFishSex(configuration: config) else {
+    // Lazy-cache the sex model so it's only loaded once.
+    if Self._sexModel == nil {
+      Self._sexModel = try? ViTFishSex(configuration: MLModelConfiguration())
+    }
+    guard let model = Self._sexModel else {
       AppLogging.log("runSexClassifier: failed to create ViTFishSex model", level: .error, category: .ml)
       return nil
     }
@@ -362,11 +671,51 @@ final class CatchPhotoAnalyzer {
       return nil
     }
 
-    let label = output.classLabel // "female" or "male"
-    AppLogging.log({ "runSexClassifier: label=\(label)" }, level: .info, category: .ml)
+    let label = output.classLabel.lowercased() // "female" or "male"
 
-    // Normalize to lowercase for consistency with CatchChatViewModel's text parsing
-    return label.lowercased()
+    // The ViTFishSex CoreML package exposes a `classLabel_probs` dictionary
+    // alongside the raw label. Pull the values for each class via the
+    // MLFeatureProvider API so we don't depend on the auto-generated Swift
+    // property name (which can vary across Xcode versions).
+    //
+    // The exported model pipes the linear classifier head straight into
+    // CoreML's `classify` op without a softmax in between, so the dict
+    // values are raw logits, not probabilities — without normalization the
+    // chat capsule renders things like 520% for the predicted sex. We
+    // detect the logits case (out-of-range or sum != 1) and softmax before
+    // reading the winner's probability, while leaving already-normalized
+    // outputs alone in case a future retrain bakes softmax into the model.
+    var confidence: Float = 0
+    if let dict = output.featureValue(for: "classLabel_probs")?.dictionaryValue {
+      var values: [(label: String, value: Float)] = []
+      for (k, v) in dict {
+        if let key = k as? String {
+          values.append((label: key.lowercased(), value: v.floatValue))
+        }
+      }
+
+      let sum = values.reduce(Float(0)) { $0 + $1.value }
+      let outOfRange = values.contains { $0.value < 0 || $0.value > 1 }
+      if !values.isEmpty, outOfRange || abs(sum - 1) > 0.01 {
+        let maxVal = values.map { $0.value }.max() ?? 0
+        var expSum: Float = 0
+        let exps: [(label: String, value: Float)] = values.map { entry in
+          let e = exp(entry.value - maxVal)
+          expSum += e
+          return (label: entry.label, value: e)
+        }
+        if expSum > 0 {
+          values = exps.map { ($0.label, $0.value / expSum) }
+        }
+      }
+
+      if let entry = values.first(where: { $0.label == label }) {
+        confidence = entry.value
+      }
+    }
+
+    AppLogging.log({ "runSexClassifier: label=\(label), confidence=\(confidence)" }, level: .info, category: .ml)
+    return (label: label, confidence: confidence)
   }
 
   // MARK: - Hand pose detection (MediaPipe)
@@ -382,22 +731,23 @@ final class CatchPhotoAnalyzer {
   /// Applies same sanity filters as the Python training pipeline.
   private func detectHand(on image: UIImage) -> HandMeasurement? {
     #if canImport(MediaPipeTasksVision)
-    guard let cgImage = image.cgImage else { return nil }
+    guard image.cgImage != nil else { return nil }
 
-    let modelPath = Bundle.main.path(forResource: "hand_landmarker", ofType: "task")
-    guard let modelPath else {
-      AppLogging.log("detectHand: hand_landmarker.task not found in bundle", level: .error, category: .ml)
-      return nil
+    // Lazy-cache the HandLandmarker so the .task model is only loaded once.
+    if Self._handLandmarker == nil {
+      guard let modelPath = Bundle.main.path(forResource: "hand_landmarker", ofType: "task") else {
+        AppLogging.log("detectHand: hand_landmarker.task not found in bundle", level: .error, category: .ml)
+        return nil
+      }
+      let options = HandLandmarkerOptions()
+      options.baseOptions.modelAssetPath = modelPath
+      options.numHands = 2
+      options.minHandDetectionConfidence = 0.3
+      options.minHandPresenceConfidence = 0.3
+      options.runningMode = .image
+      Self._handLandmarker = try? HandLandmarker(options: options)
     }
-
-    let options = HandLandmarkerOptions()
-    options.baseOptions.modelAssetPath = modelPath
-    options.numHands = 2
-    options.minHandDetectionConfidence = 0.3
-    options.minHandPresenceConfidence = 0.3
-    options.runningMode = .image
-
-    guard let landmarker = try? HandLandmarker(options: options) else {
+    guard let landmarker = Self._handLandmarker else {
       AppLogging.log("detectHand: failed to create HandLandmarker", level: .error, category: .ml)
       return nil
     }
@@ -536,23 +886,16 @@ final class CatchPhotoAnalyzer {
     mean: [Float] = [0.485, 0.456, 0.406],
     std: [Float] = [0.229, 0.224, 0.225]
   ) throws -> MLMultiArray {
-    let targetSize = CGSize(width: 224, height: 224)
-
-    // 1) Resize the image to 224x224
-    guard let resized = resize(image: image, to: targetSize),
-          let cgImage = resized.cgImage
-    else {
+    guard let srcCGImage = image.cgImage else {
       throw PreprocessError.cannotResize
     }
 
-    let width = Int(targetSize.width)
-    let height = Int(targetSize.height)
-
-    // 2) Draw into RGBA8 buffer
+    let width = 224
+    let height = 224
     let bytesPerPixel = 4
     let bytesPerRow = bytesPerPixel * width
-    let bitsPerComponent = 8
 
+    // 1) Draw the original image directly into a 224×224 RGBA8 buffer (single resize pass)
     var rawData = [UInt8](repeating: 0, count: width * height * bytesPerPixel)
     guard
       let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
@@ -560,7 +903,7 @@ final class CatchPhotoAnalyzer {
         data: &rawData,
         width: width,
         height: height,
-        bitsPerComponent: bitsPerComponent,
+        bitsPerComponent: 8,
         bytesPerRow: bytesPerRow,
         space: colorSpace,
         bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
@@ -569,49 +912,28 @@ final class CatchPhotoAnalyzer {
       throw PreprocessError.cannotCreateContext
     }
 
-    context.draw(cgImage, in: CGRect(origin: .zero, size: targetSize))
+    context.draw(srcCGImage, in: CGRect(x: 0, y: 0, width: width, height: height))
 
-    // 3) Create MLMultiArray of shape [1, 3, 224, 224]
+    // 2) Create MLMultiArray of shape [1, 3, 224, 224]
     let shape: [NSNumber] = [1, 3, NSNumber(value: height), NSNumber(value: width)]
     let array = try MLMultiArray(shape: shape, dataType: .float32)
 
-    // Fill in channel-first order: [batch, channel, y, x]
-    // Apply ImageNet normalization: (pixel / 255 - mean) / std
+    // 3) Fill using a raw pointer — avoids ~150K NSNumber allocations per image
     let channelStride = height * width
-    let mean: [Float] = [0.485, 0.456, 0.406]  // R, G, B
-    let std: [Float]  = [0.229, 0.224, 0.225]
+    let ptr = array.dataPointer.bindMemory(to: Float.self, capacity: 3 * channelStride)
 
     for y in 0 ..< height {
       for x in 0 ..< width {
         let pixelIndex = y * bytesPerRow + x * bytesPerPixel
-        let r = (Float(rawData[pixelIndex + 0]) / 255.0 - mean[0]) / std[0]
-        let g = (Float(rawData[pixelIndex + 1]) / 255.0 - mean[1]) / std[1]
-        let b = (Float(rawData[pixelIndex + 2]) / 255.0 - mean[2]) / std[2]
-
         let hwIndex = y * width + x
 
-        let rIndex = 0 * channelStride + hwIndex
-        let gIndex = 1 * channelStride + hwIndex
-        let bIndex = 2 * channelStride + hwIndex
-
-        array[rIndex] = NSNumber(value: r)
-        array[gIndex] = NSNumber(value: g)
-        array[bIndex] = NSNumber(value: b)
+        ptr[0 * channelStride + hwIndex] = (Float(rawData[pixelIndex + 0]) / 255.0 - mean[0]) / std[0]
+        ptr[1 * channelStride + hwIndex] = (Float(rawData[pixelIndex + 1]) / 255.0 - mean[1]) / std[1]
+        ptr[2 * channelStride + hwIndex] = (Float(rawData[pixelIndex + 2]) / 255.0 - mean[2]) / std[2]
       }
     }
 
     return array
-  }
-
-  private func resize(image: UIImage, to targetSize: CGSize) -> UIImage? {
-    let format = UIGraphicsImageRendererFormat.default()
-    format.scale = 1.0 // we want logical pixels
-
-    let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
-    let result = renderer.image { _ in
-      image.draw(in: CGRect(origin: .zero, size: targetSize))
-    }
-    return result
   }
 
   private enum PreprocessError: Error {
@@ -623,7 +945,7 @@ final class CatchPhotoAnalyzer {
 
   /// The 26 features in exact order matching the Python FEATURE_COLS.
   /// This order is critical — a mismatch produces silently wrong predictions.
-  static let featureCols: [String] = [
+  nonisolated static let featureCols: [String] = [
     // Base features (19)
     "fish_box_width",
     "fish_box_height",
@@ -655,7 +977,7 @@ final class CatchPhotoAnalyzer {
   ]
 
   /// All 26 features for the length regressor, in FEATURE_COLS order. Codable for upload to Supabase.
-  struct LengthFeatureVector: Codable {
+  nonisolated struct LengthFeatureVector: Codable {
     // Base features
     let fishBoxWidth: Double
     let fishBoxHeight: Double
@@ -666,7 +988,7 @@ final class CatchPhotoAnalyzer {
     let personBoxWidth: Double
     let personAspectRatio: Double
     let fishToPersonRatio: Double
-    let speciesIndex: Double
+    var speciesIndex: Double
     let speciesConfidence: Double
     let diagonalFraction: Double
     let handDetected: Double
@@ -952,7 +1274,7 @@ final class CatchPhotoAnalyzer {
         return DetectionResult(fishBox: nil, personBox: nil)
       }
 
-      guard let output = try? detectorModel.prediction(image: pixelBuffer) else {
+      guard let output = try? detectorModel?.prediction(image: pixelBuffer) else {
         AppLogging.log("runDetector: model prediction failed", level: .error, category: .ml)
         return DetectionResult(fishBox: nil, personBox: nil)
       }
@@ -993,16 +1315,21 @@ final class CatchPhotoAnalyzer {
       let numClasses = channels - 4
 
       // Helper closure to read arr[0, channel, anchor] or arr[0, anchor, channel]
-      let read: (_ channelIndex: Int, _ anchorIndex: Int) -> Double = { ch, an in
-        let idx: [NSNumber]
-        if channelsOnSecondAxis {
-          // [1, C, A]
-          idx = [0, NSNumber(value: ch), NSNumber(value: an)]
-        } else {
-          // [1, A, C]
-          idx = [0, NSNumber(value: an), NSNumber(value: ch)]
+      // Uses direct index math instead of allocating [NSNumber] arrays (~16K times).
+      let read: (_ channelIndex: Int, _ anchorIndex: Int) -> Double
+      let rawPtr = arr.dataPointer
+      if arr.dataType == .float32 {
+        let fp32 = rawPtr.bindMemory(to: Float32.self, capacity: channels * numAnchors)
+        read = { ch, an in
+          let i = channelsOnSecondAxis ? ch * numAnchors + an : an * channels + ch
+          return Double(fp32[i])
         }
-        return arr[idx].doubleValue
+      } else {
+        let fp64 = rawPtr.bindMemory(to: Float64.self, capacity: channels * numAnchors)
+        read = { ch, an in
+          let i = channelsOnSecondAxis ? ch * numAnchors + an : an * channels + ch
+          return fp64[i]
+        }
       }
 
       AppLogging.log({ "runDetector: output shape=\(arr.shape), channels=\(channels), anchors=\(numAnchors), channelsOnSecondAxis=\(channelsOnSecondAxis)" }, level: .debug, category: .ml)
@@ -1095,11 +1422,6 @@ final class CatchPhotoAnalyzer {
         let w = CGFloat(read(2, i))
         let h = CGFloat(read(3, i))
 
-        // DEBUG: Log first detection's raw values
-        if i == 0 {
-          AppLogging.log({ "DEBUG first anchor: x=\(x), y=\(y), w=\(w), h=\(h)" }, level: .debug, category: .ml)
-        }
-
         // 4) Geometry filters
         let aspect = w / max(h, 1.0)
         let hFrac = h / imgH
@@ -1153,33 +1475,54 @@ final class CatchPhotoAnalyzer {
 
   /// Known length ranges per species for heuristic rescaling.
   /// Add new species here as they are calibrated.
-  private static let speciesLengthRanges: [String: (min: Double, max: Double)] = [
+  static let speciesLengthRanges: [String: (min: Double, max: Double)] = [
+    "brown_trout":         (min: 8,  max: 30),
+    "lingcod":             (min: 18, max: 60),
+    "musky":               (min: 24, max: 60),
+    "rainbow_trout":       (min: 8,  max: 30),
+    "sea_run_trout":       (min: 8,  max: 30),
     "steelhead_holding":   (min: 24, max: 42),
     "steelhead_traveler":  (min: 24, max: 42),
-    "sea_run_trout":       (min: 8,  max: 20),
   ]
 
   /// Turn the best detected box into a rough length estimate.
   /// When `speciesLabel` is provided and the species has a known range,
-  /// the raw heuristic output is rescaled into that range.
+  /// the raw heuristic output is rescaled into that range. `atSpeciesCap`
+  /// is true when the raw input exceeded the global heuristic envelope and
+  /// the value clamped to the species' max — surfaced as "+" in the display.
   private func estimateLength(
     from box: NormalizedBox,
     imageSize: CGSize,
     speciesLabel: String? = nil
-  ) -> (inches: Double, display: String) {
+  ) -> (inches: Double, display: String, atSpeciesCap: Bool) {
     // YOLOv8 export is giving us pixel coordinates in 640×640 space.
     // Use the *long side* of the box as a proxy for fish length.
     var pixelLength = max(box.width, box.height)
 
-    // Scale down boxes (training data has boxes around person+fish, not just fish)
+    // Diagonal-fraction correction: a tight close-up (high diagFrac) means the
+    // photographer was close, so the pixel-length over-represents the fish's
+    // real size; a wide shot (low diagFrac) means the opposite. Compute in the
+    // YOLO 640×640 space so it matches buildFeatureVector's diagonalFraction.
+    // Strength 0 disables the correction (env-tunable).
     let env = AppEnvironment.shared
+    let frameDiagonal: CGFloat = sqrt(640 * 640 + 640 * 640)
+    let fishDiagonal = sqrt(box.width * box.width + box.height * box.height)
+    let diagFrac = fishDiagonal / frameDiagonal
+    let strength = CGFloat(env.heuristicDiagFracStrength)
+    let diagAdjustment = 1.0 + strength * (0.5 - diagFrac)
+    pixelLength *= diagAdjustment
+
+    // Scale down boxes (training data has boxes around person+fish, not just fish)
     pixelLength *= env.fishBoxScaleFactor
 
     // Heuristic: pixels per inch in the 640×640 model space
     let pixelsPerInch: CGFloat = env.fishPixelsPerInch
     let rawInches = Double(pixelLength / pixelsPerInch)
 
-    AppLogging.log({ "estimateLength: w=\(box.width), h=\(box.height), pixelLength=\(pixelLength), rawInches=\(rawInches)" }, level: .debug, category: .ml)
+    AppLogging.log({
+      "estimateLength: w=\(box.width), h=\(box.height), diagFrac=\(String(format: "%.3f", diagFrac)), " +
+      "diagAdj=\(String(format: "%.3f", diagAdjustment)), pixelLength=\(pixelLength), rawInches=\(rawInches)"
+    }, level: .debug, category: .ml)
 
     // If species has a known range, rescale the raw heuristic into that range
     if let species = speciesLabel,
@@ -1190,27 +1533,33 @@ final class CatchPhotoAnalyzer {
       let heuristicMax = env.fishMaxLengthInches
 
       // Normalize raw inches to 0..1 within the steelhead heuristic range
-      let fraction = min(1.0, max(0.0,
-        (rawInches - heuristicMin) / (heuristicMax - heuristicMin)
-      ))
+      let unclamped = (rawInches - heuristicMin) / (heuristicMax - heuristicMin)
+      let fraction = min(1.0, max(0.0, unclamped))
 
       // Map into the species-specific range
       let scaled = range.min + fraction * (range.max - range.min)
-      let low = (scaled * env.fishEstimateLowFactor).rounded()
-      let high = (scaled * env.fishEstimateHighFactor).rounded()
+      let atCap = unclamped >= 1.0
 
       AppLogging.log({
         "estimateLength (species-scaled): raw=\(String(format: "%.1f", rawInches))\" " +
         "-> fraction=\(String(format: "%.2f", fraction)) " +
         "-> \(species) range [\(Int(range.min))-\(Int(range.max))] " +
-        "-> scaled=\(String(format: "%.1f", scaled))\""
+        "-> scaled=\(String(format: "%.1f", scaled))\"" +
+        (atCap ? " [AT SPECIES CAP]" : "")
       }, level: .debug, category: .ml)
 
-      let display = String(
-        format: "%.0f–%.0f inches (photo estimate)",
-        low, high
-      )
-      return (inches: scaled, display: display)
+      // At-cap fish exceed the model's representable upper bound — surface
+      // as "<max>+ inches" rather than a misleading low–high range that would
+      // imply both sides are bounded.
+      let display: String
+      if atCap {
+        display = String(format: "%.0f+ inches (photo estimate)", range.max)
+      } else {
+        let low = (scaled * env.fishEstimateLowFactor).rounded()
+        let high = (scaled * env.fishEstimateHighFactor).rounded()
+        display = String(format: "%.0f–%.0f inches (photo estimate)", low, high)
+      }
+      return (inches: scaled, display: display, atSpeciesCap: atCap)
     }
 
     // Default: clamp to steelhead range (original behavior)
@@ -1225,7 +1574,170 @@ final class CatchPhotoAnalyzer {
       high.rounded()
     )
 
-    return (inches: clamped, display: display)
+    return (inches: clamped, display: display, atSpeciesCap: false)
+  }
+
+  // MARK: - Species-corrected length re-estimation
+
+  /// Result of re-estimating length after species correction.
+  struct LengthReEstimate {
+    let lengthInches: Double?
+    let source: LengthEstimateSource
+    /// True when the species-scaled heuristic clamped at the species' max
+    /// length range (raw input was >= the global heuristic envelope ceiling).
+    /// Surfaced as a "+" suffix in the formatted length to signal that the
+    /// fish may exceed the model's representable upper bound.
+    let atSpeciesCap: Bool
+  }
+
+  /// Maps user-facing species names (+ optional lifecycle stage) to model labels.
+  /// Used when re-estimating length after the researcher corrects species.
+  ///
+  /// Every value MUST exist in `speciesLabels`. Keys MUST cover every entry in
+  /// `CatchChatViewModel.speciesDisplayNames` — otherwise a corrected species
+  /// silently falls through to `speciesIdx=0` and the regressor runs with the
+  /// wrong species feature. Keep all three (`speciesLabels`,
+  /// `speciesDisplayNames`, this map) in lockstep — see `/new-species`.
+  static let speciesDisplayToLabel: [String: String] = [
+    // Lifecycle-split species — default to _holding; reEstimateLength will
+    // upgrade to _traveler when the stage parameter is supplied.
+    "steelhead":       "steelhead_holding",
+    "atlantic salmon": "atlantic_salmon_holding",
+    // Single-label species
+    "rainbow trout":   "rainbow_trout",
+    "brown trout":     "brown_trout",
+    "chinook salmon":  "chinook_salmon",
+    "sea-run trout":   "sea_run_trout",
+    "sea run trout":   "sea_run_trout",
+    "lingcod":         "lingcod",
+    "musky":           "musky",
+    "bi-catch":        "other",
+  ]
+
+  /// Maps model labels to their species index in the `speciesLabels` array.
+  private func speciesLabelToIndex(_ label: String) -> Int? {
+    Self.speciesLabels.firstIndex(of: label)
+  }
+
+  /// Re-estimate length using the original feature vector but with a corrected species.
+  /// Called when the researcher changes species during the identification step,
+  /// because the regressor uses species index as an input feature, and some species
+  /// bypass the regressor entirely (e.g. sea_run_trout uses heuristic only).
+  ///
+  /// - Parameters:
+  ///   - originalFV: The feature vector from the initial ML analysis
+  ///   - correctedSpecies: The user-confirmed species display name (e.g. "Steelhead")
+  ///   - correctedLifecycleStage: Optional lifecycle stage (e.g. "Holding", "Traveler")
+  /// - Returns: Re-estimated length and source, or nil length if estimation fails
+  func reEstimateLength(
+    originalFV: LengthFeatureVector,
+    correctedSpecies: String?,
+    correctedLifecycleStage: String?
+  ) -> LengthReEstimate {
+    guard let species = correctedSpecies else {
+      return LengthReEstimate(lengthInches: nil, source: .heuristic, atSpeciesCap: false)
+    }
+
+    // Build the model label from species + lifecycle stage
+    let lowerSpecies = species.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+    let lowerStage = correctedLifecycleStage?.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+
+    // Try direct lookup first (e.g. "steelhead" -> "steelhead_holding")
+    var modelLabel = Self.speciesDisplayToLabel[lowerSpecies]
+
+    // If we have a lifecycle stage, try species_stage combination
+    if let stage = lowerStage, !stage.isEmpty {
+      let combined = "\(lowerSpecies.replacingOccurrences(of: " ", with: "_"))_\(stage)"
+      if Self.speciesLabels.contains(combined) {
+        modelLabel = combined
+      }
+    }
+
+    // Resolve species index
+    let speciesIdx: Int
+    let labelResolved: Bool
+    if let label = modelLabel, let idx = speciesLabelToIndex(label) {
+      speciesIdx = idx
+      labelResolved = true
+    } else {
+      // Couldn't map the corrected species to a known model label.
+      // Force-skip the regressor — running it with speciesIdx=0 silently
+      // produces a wrong-distribution prediction. Heuristic falls through
+      // to the default clamp when resolvedLabel isn't in speciesLengthRanges.
+      speciesIdx = 0
+      labelResolved = false
+      AppLogging.log({
+        "reEstimateLength: could not resolve '\(species)' to a known model label — using heuristic"
+      }, level: .warn, category: .ml)
+    }
+
+    let resolvedLabel = modelLabel ?? "unknown"
+    AppLogging.log({
+      "reEstimateLength: corrected species=\(species), stage=\(correctedLifecycleStage ?? "nil"), " +
+      "resolved label=\(resolvedLabel), index=\(speciesIdx)"
+    }, level: .info, category: .ml)
+
+    let useRegressor = labelResolved && !Self.regressorBypassSpecies.contains(resolvedLabel)
+
+    // Build updated feature vector with corrected species index
+    var updatedFV = originalFV
+    updatedFV.speciesIndex = Double(speciesIdx)
+
+    if useRegressor, AppEnvironment.shared.useLengthRegressor,
+       let predicted = predictLength(from: updatedFV) {
+      let clamped = max(
+        AppEnvironment.shared.fishMinLengthInches,
+        min(predicted, AppEnvironment.shared.fishMaxLengthInches)
+      )
+      AppLogging.log({
+        "reEstimateLength: regressor predicted=\(String(format: "%.1f", predicted)), " +
+        "clamped=\(String(format: "%.1f", clamped)) for \(resolvedLabel)"
+      }, level: .info, category: .ml)
+      return LengthReEstimate(lengthInches: clamped, source: .regressor, atSpeciesCap: false)
+    }
+
+    // Fallback to species-scaled heuristic
+    // Reconstruct fish box dimensions from feature vector (in 640x640 model space)
+    let fw = originalFV.fishBoxWidth
+    let fh = originalFV.fishBoxHeight
+    var pixelLength = max(fw, fh)
+
+    let env = AppEnvironment.shared
+
+    // Apply the same diagFrac correction the initial heuristic uses, so post-
+    // correction estimates don't diverge from the initial estimate for the
+    // same photo. diagonalFraction was computed in buildFeatureVector.
+    let strength = Double(env.heuristicDiagFracStrength)
+    let diagAdjustment = 1.0 + strength * (0.5 - originalFV.diagonalFraction)
+    pixelLength *= diagAdjustment
+
+    let scaledPixelLength = pixelLength * env.fishBoxScaleFactor
+    let rawInches = scaledPixelLength / env.fishPixelsPerInch
+
+    // Check for species-specific range
+    if let range = Self.speciesLengthRanges[resolvedLabel] {
+      let heuristicMin = env.fishMinLengthInches
+      let heuristicMax = env.fishMaxLengthInches
+      let unclamped = (rawInches - heuristicMin) / (heuristicMax - heuristicMin)
+      let fraction = min(1.0, max(0.0, unclamped))
+      let scaled = range.min + fraction * (range.max - range.min)
+      let atCap = unclamped >= 1.0
+
+      AppLogging.log({
+        "reEstimateLength: heuristic species-scaled for \(resolvedLabel), " +
+        "raw=\(String(format: "%.1f", rawInches)), scaled=\(String(format: "%.1f", scaled))" +
+        (atCap ? " [AT SPECIES CAP]" : "")
+      }, level: .info, category: .ml)
+      return LengthReEstimate(lengthInches: scaled, source: .heuristic, atSpeciesCap: atCap)
+    }
+
+    // Default heuristic (steelhead range)
+    let clamped = max(env.fishMinLengthInches, min(rawInches, env.fishMaxLengthInches))
+    AppLogging.log({
+      "reEstimateLength: heuristic default, raw=\(String(format: "%.1f", rawInches)), " +
+      "clamped=\(String(format: "%.1f", clamped))"
+    }, level: .info, category: .ml)
+    return LengthReEstimate(lengthInches: clamped, source: .heuristic, atSpeciesCap: false)
   }
 }
 

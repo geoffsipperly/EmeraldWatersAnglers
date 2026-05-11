@@ -24,7 +24,8 @@ enum TestGeographySetup {
             displayName: nil,
             learnUrl: nil,
             entitlements: [:],
-            geography: geo
+            geography: geo,
+            units: nil
         )
         CommunityService.shared.setTestConfig(config)
     }

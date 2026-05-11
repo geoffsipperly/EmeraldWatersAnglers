@@ -30,7 +30,7 @@ public enum NoCatchEventType: String, Codable, CaseIterable {
 
 // MARK: - Model
 
-public struct FarmedReport: Identifiable, Codable, Equatable {
+public nonisolated struct FarmedReport: Identifiable, Codable, Equatable, Sendable {
   // Identity
   public let id: UUID
   public var createdAt: Date
@@ -48,12 +48,26 @@ public struct FarmedReport: Identifiable, Codable, Equatable {
   public var lat: Double?
   public var lon: Double?
 
-  // Optional angler
+  // Owning member id. Must match the bound scope on FarmedReportStore;
+  // mismatched records are filtered out by loadAll's cross-member defense.
   public var memberId: String?
+
+  /// Active community at the time the report was created. Required for the
+  /// per-member/per-community storage scoping in `FarmedReportStore`. Optional
+  /// in the model so that legacy JSON on disk (which predates this field) can
+  /// still be decoded — the migration path drops such records.
+  public var communityId: String?
+
+  /// Whether the user opted this report OUT of being used to train ML models.
+  /// Only ever `true` for public users who disabled the toggle in
+  /// ManageProfileView → Privacy. Lodge-provisioned users always send `false`.
+  /// Maps to the top-level upload field `mlTrainingOptOut` (default false
+  /// server-side). Optional for backward-compatible JSON decode.
+  public var mlTrainingOptOut: Bool?
 
   // Coding keys with default for backward compatibility with existing JSON on disk
   enum CodingKeys: String, CodingKey {
-    case id, createdAt, status, eventType, guideName, lat, lon, memberId
+    case id, createdAt, status, eventType, guideName, lat, lon, memberId, communityId, mlTrainingOptOut
   }
 
   public init(from decoder: Decoder) throws {
@@ -66,6 +80,8 @@ public struct FarmedReport: Identifiable, Codable, Equatable {
     lat = try container.decodeIfPresent(Double.self, forKey: .lat)
     lon = try container.decodeIfPresent(Double.self, forKey: .lon)
     memberId = try container.decodeIfPresent(String.self, forKey: .memberId)
+    communityId = try container.decodeIfPresent(String.self, forKey: .communityId)
+    mlTrainingOptOut = try container.decodeIfPresent(Bool.self, forKey: .mlTrainingOptOut)
   }
 
   public init(
@@ -76,7 +92,9 @@ public struct FarmedReport: Identifiable, Codable, Equatable {
     guideName: String,
     lat: Double? = nil,
     lon: Double? = nil,
-    memberId: String? = nil
+    memberId: String? = nil,
+    communityId: String? = nil,
+    mlTrainingOptOut: Bool? = nil
   ) {
     self.id = id
     self.createdAt = createdAt
@@ -86,6 +104,8 @@ public struct FarmedReport: Identifiable, Codable, Equatable {
     self.lat = lat
     self.lon = lon
     self.memberId = memberId
+    self.communityId = communityId
+    self.mlTrainingOptOut = mlTrainingOptOut
   }
 
   // Convenience

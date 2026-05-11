@@ -26,7 +26,49 @@ extension RosterAnglerDTO {
   func hash(into hasher: inout Hasher) { hasher.combine(member_id) }
 }
 
-struct PreferencesDTO: Decodable {
+// MARK: - Generic field object from member-details API
+//
+// The member-details endpoint returns preferences, proficiencies, and gear
+// as arrays of self-describing field objects. This struct decodes that format,
+// and AnglerDetailsResponse maps them to the legacy flat DTOs so the display
+// views don't need to change.
+
+struct MemberField: Decodable {
+  let field_name: String
+  let field_label: String?
+  let field_type: String?          // "boolean" | "number"
+  let question_text: String?
+  let context_text: String?
+  let options: MemberFieldOptions?
+  let value: String?
+}
+
+struct MemberFieldOptions: Decodable {
+  let has_details: Bool?
+  let details_prompt: String?
+  let low: String?
+  let medium: String?
+  let high: String?
+  let priority: String?
+
+  // Accept any unknown keys gracefully
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    has_details = try container.decodeIfPresent(Bool.self, forKey: .has_details)
+    details_prompt = try container.decodeIfPresent(String.self, forKey: .details_prompt)
+    low = try container.decodeIfPresent(String.self, forKey: .low)
+    medium = try container.decodeIfPresent(String.self, forKey: .medium)
+    high = try container.decodeIfPresent(String.self, forKey: .high)
+    priority = try container.decodeIfPresent(String.self, forKey: .priority)
+  }
+  enum CodingKeys: String, CodingKey {
+    case has_details, details_prompt, low, medium, high, priority
+  }
+}
+
+// MARK: - Legacy DTOs (used by display views)
+
+struct PreferencesDTO {
   let drinks: Bool?
   let drinks_text: String?
   let food: Bool?
@@ -39,7 +81,28 @@ struct PreferencesDTO: Decodable {
   let allergies_text: String?
   let cpap: Bool?
   let cpap_text: String?
+
+  /// Build from an array of MemberField objects.
+  init(fields: [MemberField]) {
+    let map = Dictionary(uniqueKeysWithValues: fields.map { ($0.field_name, $0.value ?? "") })
+    func parse(_ key: String) -> (Bool?, String?) {
+      guard let raw = map[key] else { return (nil, nil) }
+      if raw.hasPrefix("true") {
+        let parts = raw.split(separator: "|", maxSplits: 1)
+        let text = parts.count > 1 ? String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines) : nil
+        return (true, text)
+      }
+      return (raw == "false" ? false : nil, nil)
+    }
+    (drinks, drinks_text) = parse("drinks")
+    (food, food_text) = parse("food")
+    (health, health_text) = parse("health")
+    (occasion, occasion_text) = parse("occasion")
+    (allergies, allergies_text) = parse("allergies")
+    (cpap, cpap_text) = parse("cpap")
+  }
 }
+
 struct ProficiencyDTO: Decodable {
   let casting: Int?
   let wading: Int?
@@ -49,27 +112,16 @@ struct ProficiencyDTO: Decodable {
   let species_name: String?
   let tactic_name: String?
 }
-struct GearDTO: Decodable {
-  let lodge_name: String?
-  let waders: Bool?
-  let boots: Bool?
-  let wading_jacket: Bool?
-  let switch_rod: Bool?
-  let short_spey: Bool?
-  let reel_hand: String?
+
+struct ProficiencyContextDTO {
+  let question: String?
+  let context: String?
+  let high: String?
+  let medium: String?
+  let low: String?
 }
 
-// New detailed DTOs for Angler Details API
-struct AnglerDetailsResponse: Decodable {
-  let member_id: String
-  let member_number: String
-  let first_name: String
-  let last_name: String
-  let preferences: PreferencesDTO?
-  let proficiencies: [ProficiencyDetailsDTO]?
-  let gear: [GearDTO]?
-}
-struct ProficiencyDetailsDTO: Decodable {
+struct ProficiencyDetailsDTO {
   let casting: Int?
   let wading: Int?
   let hiking: Int?
@@ -81,13 +133,105 @@ struct ProficiencyDetailsDTO: Decodable {
   let wading_context: ProficiencyContextDTO?
   let hiking_context: ProficiencyContextDTO?
   let learning_style_context: ProficiencyContextDTO?
+
+  /// Build from an array of MemberField objects.
+  init(fields: [MemberField]) {
+    func intVal(_ name: String) -> Int? {
+      fields.first(where: { $0.field_name == name }).flatMap { Int($0.value ?? "") }
+    }
+    func ctx(_ name: String) -> ProficiencyContextDTO? {
+      guard let f = fields.first(where: { $0.field_name == name }) else { return nil }
+      return ProficiencyContextDTO(
+        question: f.question_text,
+        context: f.context_text,
+        high: f.options?.high,
+        medium: f.options?.medium,
+        low: f.options?.low
+      )
+    }
+    casting = intVal("casting")
+    wading = intVal("wading")
+    hiking = intVal("hiking")
+    learning_style = intVal("learning_style")
+    casting_context = ctx("casting")
+    wading_context = ctx("wading")
+    hiking_context = ctx("hiking")
+    learning_style_context = ctx("learning_style")
+    lodge_name = nil
+    species_name = nil
+    tactic_name = nil
+  }
 }
-struct ProficiencyContextDTO: Decodable {
-  let question: String?
-  let context: String?
-  let high: String?
-  let medium: String?
-  let low: String?
+
+struct GearDTO {
+  let lodge_name: String?
+  let waders: Bool?
+  let boots: Bool?
+  let wading_jacket: Bool?
+  let switch_rod: Bool?
+  let short_spey: Bool?
+  let reel_hand: String?
+
+  /// Build from a single MemberField — one DTO per field.
+  /// The display view iterates GearDTO[], so we collapse all fields into one.
+  init(fields: [MemberField]) {
+    func boolVal(_ name: String) -> Bool? {
+      fields.first(where: { $0.field_name == name }).map { ($0.value ?? "") == "true" }
+    }
+    waders = boolVal("waders")
+    boots = boolVal("boots")
+    wading_jacket = boolVal("wading_jacket")
+    switch_rod = boolVal("switch_rod")
+    short_spey = boolVal("short_spey")
+    reel_hand = nil  // not returned as a separate field in the new format
+    lodge_name = nil
+  }
+}
+
+// MARK: - Response DTO with custom decoder
+
+struct AnglerDetailsResponse: Decodable {
+  let member_id: String
+  let member_number: String
+  let first_name: String
+  let last_name: String
+  let preferences: PreferencesDTO?
+  let proficiencies: [ProficiencyDetailsDTO]?
+  let gear: [GearDTO]?
+
+  enum CodingKeys: String, CodingKey {
+    case member_id, member_number, first_name, last_name
+    case preferences, proficiencies, gear
+  }
+
+  init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: CodingKeys.self)
+    member_id = try c.decode(String.self, forKey: .member_id)
+    member_number = try c.decodeIfPresent(String.self, forKey: .member_number) ?? ""
+    first_name = try c.decodeIfPresent(String.self, forKey: .first_name) ?? ""
+    last_name = try c.decodeIfPresent(String.self, forKey: .last_name) ?? ""
+
+    // Preferences — array of MemberField → single PreferencesDTO
+    if let prefFields = try? c.decode([MemberField].self, forKey: .preferences) {
+      preferences = PreferencesDTO(fields: prefFields)
+    } else {
+      preferences = nil
+    }
+
+    // Proficiencies — array of MemberField → single ProficiencyDetailsDTO
+    if let profFields = try? c.decode([MemberField].self, forKey: .proficiencies), !profFields.isEmpty {
+      proficiencies = [ProficiencyDetailsDTO(fields: profFields)]
+    } else {
+      proficiencies = nil
+    }
+
+    // Gear — array of MemberField → single GearDTO with all fields
+    if let gearFields = try? c.decode([MemberField].self, forKey: .gear), !gearFields.isEmpty {
+      gear = [GearDTO(fields: gearFields)]
+    } else {
+      gear = nil
+    }
+  }
 }
 
 enum TripRosterAPI {
@@ -99,9 +243,9 @@ enum TripRosterAPI {
     let path = APIURLUtilities.infoPlistString(forKey: "TRIP_ROSTER_PATH")
     return path.isEmpty ? "/functions/v1/trip-roster" : path
   }()
-  private static let anglerDetailsPath: String = {
-    let path = APIURLUtilities.infoPlistString(forKey: "ANGLER_DETAILS_PATH")
-    return path.isEmpty ? "/functions/v1/angler-details" : path
+  private static let memberDetailsPath: String = {
+    let path = APIURLUtilities.infoPlistString(forKey: "MEMBER_DETAILS_PATH")
+    return path.isEmpty ? "/functions/v1/member-details" : path
   }()
   private static let apiKey = APIURLUtilities.infoPlistString(forKey: "API_KEY")
 
@@ -109,7 +253,7 @@ enum TripRosterAPI {
     AppLogging.log("TripRosterAPI config — API_BASE_URL (raw): '" + rawBaseURLString + "'", level: .debug, category: .trip)
     AppLogging.log("TripRosterAPI config — API_BASE_URL (normalized): '" + baseURLString + "'", level: .debug, category: .trip)
     AppLogging.log("TripRosterAPI config — roster path: '" + tripRosterPath + "'", level: .debug, category: .trip)
-    AppLogging.log("TripRosterAPI config — details path: '" + anglerDetailsPath + "'", level: .debug, category: .trip)
+    AppLogging.log("TripRosterAPI config — details path: '" + memberDetailsPath + "'", level: .debug, category: .trip)
   }
 
   private static func makeURL(path: String, queryItems: [URLQueryItem]) throws -> URL {
@@ -169,7 +313,7 @@ enum TripRosterAPI {
     }
     guard (200...299).contains(http.statusCode) else {
       let body = String(data: data, encoding: .utf8) ?? ""
-      AppLogging.log("TripRosterAPI request failed with status \(http.statusCode), body: \(body)", level: .debug, category: .trip)
+      AppLogging.log("TripRosterAPI request failed with status \(http.statusCode), body: \(body)", level: .error, category: .trip)
       throw NSError(domain: "TripRoster", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: body.isEmpty ? "HTTP \(http.statusCode)" : body])
     }
 
@@ -178,30 +322,34 @@ enum TripRosterAPI {
     return try dec.decode(RosterTripResponse.self, from: data)
   }
 
-  static func fetchAnglerDetails(anglerID: String, community: String, lodge: String) async throws -> AnglerDetailsResponse {
+  /// Fetches member details via the `member-details` edge function.
+  /// Accepts the member's UUID (the endpoint also accepts legacy angler_id).
+  static func fetchMemberDetails(memberID: String) async throws -> AnglerDetailsResponse {
     logConfig()
-    var items: [URLQueryItem] = [URLQueryItem(name: "angler_id", value: anglerID)]
+    var items: [URLQueryItem] = [URLQueryItem(name: "member_id", value: memberID)]
     if let communityId = CommunityService.shared.activeCommunityId {
       items.append(URLQueryItem(name: "community_id", value: communityId))
     }
-    items.append(URLQueryItem(name: "lodge", value: lodge))
-    let url = try makeURL(path: anglerDetailsPath, queryItems: items)
+    let url = try makeURL(path: memberDetailsPath, queryItems: items)
     var req = URLRequest(url: url)
     req.httpMethod = "GET"
+    if let token = await AuthService.shared.currentAccessToken(), !token.isEmpty {
+      req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    }
     if !apiKey.isEmpty { req.setValue(apiKey, forHTTPHeaderField: "apikey") }
     req.setValue("application/json", forHTTPHeaderField: "Accept")
 
-    AppLogging.log("AnglerDetails request URL: \(url.absoluteString)", level: .debug, category: .trip)
-    AppLogging.log("AnglerDetails headers — apikey prefix: \(apiKey.prefix(8))…, Accept: application/json", level: .debug, category: .trip)
-
-    AppLogging.log("Fetching angler details with URL: \(req.url?.absoluteString ?? "nil")", level: .debug, category: .trip)
+    AppLogging.log("MemberDetails request URL: \(url.absoluteString)", level: .debug, category: .trip)
 
     let (data, resp) = try await URLSession.shared.data(for: req)
     guard let http = resp as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
       let status = (resp as? HTTPURLResponse)?.statusCode ?? -1
       let body = String(data: data, encoding: .utf8) ?? ""
-      throw NSError(domain: "AnglerDetails", code: status, userInfo: [NSLocalizedDescriptionKey: body.isEmpty ? "HTTP \(status)" : body])
+      AppLogging.log("MemberDetails failed (\(status)): \(body)", level: .error, category: .trip)
+      throw NSError(domain: "MemberDetails", code: status, userInfo: [NSLocalizedDescriptionKey: body.isEmpty ? "HTTP \(status)" : body])
     }
+    let rawBody = String(data: data, encoding: .utf8) ?? "<non-UTF8>"
+    AppLogging.log("MemberDetails raw response: \(rawBody)", level: .debug, category: .trip)
     let dec = JSONDecoder()
     dec.keyDecodingStrategy = .useDefaultKeys
     return try dec.decode(AnglerDetailsResponse.self, from: data)
@@ -255,7 +403,7 @@ struct AnglerProfilesView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let err = vm.error {
                 Text(err)
-                    .foregroundColor(.red)
+                    .foregroundColor(.brandError)
                     .padding()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if vm.anglers.isEmpty {
@@ -264,11 +412,11 @@ struct AnglerProfilesView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List(vm.anglers, id: \.id) { a in
-                    NavigationLink(destination: AnglerDetailsSheetView(anglerID: a.member_id, displayName: "\(a.first_name) \(a.last_name)", memberNumber: a.member_number, community: vm.community, lodge: vm.lodge)) {
+                    NavigationLink(destination: AnglerDetailsSheetView(memberID: a.member_id, displayName: "\(a.first_name) \(a.last_name)", memberNumber: a.member_number)) {
                         Text("\(a.last_name), \(a.first_name)")
-                            .foregroundColor(.white)
+                            .foregroundColor(.brandTextPrimary)
                     }
-                    .listRowBackground(Color.black)
+                    .listRowBackground(Color.brandBackground)
                 }
                 .listStyle(.plain)
             }
@@ -281,13 +429,13 @@ struct AnglerProfilesView: View {
                 Button {
                     dismiss()
                 } label: {
-                    Label("Back", systemImage: "chevron.backward")
-                        .foregroundColor(.white)
+                    Image(systemName: "chevron.backward")
+                        .foregroundColor(.brandTextPrimary)
                 }
             }
         }
-        .background(Color.black.edgesIgnoringSafeArea(.all))
-        .background(Color.black)
+        .background(Color.brandBackground.edgesIgnoringSafeArea(.all))
+        .background(Color.brandBackground)
         .preferredColorScheme(.dark)
         .task {
             await vm.load()
@@ -304,14 +452,10 @@ final class AnglerDetailsVM: ObservableObject {
   @Published var error: String?
   @Published var details: AnglerDetailsResponse?
 
-  let anglerID: String
-  let community: String
-  let lodge: String
+  let memberID: String
 
-  init(anglerID: String, community: String, lodge: String) {
-    self.anglerID = anglerID
-    self.community = community
-    self.lodge = lodge
+  init(memberID: String) {
+    self.memberID = memberID
   }
 
   func load() async {
@@ -319,30 +463,27 @@ final class AnglerDetailsVM: ObservableObject {
     error = nil
     defer { isLoading = false }
     do {
-      let resp = try await TripRosterAPI.fetchAnglerDetails(anglerID: anglerID, community: community, lodge: lodge)
+      let resp = try await TripRosterAPI.fetchMemberDetails(memberID: memberID)
       self.details = resp
     } catch {
+      AppLogging.log("MemberDetails decode/load error: \(error)", level: .error, category: .trip)
       self.error = error.localizedDescription
     }
   }
 }
 
 struct AnglerDetailsSheetView: View {
-  let anglerID: String
+  let memberID: String
   let displayName: String
   let memberNumber: String
-  let community: String
-  let lodge: String
 
   @StateObject private var vm: AnglerDetailsVM
 
-  init(anglerID: String, displayName: String, memberNumber: String, community: String, lodge: String) {
-    self.anglerID = anglerID
+  init(memberID: String, displayName: String, memberNumber: String) {
+    self.memberID = memberID
     self.displayName = displayName
     self.memberNumber = memberNumber
-    self.community = community
-    self.lodge = lodge
-    _vm = StateObject(wrappedValue: AnglerDetailsVM(anglerID: anglerID, community: community, lodge: lodge))
+    _vm = StateObject(wrappedValue: AnglerDetailsVM(memberID: memberID))
   }
 
   var body: some View {
@@ -364,7 +505,7 @@ struct AnglerDetailsSheetView: View {
           .frame(maxWidth: .infinity)
         } else if let err = vm.error {
           Text(err)
-            .foregroundColor(.red)
+            .foregroundColor(.brandError)
         } else if let details = vm.details {
 
           // Learning style sentence above proficiencies
@@ -373,16 +514,16 @@ struct AnglerDetailsSheetView: View {
               HStack(alignment: .firstTextBaseline, spacing: 4) {
                 let parts = sentence.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: true)
                 Text("Learning style:")
-                  .foregroundColor(.blue)
-                  .font(.subheadline)
+                  .foregroundColor(.brandAccent)
+                  .font(.brandSubheadline)
                 if parts.count == 2 {
                   Text(String(parts[1]).trimmingCharacters(in: .whitespaces))
-                    .foregroundColor(.white)
-                    .font(.subheadline)
+                    .foregroundColor(.brandTextPrimary)
+                    .font(.brandSubheadline)
                 } else {
                   Text(sentence)
-                    .foregroundColor(.white)
-                    .font(.subheadline)
+                    .foregroundColor(.brandTextPrimary)
+                    .font(.brandSubheadline)
                 }
               }
             }
@@ -398,7 +539,7 @@ struct AnglerDetailsSheetView: View {
       }
       .padding()
       .frame(maxWidth: .infinity, alignment: .leading)
-      .background(Color.black)
+      .background(Color.brandBackground)
     }
     .navigationTitle(displayName)
     .navigationBarTitleDisplayMode(.inline)
@@ -430,8 +571,8 @@ func proficiencyQuestionMeterRow(_ prof: ProficiencyDetailsDTO) -> some View {
     if let question = prof.casting_context?.question {
       HStack(alignment: .center) {
         Text(question)
-          .foregroundColor(.white)
-          .font(.subheadline)
+          .foregroundColor(.brandTextPrimary)
+          .font(.brandSubheadline)
           .frame(maxWidth: .infinity, alignment: .leading)
         meter(label: "", value: prof.casting, kind: .skill)
       }
@@ -440,8 +581,8 @@ func proficiencyQuestionMeterRow(_ prof: ProficiencyDetailsDTO) -> some View {
     if let question = prof.wading_context?.question {
       HStack(alignment: .center) {
         Text(question)
-          .foregroundColor(.white)
-          .font(.subheadline)
+          .foregroundColor(.brandTextPrimary)
+          .font(.brandSubheadline)
           .frame(maxWidth: .infinity, alignment: .leading)
         meter(label: "", value: prof.wading, kind: .skill)
       }
@@ -450,8 +591,8 @@ func proficiencyQuestionMeterRow(_ prof: ProficiencyDetailsDTO) -> some View {
     if let question = prof.hiking_context?.question {
       HStack(alignment: .center) {
         Text(question)
-          .foregroundColor(.white)
-          .font(.subheadline)
+          .foregroundColor(.brandTextPrimary)
+          .font(.brandSubheadline)
           .frame(maxWidth: .infinity, alignment: .leading)
         meter(label: "", value: prof.hiking, kind: .skill)
       }
@@ -476,8 +617,8 @@ struct PreferencesSection: View {
     VStack(alignment: .leading, spacing: 8) {
       Button(action: { withAnimation { show.toggle() } }) {
         HStack {
-          Image(systemName: show ? "chevron.down" : "chevron.right").foregroundColor(.blue)
-          Text("Preferences").font(.headline).foregroundColor(.blue).fontWeight(.semibold)
+          Image(systemName: show ? "chevron.down" : "chevron.right").foregroundColor(.brandAccent)
+          Text("Preferences").font(.brandHeadline).foregroundColor(.brandAccent).fontWeight(.semibold)
           Spacer()
         }
         .padding(.vertical, 4)
@@ -506,21 +647,21 @@ struct PreferencesSection: View {
             // Footer message depending on presence of any 'yes'
             if anyYes {
               Text("No additional preferences indicated")
-                .font(.subheadline)
-                .foregroundColor(.white)
+                .font(.brandSubheadline)
+                .foregroundColor(.brandTextPrimary)
                 .italic()
                 .padding(.top, 6)
             } else {
               Text("No preferences indicated")
-                .font(.subheadline)
-                .foregroundColor(.white)
+                .font(.brandSubheadline)
+                .foregroundColor(.brandTextPrimary)
                 .italic()
                 .padding(.top, 6)
             }
           }
           .transition(.opacity.combined(with: .move(edge: .top)))
         } else {
-          Text("No preferences provided.").foregroundColor(.gray).padding(.leading, 4).transition(.opacity)
+          Text("No preferences provided.").foregroundColor(.brandTextSecondary).padding(.leading, 4).transition(.opacity)
         }
       }
     }
@@ -535,8 +676,8 @@ struct SelfAssessmentSection: View {
     VStack(alignment: .leading, spacing: 8) {
       Button(action: { withAnimation { show.toggle() } }) {
         HStack {
-          Image(systemName: show ? "chevron.down" : "chevron.right").foregroundColor(.blue)
-          Text("Self-assessment").font(.headline).foregroundColor(.blue).fontWeight(.semibold)
+          Image(systemName: show ? "chevron.down" : "chevron.right").foregroundColor(.brandAccent)
+          Text("Self-assessment").font(.brandHeadline).foregroundColor(.brandAccent).fontWeight(.semibold)
           Spacer()
         }
         .padding(.vertical, 4)
@@ -557,14 +698,14 @@ struct SelfAssessmentSection: View {
             ForEach(profs.indices, id: \.self) { idx in
               proficiencyQuestionMeterRow(profs[idx])
               if idx < profs.count - 1 {
-                Divider().background(Color.white.opacity(0.2))
+                Divider().background(Color.brandTextPrimary.opacity(0.2))
               }
             }
           }
           .transition(.opacity.combined(with: .move(edge: .top)))
         } else {
           Text("No proficiencies recorded.")
-            .foregroundColor(.gray)
+            .foregroundColor(.brandTextSecondary)
             .padding(.leading, 4)
             .transition(.opacity)
         }
@@ -582,8 +723,8 @@ struct AnglerProfileGearSection: View {
     VStack(alignment: .leading, spacing: 8) {
       Button(action: { withAnimation { show.toggle() } }) {
         HStack {
-          Image(systemName: show ? "chevron.down" : "chevron.right").foregroundColor(.blue)
-          Text("Gear").font(.headline).foregroundColor(.blue).fontWeight(.semibold)
+          Image(systemName: show ? "chevron.down" : "chevron.right").foregroundColor(.brandAccent)
+          Text("Gear").font(.brandHeadline).foregroundColor(.brandAccent).fontWeight(.semibold)
           Spacer()
         }
         .padding(.vertical, 4)
@@ -594,19 +735,19 @@ struct AnglerProfileGearSection: View {
           let reelDisplay = (reel?.isEmpty == false ? reel!.lowercased() : "—")
           VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
-              Text("Reel hand:").foregroundColor(.blue).font(.subheadline)
-              Text("\(firstName) reels \(reelDisplay)-handed").foregroundColor(.white).font(.subheadline)
+              Text("Reel hand:").foregroundColor(.brandAccent).font(.brandSubheadline)
+              Text("\(firstName) reels \(reelDisplay)-handed").foregroundColor(.brandTextPrimary).font(.brandSubheadline)
             }
             ForEach(gearList.indices, id: \.self) { idx in
               gearRow(gearList[idx], firstName: firstName)
               if idx < gearList.count - 1 {
-                Divider().background(Color.white.opacity(0.2))
+                Divider().background(Color.brandTextPrimary.opacity(0.2))
               }
             }
           }
           .transition(.opacity.combined(with: .move(edge: .top)))
         } else {
-          Text("No gear recorded.").foregroundColor(.gray).padding(.leading, 4).transition(.opacity)
+          Text("No gear recorded.").foregroundColor(.brandTextSecondary).padding(.leading, 4).transition(.opacity)
         }
       }
     }
@@ -617,8 +758,8 @@ struct AnglerProfileGearSection: View {
 
 func sectionHeader(_ title: String) -> some View {
   Text(title)
-    .font(.headline)
-    .foregroundColor(Color.blue)
+    .font(.brandHeadline)
+    .foregroundColor(.brandAccent)
     .fontWeight(.semibold)
     .padding(.vertical, 4)
 }
@@ -629,12 +770,12 @@ func preferenceRow(label: String, value: Bool?, text: String?) -> some View {
     VStack(alignment: .leading, spacing: 4) {
       HStack(alignment: .firstTextBaseline, spacing: 6) {
         Text(label)
-          .font(.subheadline)
-          .foregroundColor(.blue)
+          .font(.brandSubheadline)
+          .foregroundColor(.brandAccent)
         if let t = text, !t.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
           Text(t)
-            .font(.subheadline)
-            .foregroundColor(.white)
+            .font(.brandSubheadline)
+            .foregroundColor(.brandTextPrimary)
         }
       }
     }
@@ -648,7 +789,7 @@ func meter(label: String, value: Int?, kind: MeterKind) -> some View {
   VStack(spacing: 6) {
     ZStack {
       Circle()
-        .stroke(Color.white.opacity(0.15), lineWidth: 8)
+        .stroke(Color.brandStrokeStrong, lineWidth: 8)
         .frame(width: 54, height: 54)
       if let v = value {
         let clamped = max(0, min(v, 100))
@@ -666,30 +807,30 @@ func meter(label: String, value: Int?, kind: MeterKind) -> some View {
           .rotationEffect(.degrees(-90))
           .frame(width: 54, height: 54)
         Text("\(clamped)")
-          .font(.caption)
-          .foregroundColor(.white)
+          .font(.brandCaption)
+          .foregroundColor(.brandTextPrimary)
       } else {
         Text("–")
-          .font(.caption)
+          .font(.brandCaption)
           .foregroundColor(.secondary)
       }
     }
     Text(label)
-      .font(.caption2)
-      .foregroundColor(.white)
+      .font(.brandCaption2)
+      .foregroundColor(.brandTextPrimary)
   }
 }
 
 // Updated chip function styling as per instructions
 func chip(_ text: String) -> some View {
   Text(text)
-    .font(.caption)
-    .foregroundColor(.white)
+    .font(.brandCaption)
+    .foregroundColor(.brandTextPrimary)
     .padding(.horizontal, 10)
     .padding(.vertical, 4)
     .background(
       Capsule()
-        .fill(Color.blue.opacity(0.35))
+        .fill(Color.brandAccent.opacity(0.35))
     )
 }
 
@@ -702,51 +843,51 @@ func gearRow(_ gear: GearDTO, firstName: String) -> some View {
       if let waders = gear.waders {
         HStack {
           Text("Waders")
-            .foregroundColor(.blue)
-            .font(.subheadline)
+            .foregroundColor(.brandAccent)
+            .font(.brandSubheadline)
           Spacer()
           Image(systemName: waders ? "checkmark.square" : "square")
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
         }
       }
       if let boots = gear.boots {
         HStack {
           Text("Boots")
-            .foregroundColor(.blue)
-            .font(.subheadline)
+            .foregroundColor(.brandAccent)
+            .font(.brandSubheadline)
           Spacer()
           Image(systemName: boots ? "checkmark.square" : "square")
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
         }
       }
       if let jacket = gear.wading_jacket {
         HStack {
           Text("Wading Jacket")
-            .foregroundColor(.blue)
-            .font(.subheadline)
+            .foregroundColor(.brandAccent)
+            .font(.brandSubheadline)
           Spacer()
           Image(systemName: jacket ? "checkmark.square" : "square")
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
         }
       }
       if let switchRod = gear.switch_rod {
         HStack {
           Text("Switch Rod")
-            .foregroundColor(.blue)
-            .font(.subheadline)
+            .foregroundColor(.brandAccent)
+            .font(.brandSubheadline)
           Spacer()
           Image(systemName: switchRod ? "checkmark.square" : "square")
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
         }
       }
       if let shortSpey = gear.short_spey {
         HStack {
           Text("Short Spey")
-            .foregroundColor(.blue)
-            .font(.subheadline)
+            .foregroundColor(.brandAccent)
+            .font(.brandSubheadline)
           Spacer()
           Image(systemName: shortSpey ? "checkmark.square" : "square")
-            .foregroundColor(.white)
+            .foregroundColor(.brandTextPrimary)
         }
       }
     }

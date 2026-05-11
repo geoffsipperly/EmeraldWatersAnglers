@@ -23,6 +23,7 @@ final class GuideRegressionTests: XCTestCase {
     AuthService.resetSharedForTests()
     clearAuthKeychainEntries()
     UserDefaults.standard.removeObject(forKey: "OfflineLastEmail")
+    ConservationModeStore.shared.resetForTests()
   }
 
   override func tearDown() {
@@ -30,6 +31,7 @@ final class GuideRegressionTests: XCTestCase {
     MockURLProtocol.requestHandler = nil
     clearAuthKeychainEntries()
     UserDefaults.standard.removeObject(forKey: "OfflineLastEmail")
+    ConservationModeStore.shared.resetForTests()
     super.tearDown()
   }
 
@@ -242,15 +244,16 @@ final class GuideRegressionTests: XCTestCase {
     XCTAssertTrue(auth.isAuthenticated)
     XCTAssertEqual(auth.currentUserType, .guide)
 
-    func landingViewName(for userType: AuthService.UserType?) -> String {
+    func landingViewName(for userType: AuthService.UserType?, isConservation: Bool = false) -> String {
       guard let t = userType else { return "LoginView" }
       switch t {
-      case .guide:   return "LandingView"
-      case .angler:  return "AnglerLandingView"
-      case .public:  return "PublicLandingView"
+      case .guide:      return "GuideLandingView"
+      case .angler:     return "AnglerLandingView"
+      case .public:     return "PublicLandingView"
+      case .researcher: return isConservation ? "ResearcherLandingView" : "PublicLandingView"
       }
     }
-    XCTAssertEqual(landingViewName(for: auth.currentUserType), "LandingView")
+    XCTAssertEqual(landingViewName(for: auth.currentUserType), "GuideLandingView")
   }
 
   func testGuideDashboard_loadsExpectedFields() async throws {
@@ -560,5 +563,131 @@ final class GuideRegressionTests: XCTestCase {
     }
     return nil
   }
+
+  // MARK: - Conservation toggle (GuideLandingView)
+
+  /// The Conservation opt-in must default to OFF so a guide never accidentally
+  /// routes a catch through the research-grade flow without explicitly opting in.
+  func test_conservationModeStore_defaultsToFalse() {
+    // setUp already called resetForTests(), which removes the UserDefaults key
+    // and clears the in-memory value.
+    XCTAssertFalse(ConservationModeStore.shared.isEnabled,
+                   "Conservation toggle must default to false on a fresh install")
+    XCTAssertNil(UserDefaults.standard.object(forKey: ConservationModeStore.defaultsKey),
+                 "Reset should remove the UserDefaults key entirely")
+  }
+
+  /// Toggling on must synchronously write through to UserDefaults. This is the
+  /// mechanism that survives app launches — if this breaks, the toggle regresses
+  /// to a session-only flag.
+  func test_conservationModeStore_writeIsPersistedToUserDefaults() {
+    ConservationModeStore.shared.isEnabled = true
+
+    // In-memory state reflects the new value.
+    XCTAssertTrue(ConservationModeStore.shared.isEnabled)
+
+    // Read directly from UserDefaults to verify the write actually landed on
+    // the backing store (not just the @Published wrapper).
+    let persisted = UserDefaults.standard.bool(forKey: ConservationModeStore.defaultsKey)
+    XCTAssertTrue(persisted,
+                  "Setting isEnabled=true must synchronously write to UserDefaults")
+  }
+
+  /// Toggling off must also persist. Flipping the switch back to false should
+  /// not leave a lingering `true` in UserDefaults.
+  func test_conservationModeStore_toggleOffIsPersisted() {
+    ConservationModeStore.shared.isEnabled = true
+    ConservationModeStore.shared.isEnabled = false
+
+    XCTAssertFalse(ConservationModeStore.shared.isEnabled)
+    let persisted = UserDefaults.standard.bool(forKey: ConservationModeStore.defaultsKey)
+    XCTAssertFalse(persisted,
+                   "Setting isEnabled=false must overwrite any prior true value")
+  }
+
+  // NOTE: A property-level test on CatchChatViewModel.conservationMode is
+  // intentionally omitted. Instantiating the VM eagerly builds a
+  // CatchPhotoAnalyzer, which loads CoreML models and crashes on the iOS 26.2
+  // simulator (see CLAUDE.md on MpsGraph/actor-isolation issues). The routing
+  // behavior (isResearcherRole || conservationMode → beginResearcherFlow) is
+  // exercised end-to-end in the Phase 5 integration tests that drive a full
+  // photo-analysis cycle through a stubbed analyzer.
+
+  // MARK: - Full-page map (expand button on landing tile)
+
+  /// The expand-map button on the guide landing tile pushes a dedicated
+  /// full-page map view. Locking instantiation here so a future refactor
+  /// can't quietly delete the destination and leave the button as a no-op.
+  func testGuideFullMapView_instantiatesWithoutCrash() {
+    let view = GuideFullMapView()
+    XCTAssertNotNil(view, "GuideFullMapView must instantiate without crashing")
+  }
+
+  // MARK: - Filter math
+
+  /// "Today" must anchor at the START of today, not 24 hours back. Otherwise
+  /// a catch logged at 1am wouldn't appear when a guide opens the map at 2am.
+  func testGuideMapTimeWindow_today_anchorsAtStartOfDay() {
+    let now = Date(timeIntervalSince1970: 1_700_000_000) // arbitrary fixed instant
+    let from = GuideMapTimeWindow.today.fromDate(now: now)
+    let cal = Calendar.current
+    XCTAssertEqual(cal.startOfDay(for: now), from,
+                   "'Today' window must start at midnight of `now`, not 24h prior")
+  }
+
+  /// 7 / 30 / 365 / 1095 day deltas from `now` for the rolling windows.
+  /// Locks the math so a refactor can't accidentally swap day-vs-hour units.
+  func testGuideMapTimeWindow_rollingWindows_haveCorrectDeltas() {
+    let now = Date(timeIntervalSince1970: 1_700_000_000)
+    let cases: [(GuideMapTimeWindow, Double)] = [
+      (.sevenDays,  -7  * 86_400),
+      (.thirtyDays, -30 * 86_400),
+    ]
+    for (window, expectedDelta) in cases {
+      let from = window.fromDate(now: now)
+      XCTAssertEqual(from.timeIntervalSince(now), expectedDelta, accuracy: 3_600,
+                     "\(window.label) must be ~\(Int(expectedDelta / 86_400)) days back from `now`")
+    }
+    // Year-based windows: assert they're earlier than `now` and within a
+    // sensible tolerance — Calendar handles leap years so an exact-second
+    // assertion would be brittle.
+    XCTAssertLessThan(GuideMapTimeWindow.oneYear.fromDate(now: now), now)
+    XCTAssertLessThan(GuideMapTimeWindow.threeYears.fromDate(now: now),
+                      GuideMapTimeWindow.oneYear.fromDate(now: now),
+                      "3yr window must reach further back than 1yr window")
+  }
+
+  func testGuideMapTimeWindow_allCases_haveDistinctLabels() {
+    let labels = GuideMapTimeWindow.allCases.map(\.label)
+    XCTAssertEqual(Set(labels).count, labels.count,
+                   "Time-window labels must be unique so the menu doesn't show duplicates")
+  }
+
+  // MARK: - Pin category grouping
+
+  func testGuideMapPinCategory_catch_mapsToCatchType() {
+    XCTAssertEqual(GuideMapPinCategory.catch_.apiTypes, ["catch"])
+  }
+
+  func testGuideMapPinCategory_noCatch_coversFourNonCatchTypes() {
+    XCTAssertEqual(
+      GuideMapPinCategory.noCatch.apiTypes,
+      ["active", "farmed", "promising", "passed"]
+    )
+  }
+
+  /// CRITICAL: union of every category MUST equal every API `type` value the
+  /// pipeline produces. If a new pin type ships server-side and isn't added
+  /// to either category, those pins would silently disappear from the
+  /// filtered map.
+  func testGuideMapPinCategory_unionCoversAllReportTypes() {
+    let union = GuideMapPinCategory.allCases.reduce(into: Set<String>()) { acc, cat in
+      acc.formUnion(cat.apiTypes)
+    }
+    let expected: Set<String> = ["catch", "active", "farmed", "promising", "passed"]
+    XCTAssertEqual(union, expected,
+                   "Catch + No Catch must together cover every server-side pin type")
+  }
+
 }
 

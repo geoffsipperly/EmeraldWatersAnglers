@@ -3,7 +3,7 @@
 //  SkeenaSystem
 //
 //  Centralized configuration manager with environment‑specific settings
-//  (Supabase URLs, anon keys, function endpoints, forum base, logging level, etc.).
+//  (Supabase URLs, anon keys, function endpoints, logging level, etc.).
 //
 
 import Foundation
@@ -18,15 +18,13 @@ public enum SplashVideoFrequency: String {
     case session = "SESSION"
 }
 
-public final class AppEnvironment {
+public nonisolated final class AppEnvironment {
     public static let shared = AppEnvironment()
 
     // MARK: - Runtime override properties (optional)
     // These can be set in tests or at runtime to temporarily override configuration values.
     public var overrideProjectURL: URL?
     public var overrideAnonKey: String?
-    public var overrideForumBase: String?
-    public var overrideForumApiKey: String?
     public var overrideAppDisplayName: String?
     public var overrideAppLogoAsset: String?
 
@@ -45,6 +43,7 @@ public final class AppEnvironment {
     public var overrideNotesUploadURL: URL?
     public var overrideAnglerProfileURL: URL?
     public var overrideMyProfileURL: URL?
+    public var overrideDeleteAccountURL: URL?
     public var overrideAnglerContextURL: URL?
     public var overrideProficiencyURL: URL?
     public var overrideGearURL: URL?
@@ -53,8 +52,12 @@ public final class AppEnvironment {
     public var overrideForecastLocation: String?
     public var overrideDefaultMapLatitude: Double?
     public var overrideDefaultMapLongitude: Double?
+    public var overrideArchiveAfterDays: Int?
     public var overrideImageCompressionQuality: Double?
     public var overrideFishDetectMinConfidence: Double?
+    public var overrideFishDefaultGirthRatio: Double?
+    public var overridePersonDetectMinConfidence: Double?
+    public var overrideHeuristicDiagFracStrength: Double?
     public var overrideFishBoxScaleFactor: Double?
     public var overrideFishPixelsPerInch: Double?
     public var overrideFishMinLengthInches: Double?
@@ -64,7 +67,6 @@ public final class AppEnvironment {
     public var overrideUseLengthRegressor: Bool?
     public var overrideSpeciesDetectionThreshold: Double?
     public var overrideLodgeRivers: [String]?
-    public var overrideBuzzCategoryId: String?
     public var overrideCommunityName: String?
     public var overrideCommunityTagline: String?
     public var overrideDefaultRiver: String?
@@ -72,7 +74,23 @@ public final class AppEnvironment {
     public var overrideDefaultWaterBody: String?
     public var overrideTacticsEnabled: Bool?
 
-    private init() {}
+    private init() {
+        // Cache parsed CSV arrays once at init (avoids re-splitting on every access).
+        if let raw = Bundle.main.object(forInfoDictionaryKey: "LODGE_RIVERS") as? String, !raw.isEmpty {
+            _cachedLodgeRivers = raw.components(separatedBy: ",")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+        }
+        if let raw = Bundle.main.object(forInfoDictionaryKey: "LODGE_WATER_BODIES") as? String, !raw.isEmpty {
+            _cachedLodgeWaterBodies = raw.components(separatedBy: ",")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+        }
+    }
+
+    /// Pre-parsed CSV values from Info.plist (set once in init).
+    private var _cachedLodgeRivers: [String] = []
+    private var _cachedLodgeWaterBodies: [String] = []
 
     // MARK: - Helpers to read from Info.plist
 
@@ -112,20 +130,6 @@ public final class AppEnvironment {
         fatalError("SUPABASE_ANON_KEY not configured.")
     }
 
-    /// Forum REST base URL (e.g., https://.../rest/v1). Defaults to project URL + "/rest/v1".
-    public var forumBase: String {
-        if let v = overrideForumBase { return v }
-        if let v = stringFromInfo("FORUM_BASE") { return v }
-        // Default to projectURL host + /rest/v1
-        return "\(projectURL.scheme ?? "https")://\(projectURL.host ?? "")/rest/v1"
-    }
-
-    /// API key for Forum REST calls (defaults to anonKey).
-    public var forumApiKey: String {
-        if let v = overrideForumApiKey { return v }
-        if let v = stringFromInfo("FORUM_API_KEY") { return v }
-        return anonKey
-    }
 
     /// Display name for the app/community (used in UI).
     public var appDisplayName: String {
@@ -219,7 +223,7 @@ public final class AppEnvironment {
     public var uploadCatchURL: URL {
         if let v = overrideUploadCatchURL { return v }
         if let url = urlFromInfo("UPLOAD_CATCH_URL") { return url }
-        return projectURL.appendingPathComponent("/functions/v1/upload-catch-reports-v4")
+        return projectURL.appendingPathComponent("/functions/v1/upload-catch-reports-v5")
     }
 
     /// Manage-trip endpoint (functions/v1/manage-trip).
@@ -299,6 +303,19 @@ public final class AppEnvironment {
         if let v = overrideMyProfileURL { return v }
         if let url = urlFromInfo("MY_PROFILE_URL") { return url }
         return projectURL.appendingPathComponent("/functions/v1/my-profile")
+    }
+
+    /// Delete-account endpoint (functions/v1/delete-account).
+    public var deleteAccountURL: URL {
+        if let v = overrideDeleteAccountURL { return v }
+        if let raw = stringFromInfo("DELETE_ACCOUNT_URL")?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty {
+            // If raw is already a full URL with scheme, use it directly
+            if let url = URL(string: raw), url.scheme != nil { return url }
+            // Otherwise treat as relative path: append to projectURL
+            let path = raw.hasPrefix("/") ? String(raw.dropFirst()) : raw
+            return projectURL.appendingPathComponent(path)
+        }
+        return projectURL.appendingPathComponent("/functions/v1/delete-account")
     }
 
     /// Angler-context endpoint (functions/v1/angler-context).
@@ -392,12 +409,7 @@ public final class AppEnvironment {
     /// Used to build river condition tiles. Names are sent as-is to the river-conditions API.
     public var lodgeRivers: [String] {
         if let v = overrideLodgeRivers { return v }
-        if let raw = stringFromInfo("LODGE_RIVERS"), !raw.isEmpty {
-            return raw.components(separatedBy: ",")
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .filter { !$0.isEmpty }
-        }
-        return [] // No hardcoded fallback — LODGE_RIVERS must be set in xcconfig
+        return _cachedLodgeRivers
     }
 
     /// Strips common water-body suffixes from a river name (e.g. "Nehalem River" → "Nehalem").
@@ -414,12 +426,7 @@ public final class AppEnvironment {
     /// Used for polygon-based GPS detection and conditions forecasts.
     public var lodgeWaterBodies: [String] {
         if let v = overrideLodgeWaterBodies { return v }
-        if let raw = stringFromInfo("LODGE_WATER_BODIES"), !raw.isEmpty {
-            return raw.components(separatedBy: ",")
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .filter { !$0.isEmpty }
-        }
-        return [] // No hardcoded fallback — LODGE_WATER_BODIES must be set in xcconfig
+        return _cachedLodgeWaterBodies
     }
 
     /// Default water body name when no GPS-based water body is resolved.
@@ -436,6 +443,53 @@ public final class AppEnvironment {
         if let v = overrideFishDetectMinConfidence { return Float(v) }
         if let s = stringFromInfo("FISH_DETECT_MIN_CONFIDENCE"), let v = Float(s) { return v }
         return 0.08
+    }
+
+    /// Default girth-to-length ratio used when no species-specific ratio is available.
+    public var fishDefaultGirthRatio: Double {
+        if let v = overrideFishDefaultGirthRatio { return v }
+        if let s = stringFromInfo("FISH_DEFAULT_GIRTH_RATIO"), let v = Double(s) { return v }
+        return 0.5
+    }
+
+    /// Whole-day window after which an *uploaded* catch report or observation
+    /// drops out of the active list and moves to the Archive view.
+    /// Source: `ARCHIVE_AFTER_DAYS` (xcconfig → Info.plist). Defaults to 14.
+    public var archiveAfterDays: Int {
+        if let v = overrideArchiveAfterDays { return v }
+        if let s = stringFromInfo("ARCHIVE_AFTER_DAYS"), let v = Int(s) { return v }
+        return 14
+    }
+
+    /// Single source of truth for "is this record old enough to archive?".
+    /// Locally-saved / pending records are never archived regardless of age —
+    /// only uploaded records past the `archiveAfterDays` window flip true.
+    /// Both catch reports and observations call this so the rule stays
+    /// consistent across surfaces.
+    public func shouldArchive(uploaded: Bool, createdAt: Date) -> Bool {
+        guard uploaded else { return false }
+        let cutoff = Calendar.current.date(byAdding: .day, value: -archiveAfterDays, to: Date()) ?? .distantPast
+        return createdAt < cutoff
+    }
+
+    /// Minimum confidence threshold for the person detection box to be used as
+    /// a length-scale reference. Below this, the analyzer ignores the person
+    /// box (treats it as nil) — bad person boxes mislead fish/person ratios
+    /// in both the heuristic and the regressor's feature vector.
+    public var personDetectMinConfidence: Float {
+        if let v = overridePersonDetectMinConfidence { return Float(v) }
+        if let s = stringFromInfo("PERSON_DETECT_MIN_CONFIDENCE"), let v = Float(s) { return v }
+        return 0.40
+    }
+
+    /// Strength of the diagonal-fraction correction in the heuristic length
+    /// estimator. Adjusts raw pixel-length by `(1 + strength × (0.5 - diagFrac))`:
+    /// tight close-ups (high diagFrac) bias the estimate down, wide shots bias
+    /// it up. Set 0 to disable. Reasonable range 0.3–0.8.
+    public var heuristicDiagFracStrength: Float {
+        if let v = overrideHeuristicDiagFracStrength { return Float(v) }
+        if let s = stringFromInfo("HEURISTIC_DIAG_FRAC_STRENGTH"), let v = Float(s) { return v }
+        return 0.6
     }
 
     /// Scale factor applied to bounding box length (compensates for oversized training boxes).
@@ -496,13 +550,22 @@ public final class AppEnvironment {
         return 0.70
     }
 
-    // MARK: - The Buzz configuration
-
-    /// Forum category ID used for "The Buzz" feed on the landing page.
-    /// Returns nil when not configured, allowing the UI to hide the section.
-    public var buzzCategoryId: String? {
-        if let v = overrideBuzzCategoryId { return v }
-        if let v = stringFromInfo("BUZZ_CATEGORY_ID"), !v.isEmpty { return v }
-        return nil
+    /// When the ViT top-1 softmax probability falls below this threshold, the chat
+    /// flow surfaces up to 2 species options as tappable capsules (primary + runner-up)
+    /// instead of silently committing to the winner. Helps catch ambiguous cases
+    /// like 0.7 sea_run_trout / 0.23 chinook_salmon before the model's overconfidence
+    /// locks in a wrong answer.
+    public var speciesRunnerUpTrigger: Float {
+        if let s = stringFromInfo("SPECIES_RUNNER_UP_TRIGGER"), let v = Float(s) { return v }
+        return 0.85
     }
+
+    /// Minimum softmax probability a runner-up species must exceed to appear as a
+    /// capsule. Filters out noise — anything below this is statistical background
+    /// for a 4-6 class classifier.
+    public var speciesRunnerUpMinProb: Float {
+        if let s = stringFromInfo("SPECIES_RUNNER_UP_MIN_PROB"), let v = Float(s) { return v }
+        return 0.15
+    }
+
 }

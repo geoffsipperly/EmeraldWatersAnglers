@@ -48,7 +48,7 @@ struct StaffDetailView: View {
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
       VStack(spacing: 18) {
         // Header area
         VStack(spacing: 10) {
@@ -60,9 +60,9 @@ struct StaffDetailView: View {
               case .success(let image):
                 image.resizable().scaledToFill()
               case .failure:
-                Image(systemName: "person.crop.square").resizable().scaledToFit().foregroundColor(.white.opacity(0.6))
+                Image(systemName: "person.crop.square").resizable().scaledToFit().foregroundColor(.brandTextPrimary.opacity(0.6))
               @unknown default:
-                Color.white.opacity(0.1)
+                Color.brandTextPrimary.opacity(0.1)
               }
             }
             .frame(height: 220)
@@ -71,13 +71,13 @@ struct StaffDetailView: View {
 
           if let s = staff {
             Text("\(s.first_name ?? "") \(s.last_name ?? "")")
-              .font(.title2.weight(.semibold))
-              .foregroundColor(.white)
-            if let role = s.role { Text(role).foregroundColor(.blue) }
+              .font(.brandTitle2.weight(.semibold))
+              .foregroundColor(.brandTextPrimary)
+            if let role = s.role { Text(role).foregroundColor(.brandAccent) }
             if let lodge = s.lodge, !lodge.isEmpty {
               Text(lodge)
-                .font(.subheadline)
-                .foregroundColor(.blue)
+                .font(.brandSubheadline)
+                .foregroundColor(.brandAccent)
             }
           }
         }
@@ -86,8 +86,8 @@ struct StaffDetailView: View {
 
         if let errorText = errorText {
           Text(errorText)
-            .font(.footnote)
-            .foregroundColor(.red)
+            .font(.brandFootnote)
+            .foregroundColor(.brandError)
             .multilineTextAlignment(.center)
             .padding(.horizontal, 16)
         }
@@ -100,13 +100,13 @@ struct StaffDetailView: View {
 
             if let long = staff?.long_description {
               Text(long)
-                .foregroundColor(.white)
-                .font(.body)
+                .foregroundColor(.brandTextPrimary)
+                .font(.brandBody)
             }
 
             if !isLoading && staff == nil && errorText == nil {
               Text("No details available.")
-                .foregroundColor(.gray)
+                .foregroundColor(.brandTextSecondary)
             }
           }
           .padding(.horizontal, 16)

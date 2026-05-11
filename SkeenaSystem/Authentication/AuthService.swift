@@ -9,7 +9,7 @@ import LocalAuthentication
 // Uses AppLogging for centralized logging
 
 final class AuthService: ObservableObject {
-    static var shared: AuthService = AuthService()
+    nonisolated(unsafe) static var shared: AuthService = AuthService()
 
      #if DEBUG
      /// Test helper: reset the shared singleton to a fresh instance.
@@ -27,6 +27,7 @@ final class AuthService: ObservableObject {
   private let kOfflinePasswordKey = "OfflineLastPassword" // (stored in Keychain)
   private let kOfflineRememberMeKey = "OfflineRememberMeEnabled"
   private let kCachedFirstName = "CachedFirstName"
+  private let kCachedLastName = "CachedLastName"
   private let kCachedUserType = "CachedUserType"
   private let kCachedMemberId = "CachedMemberId"
   // ---------------------------------------
@@ -37,7 +38,17 @@ final class AuthService: ObservableObject {
   @Published private(set) var currentUserType: UserType? // <- role for routing
   @Published private(set) var currentFirstName: String?
   @Published private(set) var currentLastName: String?
-  @Published private(set) var currentMemberId: String?
+  @Published private(set) var currentMemberId: String? {
+    didSet { _currentMemberIdSubject.send(currentMemberId) }
+  }
+
+  /// Nonisolated publisher mirror of `currentMemberId`. Used by upload-side
+  /// stores (CatchReportStore, FarmedReportStore) that subscribe from
+  /// nonisolated init code. CurrentValueSubject emits the current value on
+  /// subscribe, so first-emission semantics are identical to `$currentMemberId`.
+  nonisolated private let _currentMemberIdSubject = CurrentValueSubject<String?, Never>(nil)
+  nonisolated var currentMemberIdPublisher: AnyPublisher<String?, Never> { _currentMemberIdSubject.eraseToAnyPublisher() }
+  nonisolated var currentMemberIdSnapshot: String? { _currentMemberIdSubject.value }
 
   /// Called by CommunityService when the active community (and thus role) changes.
   /// This keeps views that read `auth.currentUserType` working without modification.
@@ -69,19 +80,75 @@ final class AuthService: ObservableObject {
 
   private init(session: URLSession = .shared) {
     self.session = session
-    let token = Keychain.get(kAccessToken)
-    let exp = Keychain.get(kAccessTokenExp).flatMap { Double($0) }
-    let valid = Self.isJWTValid(accessToken: token, expSeconds: exp)
-    self.isAuthenticated = valid || Keychain.get(kRefreshToken) != nil
-    AppLogging.log("init: token.len=\(token?.count ?? 0) exp=\(exp ?? -1) valid=\(valid) host=\(projectURL.host ?? "?") hasRefresh=\(Keychain.get(kRefreshToken) != nil)", level: .debug, category: .auth)
+
+    // Hydrate cached auth state so AppRootView can route to the correct landing
+    // view on a cold offline launch. Without this, isAuthenticated=true (from a
+    // stored refresh token) leaves currentUserType=nil and the app sits on a
+    // loading spinner forever because loadUserProfile() needs the network.
+    let cached = Self.loadCachedAuthState()
+    self.isAuthenticated = cached.isAuthenticated
+    self.currentFirstName = cached.firstName
+    self.currentLastName = cached.lastName
+    self.currentUserType = cached.userType
+    self.currentMemberId = cached.memberId
+
+    AppLogging.log("init: hasAccess=\(cached.hasAccessToken) accessValid=\(cached.accessTokenValid) host=\(projectURL.host ?? "?") hasRefresh=\(cached.hasRefreshToken) cachedType=\(cached.userType?.rawValue ?? "<nil>") cachedMember=\(cached.memberId ?? "<nil>")", level: .debug, category: .auth)
 
     // IMPORTANT: Do not start network I/O from init(). Any early refresh should be invoked
     // explicitly from app lifecycle (e.g., AppRootView.task or similar).
   }
 
+  /// Snapshot of the auth state derived from on-disk caches (Keychain + UserDefaults).
+  /// Pure read — no mutation, no network. Exposed at internal visibility so
+  /// regression tests can verify offline cold-launch hydration without
+  /// reassigning the `shared` singleton (which is flaky to deinit on iOS 26.2 sim).
+  internal struct CachedAuthState: Equatable {
+    let isAuthenticated: Bool
+    let firstName: String?
+    let lastName: String?
+    let userType: UserType?
+    let memberId: String?
+    let hasAccessToken: Bool
+    let accessTokenValid: Bool
+    let hasRefreshToken: Bool
+  }
+
+  internal static func loadCachedAuthState() -> CachedAuthState {
+    let kAccessToken = "epicwaters.auth.access_token"
+    let kAccessTokenExp = "epicwaters.auth.access_token_exp"
+    let kRefreshToken = "epicwaters.auth.refresh_token"
+    let kCachedFirstName = "CachedFirstName"
+    let kCachedLastName = "CachedLastName"
+    let kCachedUserType = "CachedUserType"
+    let kCachedMemberId = "CachedMemberId"
+
+    let token = Keychain.get(kAccessToken)
+    let exp = Keychain.get(kAccessTokenExp).flatMap { Double($0) }
+    let accessValid = isJWTValid(accessToken: token, expSeconds: exp)
+    let hasRefresh = Keychain.get(kRefreshToken) != nil
+
+    let userType: UserType?
+    if let raw = UserDefaults.standard.string(forKey: kCachedUserType) {
+      userType = UserType(rawValue: raw)
+    } else {
+      userType = nil
+    }
+
+    return CachedAuthState(
+      isAuthenticated: accessValid || hasRefresh,
+      firstName: UserDefaults.standard.string(forKey: kCachedFirstName),
+      lastName: UserDefaults.standard.string(forKey: kCachedLastName),
+      userType: userType,
+      memberId: UserDefaults.standard.string(forKey: kCachedMemberId),
+      hasAccessToken: token != nil,
+      accessTokenValid: accessValid,
+      hasRefreshToken: hasRefresh
+    )
+  }
+
   // MARK: - Public API
 
-  enum UserType: String, Codable { case angler, guide, `public` }
+  enum UserType: String, Codable, CaseIterable { case angler, guide, `public`, researcher }
 
   enum InputValidationError: Error, LocalizedError {
     case invalidInput(String)
@@ -186,17 +253,23 @@ final class AuthService: ObservableObject {
   }
 
   /// Invite-Based Sign Up (Path A):
-  /// Only email, password, and community_code are sent. The server populates the
-  /// user's profile from a pending invite matching the email + community.
+  /// Only email, password, community_code, and member_number are sent. The server
+  /// populates the user's profile from a pending invite matching the email + community.
   func signUpWithInvite(
     email: String,
     password: String,
-    communityCode: String
+    communityCode: String,
+    memberNumber: String
   ) async throws {
     let commCode = communityCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
     guard !commCode.isEmpty else { throw InputValidationError.invalidInput("Community code is required.") }
     let codeValid = commCode.range(of: #"^[A-Z0-9]{6}$"#, options: .regularExpression) != nil
     guard codeValid else { throw InputValidationError.invalidInput("Community code must be 6 alphanumeric characters.") }
+
+    let memNum = MemberNumber.normalize(memberNumber)
+    guard MemberNumber.isValid(memNum) else {
+      throw InputValidationError.invalidInput("Member number must be a 9-character MAD-format code (e.g. MAD4ZQ7H9).")
+    }
 
     AppLogging.log("signUpWithInvite -> email=\(email) communityCode=\(commCode)", level: .info, category: .auth)
 
@@ -209,7 +282,10 @@ final class AuthService: ObservableObject {
     let body: [String: Any] = [
       "email": email,
       "password": password,
-      "data": ["community_code": commCode]
+      "data": [
+        "community_code": commCode,
+        "member_number": memNum
+      ]
     ]
     req.httpBody = try JSONSerialization.data(withJSONObject: body, options: [])
 
@@ -262,6 +338,7 @@ final class AuthService: ObservableObject {
     await MainActor.run {
       self.currentUserType = nil
       self.currentFirstName = nil
+      self.currentLastName = nil
       self.currentMemberId = nil
       self.isAuthenticated = false
     }
@@ -334,15 +411,17 @@ final class AuthService: ObservableObject {
           AppLogging.log("[Offline] sign-in success for \(email)", level: .info, category: .auth)
 
           let cachedFirst = UserDefaults.standard.string(forKey: kCachedFirstName)
+          let cachedLast = UserDefaults.standard.string(forKey: kCachedLastName)
           let cachedTypeRaw = UserDefaults.standard.string(forKey: kCachedUserType)
           let cachedMid = UserDefaults.standard.string(forKey: kCachedMemberId)
           await MainActor.run {
             self.currentFirstName = cachedFirst
+            self.currentLastName = cachedLast
             if let raw = cachedTypeRaw, let t = UserType(rawValue: raw) { self.currentUserType = t }
             self.currentMemberId = cachedMid
             self.isAuthenticated = true
           }
-          AppLogging.log("[Offline] restored cached profile first=\(cachedFirst ?? "<nil>") type=\(cachedTypeRaw ?? "<nil>") memberId=\(cachedMid ?? "<nil>")", level: .debug, category: .auth)
+          AppLogging.log("[Offline] restored cached profile first=\(cachedFirst ?? "<nil>") last=\(cachedLast ?? "<nil>") type=\(cachedTypeRaw ?? "<nil>") memberId=\(cachedMid ?? "<nil>")", level: .debug, category: .auth)
           return
         } else {
           AppLogging.log("[Offline] sign-in failed – no matching cached credentials.", level: .warn, category: .auth)
@@ -532,9 +611,10 @@ final class AuthService: ObservableObject {
           }
           // Persist minimal cached profile for offline use
           UserDefaults.standard.set(self.currentFirstName, forKey: kCachedFirstName)
+          UserDefaults.standard.set(self.currentLastName, forKey: kCachedLastName)
           UserDefaults.standard.set(self.currentUserType?.rawValue, forKey: kCachedUserType)
           UserDefaults.standard.set(self.currentMemberId, forKey: kCachedMemberId)
-          AppLogging.log("[Offline][ProfileCache] saved first=\(self.currentFirstName ?? "<nil>") userType=\(self.currentUserType?.rawValue ?? "<nil>") memberId=\(self.currentMemberId ?? "<nil>")", level: .debug, category: .auth)
+          AppLogging.log("[Offline][ProfileCache] saved first=\(self.currentFirstName ?? "<nil>") last=\(self.currentLastName ?? "<nil>") userType=\(self.currentUserType?.rawValue ?? "<nil>") memberId=\(self.currentMemberId ?? "<nil>")", level: .debug, category: .auth)
 
           if let t = self.currentUserType {
             // Default Remember Me based on role: guides ON, anglers OFF
@@ -560,14 +640,111 @@ final class AuthService: ObservableObject {
       } catch {
         AppLogging.log("[Profile][ERROR] \(error)", level: .error, category: .auth)
       }
+
+      // Supplement with /functions/v1/my-profile — the documented source of
+      // truth for firstName/lastName. user_metadata is not reliably populated
+      // for members created via admin invite or the members table directly;
+      // my-profile joins the members table and returns the canonical values.
+      await fetchMyProfileSupplement()
     }
+
+  /// Hits /functions/v1/my-profile and, when it returns usable firstName /
+  /// lastName values, writes them into `currentFirstName` / `currentLastName`
+  /// and refreshes the offline cache. Safe to call repeatedly; errors are
+  /// logged and swallowed so this never blocks the auth flow.
+  private func fetchMyProfileSupplement() async {
+    guard let token = await currentAccessToken() else {
+      AppLogging.log("[Profile][my-profile] no access token; skipping supplement fetch", level: .debug, category: .auth)
+      return
+    }
+
+    let url = projectURL.appendingPathComponent("/functions/v1/my-profile")
+    var req = URLRequest(url: url)
+    req.httpMethod = "GET"
+    req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    req.setValue(anonPublicKey, forHTTPHeaderField: "apikey")
+
+    do {
+      let (data, resp) = try await session.data(for: req)
+      let code = (resp as? HTTPURLResponse)?.statusCode ?? -1
+      let rawBody = String(data: data, encoding: .utf8) ?? "<non-UTF8>"
+      AppLogging.log("[Profile][my-profile][RAW] status=\(code) body=\(rawBody)", level: .info, category: .auth)
+
+      guard (200..<300).contains(code) else {
+        AppLogging.log("[Profile][my-profile][WARN] non-2xx status=\(code)", level: .warn, category: .auth)
+        return
+      }
+
+      // Edge function wraps the payload in { "profile": { ... } }. Accept
+      // both that shape and a bare top-level object. Accept both camelCase
+      // (documented GET response) and snake_case as a belt-and-braces
+      // guard against future drift.
+      struct ProfileFields: Decodable {
+        let firstName: String?
+        let lastName: String?
+        let memberId: String?
+
+        private enum CodingKeys: String, CodingKey {
+          case firstName, lastName, memberId
+          case first_name, last_name, member_id
+        }
+
+        init(from decoder: Decoder) throws {
+          let c = try decoder.container(keyedBy: CodingKeys.self)
+          self.firstName = try c.decodeIfPresent(String.self, forKey: .firstName)
+            ?? c.decodeIfPresent(String.self, forKey: .first_name)
+          self.lastName = try c.decodeIfPresent(String.self, forKey: .lastName)
+            ?? c.decodeIfPresent(String.self, forKey: .last_name)
+          self.memberId = try c.decodeIfPresent(String.self, forKey: .memberId)
+            ?? c.decodeIfPresent(String.self, forKey: .member_id)
+        }
+      }
+      struct MyProfileEnvelope: Decodable {
+        let profile: ProfileFields?
+      }
+
+      let decoder = JSONDecoder()
+      // Try wrapped shape first, fall back to bare object if decode fails
+      // or the wrapper is absent.
+      let fields: ProfileFields
+      if let envelope = try? decoder.decode(MyProfileEnvelope.self, from: data),
+         let inner = envelope.profile {
+        fields = inner
+      } else {
+        fields = try decoder.decode(ProfileFields.self, from: data)
+      }
+
+      let first = fields.firstName?.trimmingCharacters(in: .whitespacesAndNewlines)
+      let last = fields.lastName?.trimmingCharacters(in: .whitespacesAndNewlines)
+      let memberId = fields.memberId?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+      AppLogging.log("[Profile][my-profile][PARSED] firstName=\(first ?? "<nil>") lastName=\(last ?? "<nil>") memberId=\(memberId ?? "<nil>")", level: .info, category: .auth)
+
+      await MainActor.run {
+        if let first, !first.isEmpty {
+          self.currentFirstName = first
+          UserDefaults.standard.set(first, forKey: self.kCachedFirstName)
+        }
+        if let last, !last.isEmpty {
+          self.currentLastName = last
+          UserDefaults.standard.set(last, forKey: self.kCachedLastName)
+        }
+        if let memberId, !memberId.isEmpty, (self.currentMemberId ?? "").isEmpty {
+          self.currentMemberId = memberId
+          UserDefaults.standard.set(memberId, forKey: self.kCachedMemberId)
+        }
+      }
+    } catch {
+      AppLogging.log("[Profile][my-profile][ERROR] \(error)", level: .error, category: .auth)
+    }
+  }
 
   // MARK: - Update Member ID (for guides using Solo mode)
 
   /// Updates the current user's member_id in Supabase user_metadata
   /// and refreshes the local cache.
   func updateMemberId(_ id: String) async throws {
-    let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
+    let trimmed = MemberNumber.normalize(id.trimmingCharacters(in: .whitespacesAndNewlines))
     guard !trimmed.isEmpty else {
       throw InputValidationError.invalidInput("Member Number cannot be empty.")
     }
@@ -658,10 +835,12 @@ final class AuthService: ObservableObject {
         AppLogging.log("[Biometric] Network unavailable; attempting explicit offline sign-in (after-auth).", level: .warn, category: .auth)
         if canSignInOffline(email: creds.email, password: creds.password) {
           let cachedFirst = UserDefaults.standard.string(forKey: kCachedFirstName)
+          let cachedLast = UserDefaults.standard.string(forKey: kCachedLastName)
           let cachedTypeRaw = UserDefaults.standard.string(forKey: kCachedUserType)
           let cachedMid = UserDefaults.standard.string(forKey: kCachedMemberId)
           // We're on MainActor so we can update directly
           self.currentFirstName = cachedFirst
+          self.currentLastName = cachedLast
           if let raw = cachedTypeRaw, let t = UserType(rawValue: raw) { self.currentUserType = t }
           self.currentMemberId = cachedMid
           self.isAuthenticated = true
@@ -763,9 +942,6 @@ final class AuthService: ObservableObject {
           let encodedRefresh = refreshTok.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? refreshTok
           let bodyStr = "grant_type=refresh_token&refresh_token=\(encodedRefresh)"
           req.httpBody = bodyStr.data(using: .utf8)
-
-          // Temporary debug: print request URL and body so tests can be inspected
-          AppLogging.log("[Refresh][DEBUG] RequestURL=\(req.url?.absoluteString ?? "<no-url>") body=\(String(data: req.httpBody ?? Data(), encoding: .utf8) ?? "<no-body>")", level: .debug, category: .auth)
 
           func performRequest() async throws -> (Data, URLResponse) {
             try await session.data(for: req)
@@ -883,6 +1059,7 @@ final class AuthService: ObservableObject {
         UserDefaults.standard.removeObject(forKey: kOfflineEmailKey)
         Keychain.delete(kOfflinePasswordKey)
         UserDefaults.standard.removeObject(forKey: kCachedFirstName)
+        UserDefaults.standard.removeObject(forKey: kCachedLastName)
         UserDefaults.standard.removeObject(forKey: kCachedUserType)
         UserDefaults.standard.removeObject(forKey: kCachedMemberId)
         AppLogging.log("[Offline] rememberMe=false; cleared cached offline credentials", level: .debug, category: .auth)
@@ -897,6 +1074,7 @@ final class AuthService: ObservableObject {
         self.isAuthenticated = false
         self.currentUserType = nil
         self.currentFirstName = nil
+        self.currentLastName = nil
         self.currentMemberId = nil
       }
     }
@@ -1203,5 +1381,26 @@ private enum Keychain {
     ]
     let status = SecItemDelete(query as CFDictionary)
     return status == errSecSuccess || status == errSecItemNotFound
+  }
+}
+
+// MARK: - JWT Helpers
+
+extension AuthService {
+  /// Extracts the Supabase user id (UUID) from a JWT access token's `sub` claim.
+  func userId(fromAccessToken token: String) -> String? {
+    let parts = token.split(separator: ".")
+    guard parts.count >= 2 else { return nil }
+    var b64 = parts[1]
+      .replacingOccurrences(of: "-", with: "+")
+      .replacingOccurrences(of: "_", with: "/")
+    while b64.count % 4 != 0 {
+      b64.append("=")
+    }
+    guard
+      let data = Data(base64Encoded: b64),
+      let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else { return nil }
+    return obj["sub"] as? String
   }
 }

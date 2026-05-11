@@ -5,6 +5,10 @@ import SwiftUI
 // MARK: - View
 
 struct FarmedReportsListView: View {
+  /// Prefix for the row line that names who logged the report.
+  /// Renamed from "Guide" so the same row can be reused across roles.
+  static let activityRowMemberLabel = "Member"
+
   @Environment(\.dismiss) private var dismiss
   @StateObject private var store = FarmedReportStore.shared
 
@@ -22,7 +26,7 @@ struct FarmedReportsListView: View {
 
   var body: some View {
     ZStack {
-      Color.black.ignoresSafeArea()
+      Color.brandBackground.ignoresSafeArea()
 
       VStack(spacing: 0) {
         // Content
@@ -39,14 +43,14 @@ struct FarmedReportsListView: View {
             List {
               ForEach(store.reports) { report in
                 FarmedReportRow(report: report)
-                  .listRowBackground(Color.black)
+                  .listRowBackground(Color.brandBackground)
               }
               .onDelete { offsets in
                 deleteReports(at: offsets)
               }
             }
             .listStyle(.plain)
-            .background(Color.black)
+            .background(Color.brandBackground)
             .modifier(FarmedHideListBackground())
             .padding(.top, 12)
           }
@@ -58,7 +62,7 @@ struct FarmedReportsListView: View {
                 .progressViewStyle(LinearProgressViewStyle())
                 .padding(.horizontal)
               Text("Uploading no-catch reports… \(Int(uploadProgress * 100))%")
-                .font(.caption)
+                .font(.brandCaption)
                 .foregroundColor(.secondary)
             }
             .padding()
@@ -76,10 +80,7 @@ struct FarmedReportsListView: View {
         Button {
           dismiss()
         } label: {
-          HStack(spacing: 4) {
-            Image(systemName: "chevron.left")
-            Text("Back")
-          }
+          Image(systemName: "chevron.left")
         }
       }
       ToolbarItem(placement: .navigationBarTrailing) {
@@ -178,8 +179,8 @@ private struct FarmedReportRow: View {
     VStack(alignment: .leading, spacing: 6) {
       HStack(alignment: .firstTextBaseline, spacing: 6) {
         Text(Self.timestampFormatter.string(from: report.createdAt))
-          .font(.headline)
-          .foregroundColor(.white)
+          .font(.brandHeadline)
+          .foregroundColor(.brandTextPrimary)
           .lineLimit(1)
 
         Spacer()
@@ -189,28 +190,28 @@ private struct FarmedReportRow: View {
 
       if let lat = report.lat, let lon = report.lon {
         Text("GPS: \(String(format: "%.5f", lat)), \(String(format: "%.5f", lon))")
-          .font(.footnote)
+          .font(.brandFootnote)
           .foregroundColor(.secondary)
           .lineLimit(1)
       } else {
         Text("GPS: —")
-          .font(.footnote)
+          .font(.brandFootnote)
           .foregroundColor(.secondary)
       }
 
-      Text("Guide: \(report.guideName)")
-        .font(.footnote)
+      Text("\(FarmedReportsListView.activityRowMemberLabel): \(report.guideName)")
+        .font(.brandFootnote)
         .foregroundColor(.secondary)
         .lineLimit(1)
 
       if let angler = report.memberId, !angler.isEmpty {
         Text("Member Number: \(angler)")
-          .font(.footnote)
+          .font(.brandFootnote)
           .foregroundColor(.secondary)
           .lineLimit(1)
       }
     }
-    .listRowBackground(Color.black)
+    .listRowBackground(Color.brandBackground)
     .deleteDisabled(report.status != .savedLocally)
   }
 }
@@ -222,7 +223,7 @@ private struct FarmedStatusChip: View {
 
   var body: some View {
     Text(status.rawValue)
-      .font(.caption2)
+      .font(.brandCaption2)
       .padding(.horizontal, 8)
       .padding(.vertical, 3)
       .background(background)
@@ -232,8 +233,8 @@ private struct FarmedStatusChip: View {
 
   private var background: Color {
     switch status {
-    case .savedLocally: return Color.blue.opacity(0.12)
-    case .uploaded: return Color.green.opacity(0.12)
+    case .savedLocally: return Color.brandAccent.opacity(0.12)
+    case .uploaded: return Color.brandSuccess.opacity(0.12)
     }
   }
 
@@ -252,7 +253,7 @@ private struct NoCatchEventTypeChip: View {
 
   var body: some View {
     Text(eventType.displayName)
-      .font(.caption2)
+      .font(.brandCaption2)
       .padding(.horizontal, 8)
       .padding(.vertical, 3)
       .background(background)
@@ -260,7 +261,7 @@ private struct NoCatchEventTypeChip: View {
       .clipShape(Capsule())
   }
 
-  private var background: Color { Color.gray.opacity(0.15) }
+  private var background: Color { Color.brandTextSecondary.opacity(0.15) }
 
   private var foreground: Color { .gray }
 }

@@ -1,10 +1,11 @@
 // Bend Fly Shop
 // ManageProfileView.swift
 //
-// Drop-in refactor:
-// - loadProfile() and saveProfile() now compose URL using:
-//     API_BASE_URL + MY_PROFILE_URL
-//   (both read from Info.plist, with safe normalization)
+// Profile-only view (name, phone, DOB).
+// Preferences are managed separately via the member-profile-fields API.
+//
+// URL composition:
+//   API_BASE_URL + MY_PROFILE_URL (both from Info.plist)
 
 import SwiftUI
 import Foundation
@@ -19,49 +20,10 @@ struct MyProfile: Codable, Equatable {
   var phoneNumber: String?
 }
 
-struct Preferences: Codable, Equatable {
-  var drinks: Bool?
-  var drinksText: String?
-  var food: Bool?
-  var foodText: String?
-  var health: Bool?
-  var healthText: String?
-  var occasion: Bool?
-  var occasionText: String?
-  var allergies: Bool?
-  var allergiesText: String?
-  var cpap: Bool?
-  var cpapText: String?
-}
-
-// MARK: - UI Helpers
-
-struct Checkbox: View {
-  var isOn: Bool
-  var label: String
-  var action: () -> Void
-  var body: some View {
-    Button(action: action) {
-      HStack(spacing: 4) {
-        Image(systemName: isOn ? "checkmark.square" : "square")
-          .foregroundColor(.white)
-          .font(.subheadline)
-        if !label.isEmpty {
-          Text(label)
-            .foregroundColor(.white)
-            .font(.footnote)
-        }
-      }
-    }
-    .buttonStyle(.plain)
-  }
-}
-
 // MARK: - API Helper (URL composition convention)
 
 enum ManageProfileAPI {
-  // Change this if your endpoint expects POST/PATCH instead of PUT
-  static let saveMethod = "PUT" // "PATCH" or "POST" if needed
+  static let saveMethod = "PUT"
 
   private static let rawBaseURLString: String = {
     (Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String)?
@@ -93,7 +55,6 @@ enum ManageProfileAPI {
     comps.host = host
     comps.port = base.port
 
-    // Allow API_BASE_URL to include an optional base path
     let basePath = base.path
     let normalizedBasePath =
       basePath == "/" ? "" : (basePath.hasSuffix("/") ? String(basePath.dropLast()) : basePath)
@@ -101,7 +62,6 @@ enum ManageProfileAPI {
     let normalizedPath = profilePath.hasPrefix("/") ? profilePath : "/" + profilePath
     comps.path = normalizedBasePath + normalizedPath
 
-    // Preserve any query items already present in API_BASE_URL (rare, but safe)
     let existing = base.query != nil
       ? (URLComponents(string: base.absoluteString)?.queryItems ?? [])
       : []
@@ -117,6 +77,18 @@ enum ManageProfileAPI {
 struct ManageProfileView: View {
   @Environment(\.dismiss) private var dismiss
   @EnvironmentObject private var auth: AuthService
+  @ObservedObject private var communityService = CommunityService.shared
+
+  // ML training opt-out (public users only). Uses a draft/original pair so
+  // the toggle participates in the Save button's dirty-state logic just like
+  // profile fields. Committed to `MLTrainingOptOutStore.shared` on save only.
+  @State private var mlOptOutDraft: Bool = MLTrainingOptOutStore.shared.isOptedOut
+  @State private var originalMlOptOut: Bool = MLTrainingOptOutStore.shared.isOptedOut
+
+  // Conservation mode (public users only). Same draft/original pattern as
+  // mlOptOutDraft. Committed to `PublicConservationModeStore.shared` on save.
+  @State private var conservationModeDraft: Bool = PublicConservationModeStore.shared.isEnabled
+  @State private var originalConservationMode: Bool = PublicConservationModeStore.shared.isEnabled
 
   @State private var profile = MyProfile()
   @State private var originalProfile = MyProfile()
@@ -125,202 +97,61 @@ struct ManageProfileView: View {
   @State private var errorText: String?
   @State private var infoText: String?
   @State private var showUnsavedConfirm = false
+  @State private var showLeaveCommunityConfirm = false
+  @State private var showDeleteAccountConfirm = false
+  @State private var deleteConfirmationInput = ""
+  @State private var isDeletingAccount = false
+  @State private var isLeavingCommunity = false
 
-  @State private var dobDate: Date = Date()
-  @State private var preferences = Preferences()
-  @State private var originalPreferences = Preferences()
+  // Optional so we can distinguish "never set" (nil) from "intentionally set".
+  // Previously defaulted to `Date()` which caused today's date to be silently
+  // written to the backend any time a user saved other profile changes without
+  // touching the DOB picker.
+  @State private var dobDate: Date? = nil
+  @State private var originalDobDate: Date? = nil
 
-  private var hasUnsavedChanges: Bool { (originalProfile != profile) || (originalPreferences != preferences) }
+  @State private var showAppOverview = false
+
+  private var hasUnsavedChanges: Bool {
+    originalProfile != profile
+      || dobDate != originalDobDate
+      || mlOptOutDraft != originalMlOptOut
+      || conservationModeDraft != originalConservationMode
+  }
 
   var body: some View {
     DarkPageTemplate {
       VStack(alignment: .leading, spacing: 16) {
         if let err = errorText {
-          Text(err).foregroundColor(.red).font(.footnote)
+          Text(err).foregroundColor(.brandError).font(.brandFootnote)
         }
         if let info = infoText {
-          Text(info).foregroundColor(.gray).font(.footnote)
+          Text(info).foregroundColor(.brandTextSecondary).font(.brandFootnote)
         }
 
         if #available(iOS 16.0, *) {
           Form {
-            Section {
-              HStack {
-                Text("First Name").foregroundColor(.blue).font(.callout)
-                Spacer()
-                TextField("First name", text: Binding(get: { profile.firstName ?? "" }, set: { profile.firstName = $0 }))
-                  .multilineTextAlignment(.trailing)
-                  .foregroundColor(.white)
-                  .font(.callout)
-              }
-              HStack {
-                Text("Last Name").foregroundColor(.blue).font(.callout)
-                Spacer()
-                TextField("Last name", text: Binding(get: { profile.lastName ?? "" }, set: { profile.lastName = $0 }))
-                  .multilineTextAlignment(.trailing)
-                  .foregroundColor(.white)
-                  .font(.callout)
-              }
-              HStack {
-                Text("Date of Birth").foregroundColor(.blue).font(.callout)
-                Spacer()
-                DatePicker("Date of Birth", selection: $dobDate, displayedComponents: .date)
-                  .labelsHidden()
-                  .foregroundColor(.white)
-              }
-              VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                  Text("Phone Number").foregroundColor(.blue).font(.callout)
-                  Spacer()
-                  TextField("Phone number", text: Binding(get: { profile.phoneNumber ?? "" }, set: { profile.phoneNumber = $0 }))
-                    .multilineTextAlignment(.trailing)
-                    .foregroundColor(.white)
-                    .font(.callout)
-                }
-                if let phone = profile.phoneNumber, !phone.isEmpty, !isValidPhone(phone) {
-                  Text("Please enter a valid phone number (10–15 digits, digits only or formatted).")
-                    .font(.caption)
-                    .foregroundColor(.red)
-                }
-              }
+            profileFields
+            legalSection
+            if auth.currentUserType == .public {
+              appOverviewSection
+              privacySection
             }
-
-            Section(header: Text("Set preferences").foregroundColor(.blue)) { EmptyView() }
-
-            preferenceYesNoSection(
-              title: "While on the river do you have any beverage requests beyond water and coffee?",
-              value: Binding(get: { preferences.drinks }, set: { preferences.drinks = $0 }),
-              text: Binding(get: { preferences.drinksText ?? "" }, set: { preferences.drinksText = $0 }),
-              placeholder: "Tell us what you’d like (e.g., Coke, Coke Zero, sparkling water, sports drinks, beer)"
-            )
-
-            preferenceYesNoSection(
-              title: "Are there any foods you prefer not to be served at the lodge?",
-              value: Binding(get: { preferences.food }, set: { preferences.food = $0 }),
-              text: Binding(get: { preferences.foodText ?? "" }, set: { preferences.foodText = $0 }),
-              placeholder: "Tell us what to avoid (e.g., seafood, mushrooms, spicy foods, cilantro)."
-            )
-
-            preferenceYesNoSection(
-              title: "Do you have any health conditions we should know about?",
-              value: Binding(get: { preferences.health }, set: { preferences.health = $0 }),
-              text: Binding(get: { preferences.healthText ?? "" }, set: { preferences.healthText = $0 }),
-              placeholder: "Please describe (e.g., asthma, diabetes, heart condition, recent injury, mobility limits)."
-            )
-
-            preferenceYesNoSection(
-              title: "Are you celebrating a special occasion on this trip?",
-              value: Binding(get: { preferences.occasion }, set: { preferences.occasion = $0 }),
-              text: Binding(get: { preferences.occasionText ?? "" }, set: { preferences.occasionText = $0 }),
-              placeholder: "What are you celebrating? (e.g., birthday, anniversary, honeymoon, graduation)"
-            )
-
-            preferenceYesNoSection(
-              title: "Do you have any food or medication allergies?",
-              value: Binding(get: { preferences.allergies }, set: { preferences.allergies = $0 }),
-              text: Binding(get: { preferences.allergiesText ?? "" }, set: { preferences.allergiesText = $0 }),
-              placeholder: "List the allergy and severity (e.g., peanuts—anaphylaxis; penicillin—rash)."
-            )
-
-            preferenceYesNoSection(
-              title: "Will you bring a CPAP or other medical device that needs power?",
-              value: Binding(get: { preferences.cpap }, set: { preferences.cpap = $0 }),
-              text: Binding(get: { preferences.cpapText ?? "" }, set: { preferences.cpapText = $0 }),
-              placeholder: "What device is it, and when do you need power? (e.g., overnight CPAP, charger, nebulizer)."
-            )
+            dangerSection
           }
           .scrollContentBackground(.hidden)
-          .background(Color.black)
+          .background(Color.brandBackground)
         } else {
-          // iOS 15 fallback (keeps your layout behavior)
           Form {
-            Section {
-              HStack {
-                Text("First Name").foregroundColor(.blue).font(.callout)
-                Spacer()
-                TextField("First name", text: Binding(get: { profile.firstName ?? "" }, set: { profile.firstName = $0 }))
-                  .multilineTextAlignment(.trailing)
-                  .foregroundColor(.white)
-                  .font(.callout)
-              }
-              HStack {
-                Text("Last Name").foregroundColor(.blue).font(.callout)
-                Spacer()
-                TextField("Last name", text: Binding(get: { profile.lastName ?? "" }, set: { profile.lastName = $0 }))
-                  .multilineTextAlignment(.trailing)
-                  .foregroundColor(.white)
-                  .font(.callout)
-              }
-              HStack {
-                Text("Date of Birth").foregroundColor(.blue).font(.callout)
-                Spacer()
-                DatePicker("Date of Birth", selection: $dobDate, displayedComponents: .date)
-                  .labelsHidden()
-                  .foregroundColor(.white)
-              }
-              VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                  Text("Phone Number").foregroundColor(.blue).font(.callout)
-                  Spacer()
-                  TextField("Phone number", text: Binding(get: { profile.phoneNumber ?? "" }, set: { profile.phoneNumber = $0 }))
-                    .multilineTextAlignment(.trailing)
-                    .foregroundColor(.white)
-                    .font(.callout)
-                }
-                if let phone = profile.phoneNumber, !phone.isEmpty, !isValidPhone(phone) {
-                  Text("Please enter a valid phone number (10–15 digits, digits only or formatted).")
-                    .font(.caption)
-                    .foregroundColor(.red)
-                }
-              }
+            profileFields
+            legalSection
+            if auth.currentUserType == .public {
+              appOverviewSection
+              privacySection
             }
-
-            Section(header: Text("Preferences").foregroundColor(.blue)) { EmptyView() }
-
-            // Keep your existing iOS 15 preference UI behavior
-            preferenceYesNoSection_iOS15(
-              title: "Do you have any beverage requests beyond water and coffee?",
-              value: Binding(get: { preferences.drinks }, set: { preferences.drinks = $0 }),
-              text: Binding(get: { preferences.drinksText ?? "" }, set: { preferences.drinksText = $0 }),
-              placeholder: "Tell us what you’d like (e.g., Coke, Coke Zero, sparkling water, sports drinks, beer)"
-            )
-
-            preferenceYesNoSection_iOS15(
-              title: "Are there any foods you prefer not to be served at the lodge?",
-              value: Binding(get: { preferences.food }, set: { preferences.food = $0 }),
-              text: Binding(get: { preferences.foodText ?? "" }, set: { preferences.foodText = $0 }),
-              placeholder: "Tell us what to avoid (e.g., seafood, mushrooms, spicy foods, cilantro)."
-            )
-
-            preferenceYesNoSection_iOS15(
-              title: "Do you have any health conditions we should know about?",
-              value: Binding(get: { preferences.health }, set: { preferences.health = $0 }),
-              text: Binding(get: { preferences.healthText ?? "" }, set: { preferences.healthText = $0 }),
-              placeholder: "Please describe (e.g., asthma, diabetes, heart condition, recent injury, mobility limits)."
-            )
-
-            preferenceYesNoSection_iOS15(
-              title: "Are you celebrating a special occasion on this trip?",
-              value: Binding(get: { preferences.occasion }, set: { preferences.occasion = $0 }),
-              text: Binding(get: { preferences.occasionText ?? "" }, set: { preferences.occasionText = $0 }),
-              placeholder: "What are you celebrating? (e.g., birthday, anniversary, honeymoon, graduation)"
-            )
-
-            preferenceYesNoSection_iOS15(
-              title: "Do you have any food or medication allergies?",
-              value: Binding(get: { preferences.allergies }, set: { preferences.allergies = $0 }),
-              text: Binding(get: { preferences.allergiesText ?? "" }, set: { preferences.allergiesText = $0 }),
-              placeholder: "List the allergy and severity (e.g., peanuts—anaphylaxis; penicillin—rash)."
-            )
-
-            preferenceYesNoSection_iOS15(
-              title: "Will you bring a CPAP or other medical device that needs power?",
-              value: Binding(get: { preferences.cpap }, set: { preferences.cpap = $0 }),
-              text: Binding(get: { preferences.cpapText ?? "" }, set: { preferences.cpapText = $0 }),
-              placeholder: "What device is it, and when do you need power? (e.g., overnight CPAP, charger, nebulizer)."
-            )
+            dangerSection
           }
-          .background(Color.black)
+          .background(Color.brandBackground)
         }
 
         Spacer()
@@ -333,7 +164,7 @@ struct ManageProfileView: View {
       ToolbarItem(placement: .navigationBarLeading) {
         Button(action: {
           if hasUnsavedChanges { showUnsavedConfirm = true } else { dismiss() }
-        }) { Image(systemName: "chevron.left") 
+        }) { Image(systemName: "chevron.left")
         }
       }
       ToolbarItem(placement: .navigationBarTrailing) {
@@ -341,16 +172,17 @@ struct ManageProfileView: View {
           HStack(spacing: 6) {
             if isSaving { ProgressView() }
             Text("Save")
-              .font(.subheadline.weight(.semibold))
-              .foregroundColor(.white)
+              .font(.brandSubheadline.weight(.semibold))
+              .foregroundColor(.brandTextPrimary)
               .padding(.horizontal, 12)
               .padding(.vertical, 6)
-              .background((hasUnsavedChanges && !isSaving && !isLoading) ? Color.blue : Color.gray)
+              .background((hasUnsavedChanges && !isSaving && !isLoading) ? Color.brandAccent : Color.brandTextSecondary)
               .clipShape(Capsule())
           }
         }
         .buttonStyle(.plain)
         .disabled(isSaving || isLoading)
+        .accessibilityIdentifier("saveProfileButton")
       }
     }
     .confirmationDialog(
@@ -362,72 +194,334 @@ struct ManageProfileView: View {
       Button("Discard Changes", role: .destructive) { dismiss() }
       Button("Cancel", role: .cancel) {}
     }
+    .alert("Leave \(communityService.activeCommunityName)?", isPresented: $showLeaveCommunityConfirm) {
+      Button("Cancel", role: .cancel) {}
+      Button("OK", role: .destructive) { Task { await leaveCommunityTapped() } }
+    } message: {
+      Text("Once you leave the community, you will need to be re-invited by the community administrator.")
+    }
+    .alert("Delete Mad Thinker Account?", isPresented: $showDeleteAccountConfirm) {
+      TextField("Type DELETE", text: $deleteConfirmationInput)
+        .textInputAutocapitalization(.characters)
+        .autocorrectionDisabled()
+      Button("Cancel", role: .cancel) { deleteConfirmationInput = "" }
+      Button("Delete", role: .destructive) {
+        let input = deleteConfirmationInput
+        deleteConfirmationInput = ""
+        Task { await performDeleteAccount(confirmationText: input) }
+      }
+    } message: {
+      Text("This cannot be undone. All member data associated with Mad Thinker will be permanently deleted.\n\nType DELETE to confirm.")
+    }
     .task { await loadProfile() }
-  }
-
-  // MARK: - Preference UI helpers (shared)
-
-  @ViewBuilder
-  @available(iOS 16.0, *)
-  private func preferenceYesNoSection(
-    title: String,
-    value: Binding<Bool?>,
-    text: Binding<String>,
-    placeholder: String
-  ) -> some View {
-    Section {
-      HStack(alignment: .center) {
-        Text(title)
-          .foregroundColor(.white)
-          .font(.callout)
-          .frame(maxWidth: .infinity, alignment: .leading)
-
-        HStack(spacing: 0) {
-          Checkbox(isOn: !(value.wrappedValue ?? false), label: "No", action: { value.wrappedValue = false })
-            .frame(width: 56, alignment: .center)
-          Checkbox(isOn: (value.wrappedValue ?? false), label: "Yes", action: { value.wrappedValue = true })
-            .frame(width: 56, alignment: .center)
-        }
-      }
-
-      if value.wrappedValue == true {
-        TextField(placeholder, text: text, axis: .vertical)
-          .lineLimit(3, reservesSpace: true)
-          .foregroundColor(.white)
-      }
+    .fullScreenCover(isPresented: $showAppOverview) {
+      PublicWelcomeView()
     }
   }
 
-  @ViewBuilder
-  private func preferenceYesNoSection_iOS15(
-    title: String,
-    value: Binding<Bool?>,
-    text: Binding<String>,
-    placeholder: String
-  ) -> some View {
-    Section {
-      HStack(alignment: .center) {
-        Text(title)
-          .foregroundColor(.white)
-          .font(.callout)
-          .frame(maxWidth: .infinity, alignment: .leading)
+  // MARK: - Legal (all users)
 
-        HStack(spacing: 0) {
-          Checkbox(isOn: !(value.wrappedValue ?? false), label: "No", action: { value.wrappedValue = false })
-            .frame(width: 56, alignment: .center)
-          Checkbox(isOn: (value.wrappedValue ?? false), label: "Yes", action: { value.wrappedValue = true })
-            .frame(width: 56, alignment: .center)
+  /// Required policy links shown in every user's profile, regardless of role.
+  /// Same URLs as MemberRegistrationView signup footer and PublicWelcomeView
+  /// first-login overview — keep them in sync if the marketing site moves.
+  @ViewBuilder
+  private var legalSection: some View {
+    Section {
+      Link(destination: LegalURLs.privacyPolicy) {
+        HStack {
+          Image(systemName: "lock.shield")
+          Text("Privacy Policy")
+          Spacer()
+          Image(systemName: "arrow.up.right.square")
+            .foregroundColor(.brandTextSecondary)
+        }
+        .foregroundColor(.brandAccent)
+        .font(.callout)
+      }
+      .accessibilityIdentifier("manageProfilePrivacyPolicyLink")
+
+      Link(destination: LegalURLs.acceptableUsePolicy) {
+        HStack {
+          Image(systemName: "doc.text")
+          Text("Acceptable Use Policy")
+          Spacer()
+          Image(systemName: "arrow.up.right.square")
+            .foregroundColor(.brandTextSecondary)
+        }
+        .foregroundColor(.brandAccent)
+        .font(.callout)
+      }
+      .accessibilityIdentifier("manageProfileAcceptableUsePolicyLink")
+    } header: {
+      Text("Legal")
+    }
+    .listRowBackground(Color.brandSurfaceMuted)
+  }
+
+  // MARK: - App overview (public users only)
+
+  @ViewBuilder
+  private var appOverviewSection: some View {
+    Section {
+      Button { showAppOverview = true } label: {
+        HStack(spacing: 10) {
+          Image(systemName: "sparkles")
+            .foregroundColor(.brandAccent)
+          Text("App Overview")
+            .foregroundColor(.brandAccent)
+            .font(.callout.weight(.semibold))
+          Spacer()
+          Image(systemName: "chevron.right")
+            .font(.brandCaption.weight(.semibold))
+            .foregroundColor(.brandTextPrimary.opacity(0.4))
         }
       }
+      .accessibilityIdentifier("appOverviewButton")
+    } footer: {
+      Text("Revisit the welcome overview — what Mad Thinker does, and links to the privacy and acceptable use policies.")
+        .font(.brandCaption)
+        .foregroundColor(.brandTextSecondary)
+    }
+    .listRowBackground(Color.brandSurfaceMuted)
+  }
 
-      if (text.wrappedValue).isEmpty {
-        Text(placeholder).foregroundColor(.gray).font(.caption)
+  // MARK: - Privacy (public users only)
+
+  @ViewBuilder
+  private var privacySection: some View {
+    Section {
+      Toggle(isOn: $conservationModeDraft) {
+        Text("Conservation mode")
+          .foregroundColor(.brandAccent)
+          .font(.callout)
+      }
+      .tint(.brandAccent)
+      .accessibilityIdentifier("conservationModeToggle")
+
+      Toggle(isOn: Binding(
+        get: { !mlOptOutDraft },
+        set: { mlOptOutDraft = !$0 }
+      )) {
+        Text("Help improve species detection")
+          .foregroundColor(.brandAccent)
+          .font(.callout)
+      }
+      .tint(.brandAccent)
+      .accessibilityIdentifier("mlTrainingOptOutToggle")
+    } header: {
+      Text("Privacy")
+    } footer: {
+      VStack(alignment: .leading, spacing: 6) {
+        Text("Conservation mode: when on, your catches contribute additional data (head photo, measurements, sample IDs) used in conservation research. Turn off for a faster, lighter recording experience.")
+        Text("Help improve species detection: your anonymized catch photos and measurements help our models get better at identifying fish and improve your usability. Turn off to opt out of this use.")
+      }
+      .font(.brandCaption)
+      .foregroundColor(.brandTextSecondary)
+    }
+    .listRowBackground(Color.brandSurfaceMuted)
+  }
+
+  // MARK: - Danger zone
+
+  @ViewBuilder
+  private var dangerSection: some View {
+    Section {
+      Button(role: .destructive) {
+        showLeaveCommunityConfirm = true
+      } label: {
+        HStack {
+          if isLeavingCommunity {
+            ProgressView()
+          } else {
+            Image(systemName: "person.fill.xmark")
+          }
+          Text("Leave \(communityService.activeCommunityName)")
+        }
+        .font(.callout.weight(.semibold))
+        .foregroundColor(.brandError)
+      }
+      .disabled(isLeavingCommunity)
+      .accessibilityIdentifier("leaveCommunityButton")
+
+      Button(role: .destructive) {
+        deleteConfirmationInput = ""
+        showDeleteAccountConfirm = true
+      } label: {
+        HStack {
+          if isDeletingAccount {
+            ProgressView()
+          } else {
+            Image(systemName: "trash")
+          }
+          Text("Delete Mad Thinker Account")
+        }
+        .font(.callout.weight(.semibold))
+        .foregroundColor(.brandError)
+      }
+      .disabled(isDeletingAccount)
+      .accessibilityIdentifier("deleteAccountButton")
+    }
+    .listRowBackground(Color.brandSurfaceMuted)
+  }
+
+  // MARK: - Destructive actions (backend stubs)
+
+  private func leaveCommunityTapped() async {
+    errorText = nil
+    infoText = nil
+
+    guard let communityId = communityService.activeCommunityId else {
+      errorText = "No active community to leave."
+      return
+    }
+
+    isLeavingCommunity = true
+    defer { isLeavingCommunity = false }
+
+    do {
+      try await communityService.leaveCommunity(communityId: communityId)
+      AppLogging.log("[ManageProfile] Left community \(communityId) — dismissing", level: .info, category: .community)
+      await MainActor.run { dismiss() }
+    } catch let err as CommunityError {
+      errorText = err.errorDescription
+      AppLogging.log("[ManageProfile] Leave community failed: \(err)", level: .error, category: .community)
+    } catch {
+      errorText = "Could not leave the community: \(error.localizedDescription)"
+      AppLogging.log("[ManageProfile] Leave community error: \(error)", level: .error, category: .community)
+    }
+  }
+
+  private func performDeleteAccount(confirmationText: String) async {
+    errorText = nil
+    infoText = nil
+
+    guard confirmationText == "DELETE" else {
+      errorText = "Please type DELETE exactly to confirm account deletion."
+      return
+    }
+
+    guard let token = await auth.currentAccessToken(), !token.isEmpty else {
+      errorText = "You are not signed in."
+      return
+    }
+
+    isDeletingAccount = true
+    defer { isDeletingAccount = false }
+
+    let url = AppEnvironment.shared.deleteAccountURL
+
+    var req = URLRequest(url: url)
+    req.httpMethod = "POST"
+    req.setValue("application/json", forHTTPHeaderField: "Accept")
+    req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    req.setValue(auth.publicAnonKey, forHTTPHeaderField: "apikey")
+    req.httpBody = try? JSONSerialization.data(withJSONObject: ["confirmationText": "DELETE"])
+
+    AppLogging.log("[ManageProfile] deleteAccount POST url=\(url.absoluteString) scheme=\(url.scheme ?? "nil") host=\(url.host ?? "nil") path=\(url.path)", level: .info, category: .auth)
+
+    do {
+      let (data, resp) = try await URLSession.shared.data(for: req)
+      let code = (resp as? HTTPURLResponse)?.statusCode ?? -1
+      let bodyText = String(data: data, encoding: .utf8) ?? ""
+      AppLogging.log("[ManageProfile] deleteAccount response status=\(code) body=\(bodyText)", level: .info, category: .auth)
+
+      guard (200..<300).contains(code) else {
+        let body = bodyText
+        AppLogging.log("[ManageProfile] deleteAccount failed status=\(code) body=\(body)", level: .error, category: .auth)
+        switch code {
+        case 400: errorText = "Confirmation text did not match. Please try again."
+        case 401: errorText = "Your session has expired. Please sign in again."
+        case 403: errorText = "Account deletion is not currently available."
+        case 429: errorText = "Too many attempts. Please try again later."
+        default:  errorText = "Account deletion failed (\(code)). Please contact support."
+        }
+        return
       }
 
-      if value.wrappedValue == true {
-        TextEditor(text: text)
-          .foregroundColor(.white)
-          .frame(minHeight: 72)
+      AppLogging.log("[ManageProfile] account deleted; clearing local session.", level: .info, category: .auth)
+      // Server already invalidated the session via cascade; local sign-out is
+      // enough to return AppRootView to the login screen.
+      await auth.signOut()
+    } catch {
+      AppLogging.log("[ManageProfile] deleteAccount error: \(error)", level: .error, category: .auth)
+      errorText = "Account deletion failed: \(error.localizedDescription)"
+    }
+  }
+
+  // MARK: - Profile Fields
+
+  @ViewBuilder
+  private var profileFields: some View {
+    Section {
+      if let memberId = profile.memberId, !memberId.isEmpty {
+        HStack {
+          Text("Member #").foregroundColor(.brandAccent).font(.callout)
+          Spacer()
+          Text(memberId)
+            .foregroundColor(.brandTextSecondary)
+            .font(.callout)
+        }
+      }
+      HStack {
+        Text("First Name").foregroundColor(.brandAccent).font(.callout)
+        Spacer()
+        TextField("First name", text: Binding(get: { profile.firstName ?? "" }, set: { profile.firstName = $0 }))
+          .multilineTextAlignment(.trailing)
+          .foregroundColor(.brandTextPrimary)
+          .font(.callout)
+          .accessibilityIdentifier("firstNameTextField")
+      }
+      HStack {
+        Text("Last Name").foregroundColor(.brandAccent).font(.callout)
+        Spacer()
+        TextField("Last name", text: Binding(get: { profile.lastName ?? "" }, set: { profile.lastName = $0 }))
+          .multilineTextAlignment(.trailing)
+          .foregroundColor(.brandTextPrimary)
+          .font(.callout)
+          .accessibilityIdentifier("lastNameTextField")
+      }
+      HStack {
+        Text("Date of Birth").foregroundColor(.brandAccent).font(.callout)
+        Spacer()
+        if let currentDob = dobDate {
+          DatePicker(
+            "Date of Birth",
+            selection: Binding(
+              get: { currentDob },
+              set: { dobDate = $0 }
+            ),
+            displayedComponents: .date
+          )
+          .labelsHidden()
+          .foregroundColor(.brandTextPrimary)
+          .accessibilityIdentifier("dobPicker")
+        } else {
+          Button("Set") {
+            // Seed with today when the user taps to set. They'll open the
+            // picker wheel to pick their actual DOB.
+            dobDate = Date()
+          }
+          .font(.callout.weight(.semibold))
+          .foregroundColor(.brandAccent)
+          .accessibilityIdentifier("setDateOfBirthButton")
+        }
+      }
+      VStack(alignment: .leading, spacing: 4) {
+        HStack {
+          Text("Phone Number").foregroundColor(.brandAccent).font(.callout)
+          Spacer()
+          TextField("Phone number", text: Binding(get: { profile.phoneNumber ?? "" }, set: { profile.phoneNumber = $0 }))
+            .multilineTextAlignment(.trailing)
+            .foregroundColor(.brandTextPrimary)
+            .font(.callout)
+            .accessibilityIdentifier("phoneTextField")
+        }
+        if let phone = profile.phoneNumber, !phone.isEmpty, !isValidPhone(phone) {
+          Text("Please enter a valid phone number (10\u{2013}15 digits, digits only or formatted).")
+            .font(.brandCaption)
+            .foregroundColor(.brandError)
+        }
       }
     }
   }
@@ -439,7 +533,7 @@ struct ManageProfileView: View {
     return digits.count >= 10 && digits.count <= 15
   }
 
-  // MARK: - Networking (refactored to composed URL)
+  // MARK: - Networking
 
   private func loadProfile() async {
     errorText = nil
@@ -457,15 +551,11 @@ struct ManageProfileView: View {
       url = try ManageProfileAPI.url()
     } catch {
       errorText = "Unsupported URL (check API_BASE_URL / MY_PROFILE_URL)."
-      #if DEBUG
-      print("[ManageProfile] URL compose error: \(error)")
-      #endif
+      AppLogging.log("[ManageProfile] URL compose error: \(error)", level: .error, category: .network)
       return
     }
 
-    #if DEBUG
-    print("[ManageProfile] loadProfile URL: \(url.absoluteString)")
-    #endif
+    AppLogging.log("[ManageProfile] loadProfile URL: \(url.absoluteString)", level: .debug, category: .network)
 
     var req = URLRequest(url: url)
     req.httpMethod = "GET"
@@ -477,11 +567,7 @@ struct ManageProfileView: View {
       let (data, resp) = try await URLSession.shared.data(for: req)
       let code = (resp as? HTTPURLResponse)?.statusCode ?? -1
 
-      #if DEBUG
-      print("[ManageProfile] loadProfile status: \(code)")
-      let preview = String(data: data.prefix(800), encoding: .utf8) ?? "<non-UTF8>"
-      print("[ManageProfile] loadProfile body preview:\n\(preview)")
-      #endif
+      AppLogging.log("[ManageProfile] loadProfile status: \(code)", level: .debug, category: .network)
 
       guard (200..<300).contains(code) else {
         errorText = "Load failed (\(code))."
@@ -490,15 +576,12 @@ struct ManageProfileView: View {
 
       struct Resp: Decodable {
         let profile: MyProfile
-        let preferences: Preferences?
       }
 
       let decoded = try JSONDecoder().decode(Resp.self, from: data)
 
       profile = decoded.profile
-      preferences = decoded.preferences ?? Preferences()
 
-      // Parse DOB into DatePicker state
       if let dob = profile.dateOfBirth, !dob.isEmpty {
         let f = DateFormatter()
         f.calendar = Calendar(identifier: .gregorian)
@@ -507,9 +590,11 @@ struct ManageProfileView: View {
         f.dateFormat = "yyyy-MM-dd"
         if let d = f.date(from: dob) { dobDate = d }
       }
+      // If backend returned no DOB, dobDate stays nil so the UI shows
+      // "Set" instead of today's date.
 
       originalProfile = profile
-      originalPreferences = preferences
+      originalDobDate = dobDate
     } catch {
       errorText = error.localizedDescription
     }
@@ -531,28 +616,28 @@ struct ManageProfileView: View {
       return
     }
 
-    // Sync dobDate back to yyyy-MM-dd
-    let df = DateFormatter()
-    df.calendar = Calendar(identifier: .gregorian)
-    df.locale = Locale(identifier: "en_US_POSIX")
-    df.timeZone = TimeZone(secondsFromGMT: 0)
-    df.dateFormat = "yyyy-MM-dd"
-    profile.dateOfBirth = df.string(from: dobDate)
+    if let dob = dobDate {
+      let df = DateFormatter()
+      df.calendar = Calendar(identifier: .gregorian)
+      df.locale = Locale(identifier: "en_US_POSIX")
+      df.timeZone = TimeZone(secondsFromGMT: 0)
+      df.dateFormat = "yyyy-MM-dd"
+      profile.dateOfBirth = df.string(from: dob)
+    } else {
+      // User never set a DOB — don't send a stale/default value.
+      profile.dateOfBirth = nil
+    }
 
     let url: URL
     do {
       url = try ManageProfileAPI.url()
     } catch {
       errorText = "Unsupported URL (check API_BASE_URL / MY_PROFILE_URL)."
-      #if DEBUG
-      print("[ManageProfile] URL compose error: \(error)")
-      #endif
+      AppLogging.log("[ManageProfile] URL compose error: \(error)", level: .error, category: .network)
       return
     }
 
-    #if DEBUG
-    print("[ManageProfile] saveProfile URL: \(url.absoluteString)")
-    #endif
+    AppLogging.log("[ManageProfile] saveProfile URL: \(url.absoluteString)", level: .debug, category: .network)
 
     var req = URLRequest(url: url)
     req.httpMethod = ManageProfileAPI.saveMethod
@@ -561,25 +646,11 @@ struct ManageProfileView: View {
     req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
     req.setValue(auth.publicAnonKey, forHTTPHeaderField: "apikey")
 
-    // Body (keep your “only send meaningful fields” behavior, but include booleans when set)
     var body: [String: Any] = [:]
     if let v = profile.firstName, !v.isEmpty { body["firstName"] = v }
     if let v = profile.lastName, !v.isEmpty { body["lastName"] = v }
     if let v = profile.phoneNumber, !v.isEmpty { body["phoneNumber"] = v }
     if let v = profile.dateOfBirth, !v.isEmpty { body["dateOfBirth"] = v }
-
-    if let v = preferences.drinks { body["drinks"] = v }
-    if let v = preferences.drinksText, !v.isEmpty { body["drinksText"] = v }
-    if let v = preferences.food { body["food"] = v }
-    if let v = preferences.foodText, !v.isEmpty { body["foodText"] = v }
-    if let v = preferences.health { body["health"] = v }
-    if let v = preferences.healthText, !v.isEmpty { body["healthText"] = v }
-    if let v = preferences.occasion { body["occasion"] = v }
-    if let v = preferences.occasionText, !v.isEmpty { body["occasionText"] = v }
-    if let v = preferences.allergies { body["allergies"] = v }
-    if let v = preferences.allergiesText, !v.isEmpty { body["allergiesText"] = v }
-    if let v = preferences.cpap { body["cpap"] = v }
-    if let v = preferences.cpapText, !v.isEmpty { body["cpapText"] = v }
 
     do {
       req.httpBody = try JSONSerialization.data(withJSONObject: body, options: [])
@@ -587,11 +658,7 @@ struct ManageProfileView: View {
       let (data, resp) = try await URLSession.shared.data(for: req)
       let code = (resp as? HTTPURLResponse)?.statusCode ?? -1
 
-      #if DEBUG
-      print("[ManageProfile] saveProfile status: \(code)")
-      let preview = String(data: data.prefix(800), encoding: .utf8) ?? "<non-UTF8>"
-      print("[ManageProfile] saveProfile body preview:\n\(preview)")
-      #endif
+      AppLogging.log("[ManageProfile] saveProfile status: \(code)", level: .debug, category: .network)
 
       guard (200..<300).contains(code) else {
         let msg = String(data: data, encoding: .utf8) ?? ""
@@ -599,11 +666,21 @@ struct ManageProfileView: View {
         return
       }
 
-      // If server echoes back updated profile/preferences, you can decode it here.
-      // We keep your original behavior: accept success and dismiss.
+      // Persist ML opt-out (public users) once the server save succeeded.
+      if auth.currentUserType == .public, mlOptOutDraft != originalMlOptOut {
+        MLTrainingOptOutStore.shared.isOptedOut = mlOptOutDraft
+        originalMlOptOut = mlOptOutDraft
+      }
+
+      // Persist Conservation mode (public users) once the server save succeeded.
+      if auth.currentUserType == .public, conservationModeDraft != originalConservationMode {
+        PublicConservationModeStore.shared.isEnabled = conservationModeDraft
+        originalConservationMode = conservationModeDraft
+      }
+
       infoText = "Saved."
       originalProfile = profile
-      originalPreferences = preferences
+      originalDobDate = dobDate
       dismiss()
     } catch {
       errorText = error.localizedDescription
