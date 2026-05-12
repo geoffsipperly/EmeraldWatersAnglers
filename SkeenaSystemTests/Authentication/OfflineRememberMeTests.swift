@@ -115,30 +115,35 @@ final class OfflineRememberMeTests: XCTestCase {
     }
   }
 
-  func testRememberMeOff_clearsOfflineCredsOnSignOut() async throws {
-    // Disable remember me
+  /// Commit `9dd61a5` ("Offline login: enable Remember Me for all roles, not
+  /// just guides") changed the policy: profile load now force-enables
+  /// Remember Me regardless of the user's prior preference, so the old
+  /// "explicit OFF → creds cleared on signOut" path is unreachable through
+  /// normal sign-in. This test now locks in the new policy — a user who
+  /// flipped Remember Me OFF *before* signing in still ends up with offline
+  /// access afterwards. If the policy ever changes back to honouring the
+  /// pre-sign-in preference, rename this test and flip both assertions.
+  func testRememberMeOff_isReenabledByProfileLoad() async throws {
+    // User intent: Remember Me OFF before sign-in.
     AuthService.shared.rememberMeEnabled = false
 
-    // Online sign-in
+    // Online sign-in — profile load force-enables Remember Me.
     _ = try mockOnlineSignIn(email: "noremember@example.com")
     try await AuthService.shared.signIn(email: "noremember@example.com", password: "pw654321")
+    XCTAssertTrue(AuthService.shared.rememberMeEnabled,
+                  "Profile load should override the user's explicit OFF and enable Remember Me — see AuthService line ~627")
 
-    // Sign out (should clear offline creds)
+    // Sign out — credentials should persist because Remember Me is on.
     await AuthService.shared.signOut()
 
-    // Simulate offline
+    // Simulate offline + retry — should succeed.
     MockURLProtocol.requestHandler = { _ in throw URLError(.notConnectedToInternet) }
-
-    // Attempt offline sign-in with same creds -> expect failure
     do {
       try await AuthService.shared.signIn(email: "noremember@example.com", password: "pw654321")
-      XCTFail("Expected offline sign-in to fail with remember me OFF")
+      XCTAssertTrue(AuthService.shared.isAuthenticated,
+                    "Offline sign-in should succeed because profile-load re-enabled Remember Me, so signOut preserved the cached creds.")
     } catch {
-        if let authErr = error as? AuthService.AuthError {
-          XCTAssertEqual(authErr, .networkUnavailable)
-        } else {
-          XCTFail("Expected AuthService.AuthError.networkUnavailable; got: \(error)")
-        }
+      XCTFail("Expected offline sign-in to succeed (Remember Me auto-re-enabled by profile load); error=\(error)")
     }
   }
 }

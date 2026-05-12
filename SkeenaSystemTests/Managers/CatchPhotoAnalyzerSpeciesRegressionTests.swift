@@ -35,14 +35,16 @@ final class CatchPhotoAnalyzerSpeciesRegressionTests: XCTestCase {
                    "speciesLabels must stay in alphabetical order to match Python ImageFolder training. Did you append a new species at the end instead of inserting it?")
   }
 
-  /// Locks the exact 11-class set — any addition or removal here is a deliberate
+  /// Locks the exact 13-class set — any addition or removal here is a deliberate
   /// model retrain and must update this assertion in lockstep.
+  /// (Was 11 before `brook_trout` and `striped_bass` were onboarded.)
   func testSpeciesLabels_exactSet() {
     XCTAssertEqual(
       Set(CatchPhotoAnalyzer.speciesLabels),
       Set([
         "atlantic_salmon_holding",
         "atlantic_salmon_traveler",
+        "brook_trout",
         "brown_trout",
         "chinook_salmon",
         "lingcod",
@@ -51,25 +53,57 @@ final class CatchPhotoAnalyzerSpeciesRegressionTests: XCTestCase {
         "rainbow_trout",
         "sea_run_trout",
         "steelhead_holding",
-        "steelhead_traveler"
+        "steelhead_traveler",
+        "striped_bass"
       ]),
       "Adding/removing a species requires retraining ViTFishSpecies AND LengthRegressor — see docs/new-species-onboarding.md"
     )
   }
 
-  func testSpeciesLabels_brownTroutAtIndex2() {
-    XCTAssertEqual(CatchPhotoAnalyzer.speciesLabels[2], "brown_trout",
-                   "Alphabetical order: brown_trout should sit at index 2, between atlantic_salmon_traveler (1) and chinook_salmon (3)")
+  // Spot-check fixed positions in the alphabetical order. These are the
+  // canaries that catch a "new species appended at the end" bug — when
+  // someone adds a label without inserting alphabetically, the index of
+  // every subsequent species shifts and the regressor's species_index
+  // feature points at the wrong class.
+  //
+  // Position table (13 species, alphabetical):
+  //   0 atlantic_salmon_holding
+  //   1 atlantic_salmon_traveler
+  //   2 brook_trout              ← bookend (first new species)
+  //   3 brown_trout
+  //   4 chinook_salmon
+  //   5 lingcod
+  //   6 musky
+  //   7 other
+  //   8 rainbow_trout
+  //   9 sea_run_trout
+  //  10 steelhead_holding
+  //  11 steelhead_traveler
+  //  12 striped_bass             ← bookend (last new species)
+
+  func testSpeciesLabels_brookTroutAtIndex2() {
+    XCTAssertEqual(CatchPhotoAnalyzer.speciesLabels[2], "brook_trout",
+                   "Alphabetical order: brook_trout should sit at index 2, between atlantic_salmon_traveler (1) and brown_trout (3)")
   }
 
-  func testSpeciesLabels_chinookSalmonAtIndex3() {
-    XCTAssertEqual(CatchPhotoAnalyzer.speciesLabels[3], "chinook_salmon",
-                   "Alphabetical order: chinook_salmon should sit at index 3, between brown_trout (2) and lingcod (4)")
+  func testSpeciesLabels_brownTroutAtIndex3() {
+    XCTAssertEqual(CatchPhotoAnalyzer.speciesLabels[3], "brown_trout",
+                   "Alphabetical order: brown_trout should sit at index 3, between brook_trout (2) and chinook_salmon (4)")
   }
 
-  func testSpeciesLabels_lingcodAtIndex4() {
-    XCTAssertEqual(CatchPhotoAnalyzer.speciesLabels[4], "lingcod",
-                   "Alphabetical order: lingcod should sit at index 4, between chinook_salmon (3) and other (5)")
+  func testSpeciesLabels_chinookSalmonAtIndex4() {
+    XCTAssertEqual(CatchPhotoAnalyzer.speciesLabels[4], "chinook_salmon",
+                   "Alphabetical order: chinook_salmon should sit at index 4, between brown_trout (3) and lingcod (5)")
+  }
+
+  func testSpeciesLabels_lingcodAtIndex5() {
+    XCTAssertEqual(CatchPhotoAnalyzer.speciesLabels[5], "lingcod",
+                   "Alphabetical order: lingcod should sit at index 5, between chinook_salmon (4) and musky (6)")
+  }
+
+  func testSpeciesLabels_stripedBassAtIndex12() {
+    XCTAssertEqual(CatchPhotoAnalyzer.speciesLabels[12], "striped_bass",
+                   "Alphabetical order: striped_bass should sit at index 12 (last), after steelhead_traveler (11)")
   }
 
   // MARK: - regressorBypassSpecies

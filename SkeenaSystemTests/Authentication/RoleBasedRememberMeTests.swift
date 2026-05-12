@@ -80,12 +80,21 @@ final class RoleBasedRememberMeTests: XCTestCase {
     XCTAssertTrue(auth.rememberMeEnabled, "Remember Me should auto-enable for guides")
   }
 
-  func testAngler_autoDisablesRememberMe_afterProfileLoad() async throws {
+  // Policy change locked in by commit `9dd61a5` ("Offline login: enable
+  // Remember Me for all roles, not just guides"): Remember Me is auto-ON
+  // after profile load for every role — anglers, researchers, public, and
+  // guides alike. Before, anglers/researchers/public were locked out of
+  // offline sign-in because their post-signOut creds got wiped. These two
+  // angler-side tests were updated below to assert the new symmetric
+  // behaviour (used to assert auto-disable + creds-cleared).
+
+  func testAngler_autoEnablesRememberMe_afterProfileLoad() async throws {
     let auth = AuthService.shared
     try mockOnlineSignInAndProfile(email: "angler@example.com", firstName: "A", userType: "angler")
     try await auth.signIn(email: "angler@example.com", password: "pw")
     XCTAssertEqual(auth.currentUserType, .angler)
-    XCTAssertFalse(auth.rememberMeEnabled, "Remember Me should auto-disable for anglers")
+    XCTAssertTrue(auth.rememberMeEnabled,
+                  "Remember Me should auto-enable for anglers — every role gets offline access after profile load (commit 9dd61a5)")
   }
 
   func testGuide_signOut_preservesOfflineCreds() async throws {
@@ -104,23 +113,21 @@ final class RoleBasedRememberMeTests: XCTestCase {
     }
   }
 
-  func testAngler_signOut_clearsOfflineCreds() async throws {
+  func testAngler_signOut_preservesOfflineCreds() async throws {
     let auth = AuthService.shared
     try mockOnlineSignInAndProfile(email: "angler@example.com", firstName: "A", userType: "angler")
     try await auth.signIn(email: "angler@example.com", password: "pw")
-    // sign out -> should clear offline creds due to rememberMe=false
+    // Sign out — credentials should persist because Remember Me is now
+    // auto-on for every role (mirrors testGuide_signOut_preservesOfflineCreds).
     await auth.signOut()
 
     MockURLProtocol.requestHandler = { _ in throw URLError(.notConnectedToInternet) }
     do {
       try await auth.signIn(email: "angler@example.com", password: "pw")
-      XCTFail("Expected offline sign-in to fail for angler with remember me auto-disabled")
+      XCTAssertTrue(auth.isAuthenticated,
+                    "Anglers should successfully sign in offline after sign-out — Remember Me is auto-on for all roles (commit 9dd61a5)")
     } catch {
-      if let authErr = error as? AuthService.AuthError {
-        XCTAssertEqual(authErr, .networkUnavailable, "Expected networkUnavailable when offline creds are cleared for anglers.")
-      } else {
-        XCTFail("Expected AuthService.AuthError.networkUnavailable; got: \(error)")
-      }
+      XCTFail("Expected offline sign-in to succeed for angler with remember me auto-enabled; error=\(error)")
     }
   }
 }

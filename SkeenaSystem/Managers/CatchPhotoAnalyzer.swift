@@ -1606,11 +1606,13 @@ final class CatchPhotoAnalyzer {
     // Single-label species
     "rainbow trout":   "rainbow_trout",
     "brown trout":     "brown_trout",
+    "brook trout":     "brook_trout",
     "chinook salmon":  "chinook_salmon",
     "sea-run trout":   "sea_run_trout",
     "sea run trout":   "sea_run_trout",
     "lingcod":         "lingcod",
     "musky":           "musky",
+    "striped bass":    "striped_bass",
     "bi-catch":        "other",
   ]
 
