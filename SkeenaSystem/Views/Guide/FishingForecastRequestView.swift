@@ -380,14 +380,21 @@ struct FishingForecastRequestView: View {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        // Auth headers
+        // Auth headers. Supabase Edge Functions reject any request that
+        // lacks an Authorization header with "missing authorization header"
+        // (HTTP 401), so we *always* send one — JWT when the user is signed
+        // in, anon key otherwise. Public-role users and the cold-start race
+        // (view fires before AuthStore.refreshFromSupabase completes) both
+        // hit the anon-key path; that's accepted by the gateway as
+        // anonymous access. Without this fallback the screen randomly 401s.
         let anonKey = (Bundle.main.object(forInfoDictionaryKey: "SUPABASE_ANON_KEY") as? String)?
           .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if !anonKey.isEmpty {
           req.setValue(anonKey, forHTTPHeaderField: "apikey")
         }
-        if let jwt = AuthStore.shared.jwt, !jwt.isEmpty {
-          req.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
+        let bearer = (AuthStore.shared.jwt?.isEmpty == false ? AuthStore.shared.jwt! : anonKey)
+        if !bearer.isEmpty {
+          req.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
         }
 
         // Community ID header (preferred over body for flexibility)
@@ -463,14 +470,17 @@ struct FishingForecastRequestView: View {
     req.setValue("application/json", forHTTPHeaderField: "Content-Type")
     req.setValue("application/json", forHTTPHeaderField: "Accept")
 
-    // Auth headers
+    // Auth headers — see fetchBatchConditions for the full rationale.
+    // Always send an Authorization header; fall back to the anon key when
+    // no JWT is cached (public role, or AuthStore not yet refreshed).
     let anonKey = (Bundle.main.object(forInfoDictionaryKey: "SUPABASE_ANON_KEY") as? String)?
       .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     if !anonKey.isEmpty {
       req.setValue(anonKey, forHTTPHeaderField: "apikey")
     }
-    if let jwt = AuthStore.shared.jwt, !jwt.isEmpty {
-      req.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
+    let bearer = (AuthStore.shared.jwt?.isEmpty == false ? AuthStore.shared.jwt! : anonKey)
+    if !bearer.isEmpty {
+      req.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
     }
 
     // Community ID

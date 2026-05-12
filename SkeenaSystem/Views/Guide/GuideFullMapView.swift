@@ -4,7 +4,8 @@
 // from the expand button on the landing tile. Filter bar above the map:
 //
 //   • Time window — server-side (re-fetches when changed). Defaults to
-//     "Last 30 days" so a busy community doesn't dump 3 years of pins on open.
+//     "Last year" so guides see a full season's activity when they enlarge
+//     the map; tighter windows are one tap away.
 //   • "Catch only" toggle — client-side, off by default. When off the map
 //     shows every pin (catches + the four no-catch waypoint types). When
 //     on the map narrows to catch pins only. Styled identically to the
@@ -90,7 +91,7 @@ struct GuideFullMapView: View {
   @State private var isFetching = false
 
   // Filter state
-  @State private var timeWindow: GuideMapTimeWindow = .thirtyDays
+  @State private var timeWindow: GuideMapTimeWindow = .oneYear
   /// When true, narrows the visible pins to `GuideMapPinCategory.catch_`
   /// only. Defaults to false so the map opens with both catch and
   /// no-catch activity visible.
