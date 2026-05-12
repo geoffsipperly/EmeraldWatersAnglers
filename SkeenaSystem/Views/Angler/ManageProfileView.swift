@@ -434,6 +434,7 @@ struct ManageProfileView: View {
         case 401: errorText = "Your session has expired. Please sign in again."
         case 403: errorText = "Account deletion is not currently available."
         case 429: errorText = "Too many attempts. Please try again later."
+        case 503: errorText = "Account deletion is temporarily unavailable. Please try again later."
         default:  errorText = "Account deletion failed (\(code)). Please contact support."
         }
         return

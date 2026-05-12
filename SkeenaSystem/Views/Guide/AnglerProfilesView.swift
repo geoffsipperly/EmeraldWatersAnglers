@@ -84,15 +84,25 @@ struct PreferencesDTO {
 
   /// Build from an array of MemberField objects.
   init(fields: [MemberField]) {
-    let map = Dictionary(uniqueKeysWithValues: fields.map { ($0.field_name, $0.value ?? "") })
+    // Field name → raw value string (as the backend stored it). Preserves nil
+    // distinction for "field absent vs present-and-empty" so the renderer can
+    // still skip rows whose underlying field wasn't returned.
+    let map = Dictionary(uniqueKeysWithValues: fields.map { ($0.field_name, $0.value) })
+
+    // Delegate to the single canonical decoder. It accepts all three formats
+    // the backend has used over time:
+    //   1. JSON `{"checked": Bool, "details": String?}` (current contract)
+    //   2. Legacy pipe `"true|details"`
+    //   3. Bare `"true"` / `"false"` (boolean-only fields)
+    // The old inline parser here only handled #2 and #3, so when the backend
+    // switched to JSON for fields with `has_details=true` every preference
+    // silently came back as nil/false and the section rendered empty.
     func parse(_ key: String) -> (Bool?, String?) {
+      // Missing key → leave both nil so the row is skipped entirely.
       guard let raw = map[key] else { return (nil, nil) }
-      if raw.hasPrefix("true") {
-        let parts = raw.split(separator: "|", maxSplits: 1)
-        let text = parts.count > 1 ? String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines) : nil
-        return (true, text)
-      }
-      return (raw == "false" ? false : nil, nil)
+      let (checked, details) = MemberProfileFieldsAPI.decodePreferenceValue(raw)
+      let trimmed = details.trimmingCharacters(in: .whitespacesAndNewlines)
+      return (checked, trimmed.isEmpty ? nil : trimmed)
     }
     (drinks, drinks_text) = parse("drinks")
     (food, food_text) = parse("food")
@@ -731,13 +741,11 @@ struct AnglerProfileGearSection: View {
       }
       if show {
         if let gearList = gearList, !gearList.isEmpty {
-          let reel = gearList.compactMap { $0.reel_hand?.trimmingCharacters(in: .whitespacesAndNewlines) }.first { !$0.isEmpty }
-          let reelDisplay = (reel?.isEmpty == false ? reel!.lowercased() : "—")
+          // Note: "Reel hand" row removed — the underlying `reel_hand` field is
+          // not populated by the current backend response (`GearDTO` hardcodes
+          // it to nil in the new format), so the row always displayed "—"
+          // anyway. Gear items themselves still render below.
           VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-              Text("Reel hand:").foregroundColor(.brandAccent).font(.brandSubheadline)
-              Text("\(firstName) reels \(reelDisplay)-handed").foregroundColor(.brandTextPrimary).font(.brandSubheadline)
-            }
             ForEach(gearList.indices, id: \.self) { idx in
               gearRow(gearList[idx], firstName: firstName)
               if idx < gearList.count - 1 {
