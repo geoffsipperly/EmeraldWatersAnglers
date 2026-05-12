@@ -5,7 +5,9 @@ import Combine
 
 // MARK: - Models
 
-struct RiverConditionsResponse: Decodable {
+// `Codable` (not just `Decodable`) so the response can be re-encoded into the
+// offline cache (`FisheryConditionsCache`) — see Managers/FisheryConditionsCache.swift.
+struct RiverConditionsResponse: Codable {
   let river: String
   let stationId: String
   let date: String
@@ -16,27 +18,27 @@ struct RiverConditionsResponse: Decodable {
   let waterLevels: [WaterLevelEntry]
   let waterTemperatures: [WaterTemperatureEntry]?
 
-  struct WeatherBlock: Decodable {
+  struct WeatherBlock: Codable {
     let previousDay: DayBlock
     let targetDay: DayBlock
     let nextDay: DayBlock
   }
 
-  struct DayBlock: Decodable {
+  struct DayBlock: Codable {
     let date: String
     let highTempC: Double
     let lowTempC: Double
     let precipitationMm: Double
   }
 
-  struct TidesBlock: Decodable {
+  struct TidesBlock: Codable {
     let previousHigh: TidesPoint
     let nextHigh: TidesPoint
     let previousLow: TidesPoint
     let nextLow: TidesPoint
   }
 
-  struct TidesPoint: Decodable {
+  struct TidesPoint: Codable {
     let time: String
     let heightM: Double
     let type: String
@@ -45,14 +47,14 @@ struct RiverConditionsResponse: Decodable {
   /// Hour-aligned water-level sample.
   /// `recordedAt` is a UTC ISO 8601 timestamp (e.g. "2026-04-30T14:00:00.000Z");
   /// callers convert to the device's local timezone for display.
-  struct WaterLevelEntry: Decodable, Identifiable {
+  struct WaterLevelEntry: Codable, Identifiable {
     let recordedAt: String
     let levelFt: Double
     var id: String { recordedAt }
   }
 
   /// Hour-aligned water-temperature sample. `recordedAt` is UTC ISO 8601.
-  struct WaterTemperatureEntry: Decodable, Identifiable {
+  struct WaterTemperatureEntry: Codable, Identifiable {
     let recordedAt: String
     let tempC: Double
     var id: String { recordedAt }
@@ -67,8 +69,59 @@ private enum ConditionsTab: String, CaseIterable, Identifiable {
 
 // MARK: - Root View
 
+/// Single-fishery conditions view. Accepts an optional `result` so the request
+/// view can navigate to a friendly offline empty state when both the network
+/// fetch failed AND no cached snapshot exists for the tapped fishery. When
+/// `result` is non-nil the view renders the existing layout plus a "Last
+/// updated: …" timestamp row above the weather tiles.
+///
+/// `lastUpdatedAt` is the time the underlying response was received on-device
+/// (either `Date()` from a fresh fetch, or the `cachedAt` field of an offline
+/// snapshot). Hidden when nil.
 struct FishingForecastResultView: View {
+  let result: RiverConditionsResponse?
+  let lastUpdatedAt: Date?
+
+  var body: some View {
+    if let result = result {
+      LoadedForecastResultView(result: result, lastUpdatedAt: lastUpdatedAt)
+    } else {
+      offlineEmptyView
+    }
+  }
+
+  // MARK: - Offline empty state
+
+  /// Rendered when we navigate to this view with no result AND no cache —
+  /// i.e. the user tapped a fishery they've never opened before while
+  /// offline. No retry button: the user can re-tap when they're back online.
+  private var offlineEmptyView: some View {
+    ZStack {
+      Color.brandBackground.ignoresSafeArea()
+      VStack(spacing: 12) {
+        Image(systemName: "wifi.slash")
+          .font(.brandTitle)
+          .foregroundColor(.brandTextSecondary)
+        Text("You need to be connected to see details on this fishery.")
+          .font(.brandSubheadline)
+          .foregroundColor(.brandTextSecondary)
+          .multilineTextAlignment(.center)
+          .padding(.horizontal, 32)
+      }
+    }
+    .preferredColorScheme(.dark)
+    .accessibilityIdentifier("fisheryConditionsOfflineEmpty")
+  }
+}
+
+// MARK: - Loaded layout
+
+/// The full conditions view, only instantiated when `result` is non-nil. Kept
+/// as a separate type so the existing body and toolbar references to
+/// `result.X` don't need optional-chaining gymnastics.
+private struct LoadedForecastResultView: View {
   let result: RiverConditionsResponse
+  let lastUpdatedAt: Date?
 
   @StateObject private var auth = AuthService.shared
   @State private var showTactics = false
@@ -96,6 +149,20 @@ struct FishingForecastResultView: View {
       VStack(spacing: 12) {
         ScrollView {
           VStack(spacing: 12) {
+            // "Last updated: …" row, just above the weather tiles. Same
+            // `.brandCaption2` font / `.brandTextSecondary` color as the
+            // Level / Temp column headers on the list view so the styling
+            // reads consistently across both screens. Top padding keeps
+            // the row from tucking under the navigation-bar title block.
+            if let cachedAt = lastUpdatedAt {
+              HStack {
+                Text("Last updated: \(FishingForecastRequestView.formatLastUpdated(cachedAt))")
+                  .font(.brandCaption2)
+                  .foregroundColor(.brandTextSecondary)
+                Spacer()
+              }
+              .padding(.top, 12)
+            }
             weatherThreeDayCompact
             if result.isTidal, let tides = result.tides {
               tideWaveCard(tides: tides)

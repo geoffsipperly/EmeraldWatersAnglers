@@ -564,9 +564,15 @@ struct PublicLandingView: View {
     guard let communityId = CommunityService.shared.activeCommunityId else { return }
     do {
       let reports = try await MapReportService.fetch(communityId: communityId, memberId: auth.currentMemberId)
-      await MainActor.run { mapReports = reports }
+      // Public users record their own catches + marks too — merge any
+      // `savedLocally` pins so today's activity shows up before upload.
+      let merged = LocalMapPins.mergeWithServer(reports)
+      await MainActor.run { mapReports = merged }
     } catch {
       AppLogging.log("[PublicLanding] Map reports fetch failed: \(error.localizedDescription)", level: .error, category: .network)
+      // Fetch failed — still surface local-pending pins offline.
+      let local = LocalMapPins.localPendingPins()
+      await MainActor.run { mapReports = local }
     }
   }
 

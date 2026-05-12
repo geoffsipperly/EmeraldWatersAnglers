@@ -23,9 +23,19 @@ struct MapReportDTO: Codable, Identifiable {
   /// Water level recorded with the report, in feet. NULL — same as above.
   let waterLevelFt: Double?
 
+  /// True for pins synthesized from on-device `savedLocally` reports that
+  /// haven't been uploaded yet. Map views render these with a hollow pin
+  /// variant so the user can tell at a glance what's still pending sync.
+  /// Defaults to `false`; never decoded from or encoded to the wire (it's
+  /// purely a client-side display flag — see `CodingKeys` below).
+  var isPendingUpload: Bool = false
+
   // Existing fields (`lengthInches`, `memberId`) come back camelCase from the
   // API; the new fields (`river`, `water_temp_c`, `water_level_ft`) come back
   // snake_case. Explicit keys keep both conventions honest in one place.
+  // `isPendingUpload` is intentionally omitted so server payloads keep
+  // decoding into `false` and re-encoding (e.g. into MapRecallCache) doesn't
+  // leak the client-only flag into the JSON.
   private enum CodingKeys: String, CodingKey {
     case id, type, date, latitude, longitude, species, lengthInches, memberId, river
     case waterTempC = "water_temp_c"

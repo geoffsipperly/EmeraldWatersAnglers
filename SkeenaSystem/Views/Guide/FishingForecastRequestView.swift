@@ -107,11 +107,19 @@ struct FishingForecastRequestView: View {
   @State private var loadingRiver: String?
   @State private var errorText: String?
   @State private var result: RiverConditionsResponse?
+  /// Timestamp passed through to the result view's "Last updated: …" row.
+  /// Set to `Date()` when the per-fishery fetch succeeds, or to the cached
+  /// snapshot's `cachedAt` when we fall back to cache after a network error.
+  @State private var resultCachedAt: Date?
   @State private var goToResult = false
 
   // Batch conditions (fetched on appear)
   @State private var batchConditions: [String: BatchCondition] = [:]
   @State private var batchLoading = false
+  /// Timestamp shown above the rivers list. Set on a successful batch fetch
+  /// (`Date()`) or on cache load (the snapshot's `cachedAt`). Nil before the
+  /// first paint of either source.
+  @State private var batchLastUpdatedAt: Date?
 
   @Environment(\.dismiss) private var dismiss
 
@@ -158,6 +166,19 @@ struct FishingForecastRequestView: View {
             .padding(.horizontal, 20)
           } else {
             VStack(spacing: 8) {
+              // Last-updated stamp — shown whenever we have data (from
+              // cache on first paint, or from a fresh fetch). Same font /
+              // color as the Level/Temp column headers below so the row
+              // reads as part of the same metadata strip.
+              if let cachedAt = batchLastUpdatedAt {
+                HStack {
+                  Text("Last updated: \(Self.formatLastUpdated(cachedAt))")
+                    .font(.brandCaption2)
+                    .foregroundColor(.brandTextSecondary)
+                  Spacer()
+                }
+                .padding(.horizontal, 16)
+              }
               // Column headers aligned above metrics
               HStack(spacing: 0) {
                 Spacer()
@@ -226,7 +247,14 @@ struct FishingForecastRequestView: View {
         }
       }
     }
-    .task { fetchBatchConditions() }
+    .task {
+      // Paint from cache first so the list shows instantly (and works
+      // offline). The fresh network fetch then overwrites both the data
+      // and the timestamp on success; on failure the cached values stay
+      // visible and the user knows by the stamp how stale they are.
+      loadCachedBatch()
+      fetchBatchConditions()
+    }
     .navigationTitle("Conditions")
     .navigationBarBackButtonHidden(true)
     .toolbar {
@@ -242,9 +270,11 @@ struct FishingForecastRequestView: View {
       }
     }
     .navigationDestination(isPresented: $goToResult) {
-      if let res = result {
-        FishingForecastResultView(result: res)
-      }
+      // `result` is intentionally optional so we can still navigate when
+      // the network call failed AND there's no cached snapshot for this
+      // fishery — the result view renders the friendly offline empty state
+      // in that case.
+      FishingForecastResultView(result: result, lastUpdatedAt: resultCachedAt)
     }
   }
 
@@ -346,14 +376,43 @@ struct FishingForecastRequestView: View {
       do {
         let apiRiver = AppEnvironment.stripRiverSuffix(river)
         let loose = try await postForecast(river: apiRiver, date: Date())
-        self.result = materializeStrict(from: loose)
+        let fresh = materializeStrict(from: loose)
+        self.result = fresh
+        self.resultCachedAt = Date()
         self.goToResult = true
+
+        // Persist for offline use. Keyed by the display name (the same
+        // string the user tapped) so the load path matches without any
+        // suffix-stripping gymnastics.
+        if let communityId = CommunityService.shared.activeCommunityId, !communityId.isEmpty {
+          FisheryConditionsCache.save(response: fresh, communityId: communityId, fisheryName: river)
+        }
       } catch {
         let msg = error.localizedDescription
+        // "Invalid water body" is a server-side data problem, not a
+        // connectivity issue — surface inline, don't try the cache.
         if msg.lowercased().contains("invalid water body") || msg.lowercased().contains("not supported") {
           self.errorText = "Gauge data is not yet available for \(river). Check back soon."
         } else {
-          self.errorText = msg
+          // Likely a network failure (or a backend hiccup). Fall back to
+          // the on-disk snapshot for this fishery if we have one — the
+          // detail view will surface the cached "Last updated" timestamp
+          // so the staleness is visible. If no cache exists, navigate
+          // with `result = nil` and let the detail view render its
+          // friendly offline empty state.
+          let communityId = CommunityService.shared.activeCommunityId ?? ""
+          if !communityId.isEmpty,
+             let snapshot = FisheryConditionsCache.load(communityId: communityId, fisheryName: river) {
+            AppLogging.log("[Forecast] tap fetch failed for \(river); falling back to cache (cachedAt=\(snapshot.cachedAt))", level: .info, category: .trip)
+            self.result = snapshot.response
+            self.resultCachedAt = snapshot.cachedAt
+            self.goToResult = true
+          } else {
+            AppLogging.log("[Forecast] tap fetch failed for \(river) and no cache available — showing offline empty state", level: .info, category: .trip)
+            self.result = nil
+            self.resultCachedAt = nil
+            self.goToResult = true
+          }
         }
       }
       self.loadingRiver = nil
@@ -444,14 +503,60 @@ struct FishingForecastRequestView: View {
           AppLogging.log({ "[Forecast] batch — \(condition.name): type=\(condition.waterType ?? "?"), level=\(condition.waterLevelFt.map { String(format: "%.2f", $0) } ?? "nil")ft, temp=\(condition.waterTempC.map { String(format: "%.1f", $0) } ?? "nil")°C" }, level: .debug, category: .trip)
         }
         self.batchConditions = dict
+        self.batchLastUpdatedAt = Date()
         AppLogging.log("[Forecast] batch loaded \(dict.count) conditions for date: \(batch.date)", level: .info, category: .trip)
+
+        // Persist for offline use. Save the raw response so the next paint
+        // reproduces what the user just saw — bucket-rekeying happens at
+        // load time below in `loadCachedBatch()`.
+        if let communityId = CommunityService.shared.activeCommunityId, !communityId.isEmpty {
+          BatchConditionsCache.save(response: batch, communityId: communityId)
+        }
 
       } catch {
         AppLogging.log("[Forecast] batch fetch failed: \(error.localizedDescription)", level: .warn, category: .trip)
-        // Tiles remain functional, just without metrics
+        // Network failed — leave whatever cache painted in place; the
+        // visible "Last updated" timestamp tells the user how stale it is.
       }
       self.batchLoading = false
     }
+  }
+
+  /// Populate `batchConditions` and `batchLastUpdatedAt` from disk if a
+  /// snapshot exists for the active community. Same dictionary build as
+  /// the success path of `fetchBatchConditions()` so the UI doesn't
+  /// branch on data source.
+  private func loadCachedBatch() {
+    guard let communityId = CommunityService.shared.activeCommunityId, !communityId.isEmpty else { return }
+    guard let snapshot = BatchConditionsCache.load(communityId: communityId) else { return }
+
+    let rivers = CommunityService.shared.activeCommunityConfig.resolvedLodgeRivers
+    let waterBodies = CommunityService.shared.activeCommunityConfig.resolvedLodgeWaterBodies
+    let allSources = rivers + waterBodies
+
+    var dict: [String: BatchCondition] = [:]
+    for condition in snapshot.response.conditions {
+      let displayName = allSources.first(where: { AppEnvironment.stripRiverSuffix($0) == condition.name }) ?? condition.name
+      dict[displayName] = condition
+    }
+    self.batchConditions = dict
+    self.batchLastUpdatedAt = snapshot.cachedAt
+    AppLogging.log("[Forecast] batch loaded from cache (\(dict.count) rows, cachedAt=\(snapshot.cachedAt))", level: .debug, category: .trip)
+  }
+
+  /// "Last updated: …" formatter. Device-local short date + short time so
+  /// users see the format they expect for their locale. Cached in the
+  /// view for cheap reuse — the timestamp re-renders every state change
+  /// otherwise.
+  private static let lastUpdatedFormatter: DateFormatter = {
+    let f = DateFormatter()
+    f.dateStyle = .medium
+    f.timeStyle = .short
+    return f
+  }()
+
+  static func formatLastUpdated(_ date: Date) -> String {
+    lastUpdatedFormatter.string(from: date)
   }
 
   // MARK: - Networking (POST JSON, no auth, resilient decode)
@@ -540,20 +645,7 @@ struct FishingForecastRequestView: View {
 
   // MARK: - Batch Response Types
 
-  private struct BatchCondition: Decodable {
-    let name: String
-    let waterType: String?
-    let stationId: String?
-    let source: String?
-    let date: String?
-    let waterLevelFt: Double?
-    let waterTempC: Double?
-  }
-
-  private struct BatchResponse: Decodable {
-    let date: String
-    let conditions: [BatchCondition]
-  }
+  // (Defined at file scope — see below — so BatchConditionsCache can persist them.)
 
   // MARK: - Lenient (Loose) Response Types
 
@@ -715,4 +807,25 @@ struct FishingForecastRequestView: View {
       waterTemperatures: temps
     )
   }
+}
+
+// MARK: - Batch response types (file scope)
+
+/// One row in the batch conditions response — covers a single river or water
+/// body. `Codable` so the response can be re-encoded into the offline cache
+/// (`BatchConditionsCache`).
+struct BatchCondition: Codable, Equatable {
+  let name: String
+  let waterType: String?
+  let stationId: String?
+  let source: String?
+  let date: String?
+  let waterLevelFt: Double?
+  let waterTempC: Double?
+}
+
+/// Wrapper for the full `/river-conditions-batch` payload.
+struct BatchResponse: Codable, Equatable {
+  let date: String
+  let conditions: [BatchCondition]
 }

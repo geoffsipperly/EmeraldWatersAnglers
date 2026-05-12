@@ -438,7 +438,10 @@ struct GuideLandingView: View {
     guard let communityId = CommunityService.shared.activeCommunityId else { return }
     do {
       let reports = try await MapReportService.fetch(communityId: communityId)
-      await MainActor.run { mapReports = reports }
+      // Merge the user's local `savedLocally` pins so today's catches and
+      // marks show up on the landing tile even before they've uploaded.
+      let merged = LocalMapPins.mergeWithServer(reports)
+      await MainActor.run { mapReports = merged }
       // Kick off the offline-tile pre-cache for the community's whole
       // fishing footprint. Best-effort + non-blocking; pins render
       // immediately and the basemap stays cached for the next offline
@@ -446,6 +449,10 @@ struct GuideLandingView: View {
       Task { await preCacheLandingBasemap(communityId: communityId) }
     } catch {
       AppLogging.log("[LandingMap] Fetch failed: \(error.localizedDescription)", level: .error, category: .network)
+      // Still surface local-pending pins on fetch failure — the user's
+      // day's activity is more useful than an empty tile.
+      let local = LocalMapPins.localPendingPins()
+      await MainActor.run { mapReports = local }
     }
   }
 

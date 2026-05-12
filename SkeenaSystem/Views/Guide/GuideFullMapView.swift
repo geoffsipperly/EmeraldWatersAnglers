@@ -281,9 +281,18 @@ struct GuideFullMapView: View {
         memberId: nil,
         fromDate: timeWindow.fromDate()
       )
-      await MainActor.run { mapReports = reports }
+      // Merge the user's local `savedLocally` catches and marks so the day's
+      // activity shows up even before the records have uploaded.
+      // `LocalMapPins.mergeWithServer` drops any local pin whose id matches
+      // a server pin (server wins on the upload-→-status-flip race window).
+      let merged = LocalMapPins.mergeWithServer(reports)
+      await MainActor.run { mapReports = merged }
     } catch {
       AppLogging.log("[GuideFullMap] fetch failed: \(error.localizedDescription)", level: .error, category: .map)
+      // On fetch failure, still surface the user's own local-pending pins —
+      // they're useful offline-of-the-day context even without server data.
+      let local = LocalMapPins.localPendingPins()
+      await MainActor.run { mapReports = local }
     }
   }
 }

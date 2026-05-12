@@ -465,9 +465,18 @@ struct GuideFisheryMapView: View {
       )
       // Persist on every successful fetch (including empty results — that's
       // the freshest reality and should overwrite stale cached pins).
+      // Only the server-side payload goes into the cache — pending local
+      // pins live in CatchReportStore / FarmedReportStore and are merged in
+      // freshly on every render below.
       MapRecallCache.save(reports: reports, communityId: communityId)
+      // Merge in the user's `savedLocally` catches and marks. The view's
+      // existing per-river filter (matching `report.river` against
+      // `riverName`) naturally scopes these to the current fishery, and
+      // marks (which carry no river) get filtered out — same as today's
+      // behaviour for server marks missing a river.
+      let merged = LocalMapPins.mergeWithServer(reports)
       await MainActor.run {
-        mapReports = reports
+        mapReports = merged
         cachedAt = nil
         logFilterTrace(reason: "fetch complete")
       }
@@ -481,13 +490,24 @@ struct GuideFisheryMapView: View {
       AppLogging.log("[FisheryMap] fetch failed: \(error.localizedDescription)", level: .error, category: .map)
       // Off-line / transport failure → fall back to the last snapshot
       // (if any). The pins are filtered client-side, so the existing
-      // ±10% / "All" UI keeps working over the cached payload.
+      // ±10% / "All" UI keeps working over the cached payload. Also merge
+      // in local-pending pins so today's activity stays visible offline.
       if let snapshot = MapRecallCache.load(communityId: communityId) {
         AppLogging.log("[FisheryMap] serving cached pins from \(snapshot.cachedAt)", level: .info, category: .map)
+        let merged = LocalMapPins.mergeWithServer(snapshot.reports)
         await MainActor.run {
-          mapReports = snapshot.reports
+          mapReports = merged
           cachedAt = snapshot.cachedAt
           logFilterTrace(reason: "cache fallback")
+        }
+      } else {
+        // No cache either — surface bare local pins so the guide still sees
+        // their own day's catches on the fishery they're recording on.
+        let local = LocalMapPins.localPendingPins()
+        await MainActor.run {
+          mapReports = local
+          cachedAt = nil
+          logFilterTrace(reason: "no cache, local-only fallback")
         }
       }
     }

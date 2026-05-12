@@ -33,6 +33,10 @@ struct GuideLandingAnnotation: Identifiable {
   let species: String?
   let lengthInches: Int?
   let date: Date
+  /// True for pins synthesized from on-device `savedLocally` reports.
+  /// Drives the hollow pin variant so users can see what they've recorded
+  /// today before it has been uploaded.
+  let isPendingUpload: Bool
 }
 
 // MARK: - Map View
@@ -61,7 +65,8 @@ struct GuideLandingMapView: View {
         reportType: type,
         species: r.species,
         lengthInches: r.lengthInches,
-        date: Self.parseISO(r.date) ?? Date()
+        date: Self.parseISO(r.date) ?? Date(),
+        isPendingUpload: r.isPendingUpload
       )
     }
   }
@@ -144,8 +149,19 @@ struct GuideLandingMapView: View {
     type: GuideLandingAnnotation.ReportType
   ) -> some MapContent {
     PointAnnotationGroup(group) { annotation in
-      PointAnnotation(coordinate: annotation.coordinate)
-        .image(.init(image: MapPinImage.pin(color: type.pinColor), name: type.pinName))
+      // Hollow variant for `savedLocally` pins so the user can see at a
+      // glance what they've recorded today that hasn't synced yet. Each
+      // (type, pending-state) pair registers its own Mapbox image name so
+      // the texture cache doesn't dedupe the filled and hollow versions
+      // into one glyph.
+      let pinImage = annotation.isPendingUpload
+        ? MapPinImage.hollowPin(color: type.pinColor)
+        : MapPinImage.pin(color: type.pinColor)
+      let pinName = annotation.isPendingUpload
+        ? "\(type.pinName)-pending"
+        : type.pinName
+      return PointAnnotation(coordinate: annotation.coordinate)
+        .image(.init(image: pinImage, name: pinName))
         .iconAnchor(.bottom)
         .onTapGesture { _ in
           if annotation.reportType == .catch_ {

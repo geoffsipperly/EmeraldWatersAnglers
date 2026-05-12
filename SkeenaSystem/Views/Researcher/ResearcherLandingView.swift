@@ -60,6 +60,17 @@ struct ResearcherLandingView: View {
             }
             .padding(.horizontal, 20)
 
+            // Alpha tag — sits just below the Conservation Mode label and
+            // right-justifies under it. Renders only when BETA_RELEASE is
+            // true (self-gated by AlphaBadge), so production builds get no
+            // visual gap here.
+            HStack {
+              Spacer()
+              AlphaBadge()
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 2)
+
             CommunityLogoView(config: communityService.activeCommunityConfig, size: 120)
               .frame(maxWidth: .infinity)
           }

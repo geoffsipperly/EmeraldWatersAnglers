@@ -20,15 +20,10 @@ struct LoginView: View {
 
   private enum Field { case email, password }
 
-  private var isBetaRelease: Bool {
-    if let boolVal = Bundle.main.object(forInfoDictionaryKey: "BETA_RELEASE") as? Bool {
-      return boolVal
-    }
-    if let strVal = Bundle.main.object(forInfoDictionaryKey: "BETA_RELEASE") as? String {
-      return strVal.lowercased() == "true" || strVal == "1"
-    }
-    return false
-  }
+  // Re-export the shared helper so the existing log line below keeps working
+  // without changing its shape. New call sites should just use `AlphaBadge`
+  // (which self-gates).
+  private var isBetaRelease: Bool { AlphaBadge.isBetaRelease }
 
   private var canUseBiometricsForLogin: Bool {
     isBiometricAvailable && (auth.hasStoredSession || auth.hasOfflineCredentials)
@@ -201,22 +196,16 @@ struct LoginView: View {
       }
     }
     .overlay(alignment: .topLeading) {
-      if isBetaRelease {
-        HStack {
-          Text("Pilot")
-            .font(.brandCaption.weight(.semibold))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Color.brandAccent)
-            .clipShape(Capsule())
-            .foregroundColor(.brandTextPrimary)
-            .shadow(radius: 2)
-            .padding(.leading, 12)
-            .padding(.top, 12)
-          Spacer(minLength: 0)
-        }
-        .zIndex(1000)
+      // Was the blue "Pilot" capsule — now a small grey "Alpha" tag. The
+      // badge self-gates on BETA_RELEASE, so the surrounding overlay always
+      // renders but contributes nothing visible in release builds.
+      HStack {
+        AlphaBadge()
+          .padding(.leading, 12)
+          .padding(.top, 12)
+        Spacer(minLength: 0)
       }
+      .zIndex(1000)
     }
     .preferredColorScheme(.dark)
   }

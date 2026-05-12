@@ -302,6 +302,16 @@ final class CatchChatViewModel: ObservableObject {
   }
 
   func updateLocation(_ location: CLLocation?) {
+    // Once a photo with EXIF GPS has been processed, freeze `currentLocation`
+    // at the photo's fix — don't let the device's live-tracking GPS clobber
+    // it. ReportChatView pumps device GPS in here continuously while the
+    // user is in the chat; without this guard a catch saved an hour after
+    // the photo was taken would end up stamped at the user's current
+    // location (e.g., the parking lot) instead of the actual fish-on
+    // location encoded in the photo. Pre-photo state still tracks live GPS
+    // (photoExifLocation is nil), and `resetForNewCatch()` clears the
+    // freeze so the next flow starts fresh.
+    if photoExifLocation != nil { return }
     currentLocation = location
   }
 

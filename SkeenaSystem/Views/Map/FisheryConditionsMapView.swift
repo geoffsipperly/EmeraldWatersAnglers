@@ -140,8 +140,19 @@ struct FisheryConditionsMapView<Callout: View>: View {
     type: GuideLandingAnnotation.ReportType
   ) -> some MapContent {
     PointAnnotationGroup(group) { annotation in
-      PointAnnotation(coordinate: annotation.coordinate)
-        .image(.init(image: MapPinImage.pin(color: type.pinColor), name: type.pinName))
+      // Hollow variant for `savedLocally` pins so the user can spot what
+      // they've recorded on this fishery before it has uploaded. Each
+      // (type, pending-state) pair registers its own Mapbox image name to
+      // avoid the texture cache merging the two variants into one glyph.
+      let isPending = annotation.report.isPendingUpload
+      let pinImage = isPending
+        ? MapPinImage.hollowPin(color: type.pinColor)
+        : MapPinImage.pin(color: type.pinColor)
+      let pinName = isPending
+        ? "\(type.pinName)-pending"
+        : type.pinName
+      return PointAnnotation(coordinate: annotation.coordinate)
+        .image(.init(image: pinImage, name: pinName))
         .iconAnchor(.bottom)
         .onTapGesture { _ in
           selectedAnnotation = annotation

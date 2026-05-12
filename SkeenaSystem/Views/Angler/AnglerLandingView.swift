@@ -653,6 +653,12 @@ struct AnglerLandingView: View {
     guard let communityId = CommunityService.shared.activeCommunityId else { return }
     do {
       let reports = try await MapReportService.fetch(communityId: communityId)
+      // Note: no `LocalMapPins.mergeWithServer` here. Anglers have no
+      // on-device recording path — every catch they see on the map was
+      // uploaded by their guide. Nothing ever lands in CatchReportStore /
+      // FarmedReportStore under an angler-role session, so the merge would
+      // always be a no-op. If anglers ever get a record path, wire the
+      // merge in then (and the offline fallback below too).
       await MainActor.run { mapReports = reports }
     } catch {
       AppLogging.log("[AnglerLanding] Map reports fetch failed: \(error.localizedDescription)", level: .error, category: .network)

@@ -220,9 +220,16 @@ struct ResearcherMapView: View {
     do {
       let all = try await MapReportService.fetch(communityId: communityId, memberId: memberId)
       let catches = all.filter { $0.type == "catch" }
+      // Cache only the server payload — local-pending pins live in
+      // CatchReportStore and are merged in fresh on every render below.
       MapRecallCache.save(reports: catches, communityId: communityId, scope: memberId)
+      // Merge in the researcher's `savedLocally` catches so today's work is
+      // visible immediately. The catch-only filter naturally drops the
+      // researcher's local marks (the map intentionally only renders
+      // catches for the research role).
+      let merged = LocalMapPins.mergeWithServer(catches).filter { $0.type == "catch" }
       await MainActor.run {
-        mapReports = catches
+        mapReports = merged
         cachedAt = nil
       }
       // Tile pre-cache uses the community-wide footprint — same call the
@@ -233,9 +240,19 @@ struct ResearcherMapView: View {
       AppLogging.log("[ResearcherMap] fetch failed: \(error.localizedDescription)", level: .error, category: .map)
       if let snapshot = MapRecallCache.load(communityId: communityId, scope: memberId) {
         AppLogging.log("[ResearcherMap] serving cached pins from \(snapshot.cachedAt)", level: .info, category: .map)
+        // Same merge + catch-only filter on the cached path.
+        let merged = LocalMapPins.mergeWithServer(snapshot.reports).filter { $0.type == "catch" }
         await MainActor.run {
-          mapReports = snapshot.reports
+          mapReports = merged
           cachedAt = snapshot.cachedAt
+        }
+      } else {
+        // No cache — fall back to local-only catches so the day's work
+        // still shows up even when fully offline.
+        let local = LocalMapPins.localPendingPins().filter { $0.type == "catch" }
+        await MainActor.run {
+          mapReports = local
+          cachedAt = nil
         }
       }
     }
