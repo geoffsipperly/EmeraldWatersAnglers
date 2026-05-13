@@ -19,6 +19,25 @@ private struct DarkTextEditor: UIViewRepresentable {
     tv.delegate = context.coordinator
     tv.layer.cornerRadius = 12
     tv.clipsToBounds = true
+
+    // Keyboard accessory toolbar with a Done button. Without this the
+    // keyboard has no in-view dismiss affordance (no swipe-to-dismiss on
+    // a plain UITextView, no return key for multi-line) and ends up
+    // covering the Save button at the bottom of the sheet.
+    let toolbar = UIToolbar(
+      frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 44)
+    )
+    toolbar.barStyle = .black
+    let flex = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
+    let done = UIBarButtonItem(
+      barButtonSystemItem: .done,
+      target: tv,
+      action: #selector(UIResponder.resignFirstResponder)
+    )
+    toolbar.items = [flex, done]
+    toolbar.sizeToFit()
+    tv.inputAccessoryView = toolbar
+
     return tv
   }
 
@@ -148,7 +167,7 @@ struct RecordObservationSheet: View {
                 proxy.scrollTo("TranscriptBottom", anchor: .bottom)
               }
             }
-            .frame(maxHeight: 360)
+            .frame(minHeight: 220, maxHeight: 520)
           }
           .opacity(!recorder.isRecording && hasRecordedAudio ? 0 : 1)
 
@@ -159,9 +178,9 @@ struct RecordObservationSheet: View {
                 .font(.brandCaption)
                 .foregroundColor(.brandTextPrimary.opacity(0.5))
               DarkTextEditor(text: $transcriptSnapshot)
-                .frame(maxHeight: 340)
+                .frame(minHeight: 200, maxHeight: 500)
             }
-            .frame(maxHeight: 360)
+            .frame(minHeight: 220, maxHeight: 520)
           }
         }
 

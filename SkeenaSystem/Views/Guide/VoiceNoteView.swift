@@ -267,6 +267,69 @@ final class SpeechRecorder: NSObject, ObservableObject {
   /// double-appending or overwriting the accumulator after pause.
   private var sessionGeneration: Int = 0
 
+  /// Longest `bestTranscription.formattedString` we've observed in the
+  /// active recognition session, across partials AND the final result.
+  ///
+  /// On iOS 26 on real device hardware (observed iPhone 16, iOS 26.4.2),
+  /// SFSpeechRecognizer can deliver an `isFinal == true` result whose
+  /// `bestTranscription.formattedString` is *empty* (or a heavily-revised,
+  /// much shorter string) after a brief natural speech pause. Appending
+  /// that final string straight into `finalizedTranscript` would drop
+  /// everything the user just said because the longer text only ever
+  /// lived in the preceding partials.
+  ///
+  /// Tracking the running maximum lets the commit path accumulate the
+  /// user's actual words regardless of what iOS decides to put in the
+  /// final result. Reset to "" at the start of every session.
+  private var currentSessionLongestPartial: String = ""
+
+  /// Wall-clock timestamp of the most recent meter sample that registered
+  /// above `silencePeakThresholdDb`. `nil` means the meter has been silent
+  /// since the last reset (or has never sampled yet).
+  ///
+  /// Used by the meter timer to detect sustained silence and recover from
+  /// iOS 26's *silent* SFSpeechRecognizer auto-finalize: on iPhone 16 /
+  /// iOS 26.4.2 we've observed the recognition task stop emitting
+  /// callbacks after ~1s of speech silence without firing `isFinal` or
+  /// an error. The user then keeps speaking and nothing is transcribed.
+  /// When silence has lasted longer than `silenceRestartThresholdSec` we
+  /// proactively commit `currentSessionLongestPartial` into
+  /// `finalizedTranscript` and start a new recognition session.
+  private var silenceStartedAt: CFAbsoluteTime?
+
+  /// dB FS threshold below which a meter sample counts as "silent". The
+  /// recorder reports 0 dB at full scale and ~-160 dB at the noise floor;
+  /// natural speech runs roughly -10 to -25 dB. -35 dB catches normal
+  /// pauses while leaving room for quiet talkers and ambient noise.
+  private let silencePeakThresholdDb: Float = -35.0
+
+  /// Seconds of continuous silence (per `silencePeakThresholdDb`) before
+  /// we suspect iOS has silently killed the recognition task and rotate
+  /// to a new session. Calibrated against the user-observed iOS 26
+  /// auto-finalize timing of ~1–2 seconds.
+  private let silenceRestartThresholdSec: TimeInterval = 1.5
+
+  /// Wall-clock timestamp of the most recent successful recognition
+  /// callback (result OR error) for the current session generation. Used
+  /// by the meter timer to detect "audio is happening but callbacks have
+  /// stopped" — the canonical fingerprint of iOS 26's silent task kill
+  /// when the user pauses briefly (under `silenceRestartThresholdSec`)
+  /// and then resumes speaking. In that case the silence-based trigger
+  /// can't help because audio is active again, but no recognition is
+  /// happening. We rotate to a new session as soon as the gap exceeds
+  /// `callbackInactivityRestartThresholdSec`.
+  ///
+  /// Reset to "now" whenever a new recognition session starts (so the
+  /// new task has a grace period) and to nil when not recording.
+  private var lastResultCallbackAt: CFAbsoluteTime?
+
+  /// Seconds without any callback (with audio active) before we assume
+  /// iOS killed the task silently. 1.0s is short enough to recover
+  /// quickly after a brief speech pause; long enough that a natural
+  /// gap between partial deliveries during continuous speech does not
+  /// false-positive.
+  private let callbackInactivityRestartThresholdSec: TimeInterval = 1.0
+
   private let maxDuration: TimeInterval?
 
   let sampleRate: Double = 16000
@@ -307,6 +370,9 @@ final class SpeechRecorder: NSObject, ObservableObject {
     // the recorder safe to re-use without that ceremony.
     finalizedTranscript = ""
     partialTranscript = ""
+    currentSessionLongestPartial = ""
+    silenceStartedAt = nil
+    lastResultCallbackAt = nil
 
     try configureEngineTapAndStart()
     startNewRecognitionSession()
@@ -367,6 +433,12 @@ final class SpeechRecorder: NSObject, ObservableObject {
 
     sessionGeneration += 1
     let myGeneration = sessionGeneration
+    currentSessionLongestPartial = ""
+    // Treat the session start as a "callback" for the inactivity timer
+    // so it gets a full `callbackInactivityRestartThresholdSec` grace
+    // period before triggering — otherwise a freshly-rotated session
+    // would instantly rotate again.
+    lastResultCallbackAt = CFAbsoluteTimeGetCurrent()
 
     let request = SFSpeechAudioBufferRecognitionRequest()
     request.shouldReportPartialResults = true
@@ -381,20 +453,41 @@ final class SpeechRecorder: NSObject, ObservableObject {
     recognitionTask = speechRecognizer?.recognitionTask(with: request) { [weak self] result, error in
       DispatchQueue.main.async {
         guard let self, self.sessionGeneration == myGeneration else { return }
+        // Any callback for the active generation — partial result, final
+        // result, or error — counts as "recognition is alive." Stamp the
+        // inactivity clock so the meter timer's callback-inactivity
+        // detector doesn't rotate while the task is still talking to us.
+        self.lastResultCallbackAt = CFAbsoluteTimeGetCurrent()
         if let result {
           let current = result.bestTranscription.formattedString
+
+          // Track the longest text we've seen in this session. iOS 26 on
+          // physical device can emit `isFinal == true` with an empty
+          // `bestTranscription.formattedString` after a brief speech
+          // pause, while the preceding partials held the actual words. By
+          // accumulating into a running max here and using it for both
+          // the display and the final commit, we no longer depend on the
+          // final result being the longest — partials are authoritative.
+          if current.count > self.currentSessionLongestPartial.count {
+            self.currentSessionLongestPartial = current
+          }
+          let sessionText = self.currentSessionLongestPartial
+
           let display = self.finalizedTranscript.isEmpty
-            ? current
-            : self.finalizedTranscript + " " + current
+            ? sessionText
+            : self.finalizedTranscript + " " + sessionText
           self.partialTranscript = display
 
           if result.isFinal {
-            // Lock this session's text into the accumulator and start a
-            // new task so we keep transcribing the user's next sentences.
-            if !self.finalizedTranscript.isEmpty {
-              self.finalizedTranscript += " "
+            // Commit the running maximum (NOT `current` — which iOS 26 may
+            // deliver as ""), then start a new task so we keep transcribing
+            // the user's next sentences.
+            if !sessionText.isEmpty {
+              if !self.finalizedTranscript.isEmpty {
+                self.finalizedTranscript += " "
+              }
+              self.finalizedTranscript += sessionText
             }
-            self.finalizedTranscript += current
             if self.isRecording, !self.isPaused {
               self.startNewRecognitionSession()
             }
@@ -413,6 +506,22 @@ final class SpeechRecorder: NSObject, ObservableObject {
     }
   }
 
+  /// Commit the current session's longest-seen transcription into the
+  /// cross-session accumulator and rotate to a fresh recognition session.
+  /// Used both by the `isFinal` branch of the recognition callback and by
+  /// the meter timer's silence-based recovery path when iOS has silently
+  /// killed the task without firing a callback.
+  private func commitCurrentSessionAndRestart() {
+    let sessionText = currentSessionLongestPartial
+    if !sessionText.isEmpty {
+      if !finalizedTranscript.isEmpty {
+        finalizedTranscript += " "
+      }
+      finalizedTranscript += sessionText
+    }
+    startNewRecognitionSession()
+  }
+
   private func startMeterTimer() {
     levelTimer?.invalidate()
     levelTimer = Timer.scheduledTimer(withTimeInterval: 0.12, repeats: true) { [weak self] _ in
@@ -422,6 +531,76 @@ final class SpeechRecorder: NSObject, ObservableObject {
       let clamped = max(-60, min(0, peak))
       let linear = pow(10, clamped / 20)
       DispatchQueue.main.async { self.meterLevel = CGFloat(linear) }
+
+      // Silent-finalize recovery, trigger 1 (audio level):
+      // SFSpeechRecognizer can stop emitting callbacks after ~1s of speech
+      // silence without firing `isFinal` or an error — the task is alive
+      // but mute, so anything the user says after the pause is dropped.
+      // Track silence via the meter and once it has run past
+      // `silenceRestartThresholdSec` with a non-empty session, commit
+      // what we've captured and rotate to a new recognition task. The
+      // `!currentSessionLongestPartial.isEmpty` guard prevents both (a)
+      // restarting before the user has said anything and (b) repeatedly
+      // restarting while silence continues after we already rotated.
+      let isSilent = peak < self.silencePeakThresholdDb
+      if isSilent {
+        if self.silenceStartedAt == nil {
+          self.silenceStartedAt = CFAbsoluteTimeGetCurrent()
+        }
+        if
+          let silenceStart = self.silenceStartedAt,
+          CFAbsoluteTimeGetCurrent() - silenceStart >= self.silenceRestartThresholdSec,
+          self.isRecording,
+          !self.isPaused,
+          !self.currentSessionLongestPartial.isEmpty
+        {
+          self.silenceStartedAt = nil
+          DispatchQueue.main.async { self.commitCurrentSessionAndRestart() }
+        }
+      } else {
+        self.silenceStartedAt = nil
+      }
+
+      // Silent-finalize recovery, trigger 2 (task state):
+      // If iOS DOES update the task state when it kills the recognition
+      // (vs. leaving it stuck at `.running`), this catches it more
+      // directly than the silence-level heuristic. Same guard set as
+      // above to avoid restarting empty sessions or sessions we just
+      // rotated.
+      if
+        let task = self.recognitionTask,
+        task.state != .running, task.state != .starting,
+        self.isRecording,
+        !self.isPaused,
+        !self.currentSessionLongestPartial.isEmpty
+      {
+        DispatchQueue.main.async { self.commitCurrentSessionAndRestart() }
+      }
+
+      // Silent-finalize recovery, trigger 3 (callback inactivity):
+      // The canonical iOS-26 failure mode: user pauses briefly, iOS
+      // kills the task silently (no isFinal, no error, state stuck at
+      // .running), user resumes speaking, but no callbacks ever fire.
+      // The other two triggers can't catch this: silence reset when
+      // audio came back, task state is still .running. The fingerprint
+      // is "audio is happening NOW but the recognition callbacks have
+      // gone quiet." Detect that directly: if peak is above the silence
+      // threshold (audio active) and the last callback for this
+      // generation was longer than the inactivity threshold ago, rotate.
+      if
+        let last = self.lastResultCallbackAt,
+        peak >= self.silencePeakThresholdDb,
+        CFAbsoluteTimeGetCurrent() - last >= self.callbackInactivityRestartThresholdSec,
+        self.isRecording,
+        !self.isPaused,
+        !self.currentSessionLongestPartial.isEmpty
+      {
+        // Zero the inactivity clock so we don't trigger again before
+        // commitCurrentSessionAndRestart can reset it via the new
+        // session's session-start stamp.
+        self.lastResultCallbackAt = CFAbsoluteTimeGetCurrent()
+        DispatchQueue.main.async { self.commitCurrentSessionAndRestart() }
+      }
 
       // NEW: enforce maxDuration if set
       if
@@ -458,6 +637,8 @@ final class SpeechRecorder: NSObject, ObservableObject {
     recognitionTask?.cancel()
     recognitionTask = nil
     sessionGeneration += 1
+    silenceStartedAt = nil
+    lastResultCallbackAt = nil
 
     if let start = segmentStartTime { accumulatedDuration += CFAbsoluteTimeGetCurrent() - start }
     segmentStartTime = nil
@@ -474,6 +655,8 @@ final class SpeechRecorder: NSObject, ObservableObject {
       try configureEngineTapAndStart()
       _ = audioRecorder?.record()
       segmentStartTime = CFAbsoluteTimeGetCurrent()
+      silenceStartedAt = nil
+      lastResultCallbackAt = CFAbsoluteTimeGetCurrent()
       startMeterTimer()
       isPaused = false
       // Spin up a fresh recognition session so the resumed audio engine's
