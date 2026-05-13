@@ -8,7 +8,8 @@
 // ──────────────────────────────────────────────
 // MARK: - Backend & Authentication
 // ──────────────────────────────────────────────
-
+// 05.12 - Validated points at MT_Dev 
+// 
 // Updated to new Supabase backend - MT-Dev
 SUPABASE_PROJECT_URL = https://rkbonlzjyemhypvrdriy.supabase.co
 API_BASE_URL = rkbonlzjyemhypvrdriy.supabase.co
