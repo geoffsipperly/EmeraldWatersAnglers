@@ -42,6 +42,8 @@
 	<string>$(DELETE_ACCOUNT_URL)</string>
 	<key>DOWNLOAD_CATCH_URL</key>
 	<string>$(DOWNLOAD_CATCH_URL)</string>
+	<key>ENVIRONMENT_LABEL</key>
+	<string>$(ENVIRONMENT_LABEL)</string>
 	<key>E_CATCH_CAROUSEL</key>
 	<string>$(E_CATCH_CAROUSEL)</string>
 	<key>E_CATCH_MAP</key>
