@@ -90,6 +90,10 @@ APP_LOGO_ASSET = AppLogo
 COMMUNITY = Mad Thinker
 COMMUNITY_TAGLINE = Intelligent Conservation
 
+// Environment identifier shown in the in-app banner (EnvironmentBanner.swift).
+// DEV = MT-Dev backend, STAGE = MT-Stage backend, PROD = production (no banner).
+ENVIRONMENT_LABEL = DEV
+
 // ──────────────────────────────────────────────
 // MARK: - Location & Geography (compile-time fallback — overridden by communities.geography at runtime)
 // ──────────────────────────────────────────────
