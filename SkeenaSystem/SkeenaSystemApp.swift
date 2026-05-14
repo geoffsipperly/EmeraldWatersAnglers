@@ -136,6 +136,7 @@ struct SkeenaSystemApp: App {
           persistence.container.viewContext.automaticallyMergesChangesFromParent = true
           persistence.container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
         }
+        .environmentBanner()
     }
     .onChange(of: scenePhase) { phase in
       // Lightweight safety net to persist any in-flight edits
