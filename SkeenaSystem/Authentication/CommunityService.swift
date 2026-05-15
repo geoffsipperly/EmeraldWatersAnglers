@@ -209,6 +209,16 @@ final class CommunityService: ObservableObject {
                 AppLogging.log("[CommunityService] Filtered \(allFetched.count - fetched.count) inactive community(s): \(inactiveNames.joined(separator: ", "))", level: .info, category: .community)
             }
 
+            // Pre-cache each community's logo to disk so the next offline
+            // launch renders the right logo instead of the bundled fallback.
+            // Fire-and-forget — slow downloads must not block routing.
+            for membership in fetched {
+                if let urlString = membership.communities.logoUrl,
+                   let url = URL(string: urlString) {
+                    Task.detached { await CommunityLogoCache.shared.cache(url) }
+                }
+            }
+
             await MainActor.run {
                 self.memberships = fetched
                 self.persistMemberships(fetched)
@@ -519,6 +529,10 @@ final class CommunityService: ObservableObject {
         UserDefaults.standard.removeObject(forKey: kActiveCommunityTypeId)
         UserDefaults.standard.removeObject(forKey: kActiveCommunityTypeName)
         UserDefaults.standard.removeObject(forKey: kActiveCommunityConfig)
+        // Wipe logo cache so a user signing into a different account doesn't
+        // briefly see the previous user's community logos before the new
+        // online fetch lands.
+        CommunityLogoCache.shared.clear()
     }
 
     // MARK: - Test Support
