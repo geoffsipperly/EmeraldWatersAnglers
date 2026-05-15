@@ -2271,19 +2271,25 @@ final class CatchChatViewModel: ObservableObject {
     return nonEmpty(flow.studyTagId)
   }
 
-  /// Build the `MLDiagnostics` provenance blob from the initial (pre-user-
-  /// correction) analysis snapshot and JSON-encode it for storage on the
+  /// JSON-encode the `MLDiagnostics` provenance blob for storage on the
   /// `CatchReport`. Returns nil when no analysis ran (e.g. researcher
   /// quick-capture without a photo) so the field stays absent server-side.
   ///
-  /// This first pass only pulls fields the analyzer already computes and
-  /// surfaces today; richer fields (raw model outputs, multi-model versions,
-  /// stage timings, hand landmarks, EXIF) are populated by upcoming
-  /// `CatchPhotoAnalyzer` instrumentation work. The codable shape is forward-
-  /// compatible — every field is optional, so older diagnostics survive
-  /// decode unchanged once the new fields start arriving.
+  /// The analyzer populates `CatchPhotoAnalysis.diagnostics` directly with
+  /// all available signal (confidences, raw model outputs, multi-model
+  /// versions, stage timings, derived geometry — and in upcoming commits,
+  /// MediaPipe landmarks and EXIF). When that's present we ship it
+  /// verbatim; otherwise we fall back to building a minimal diagnostic
+  /// from the older scalar fields on `CatchPhotoAnalysis` so legacy code
+  /// paths still produce something rather than nil.
   private func encodeMLDiagnostics(from analysis: CatchPhotoAnalysis?) -> Data? {
     guard let analysis else { return nil }
+    if let diagnostics = analysis.diagnostics {
+      return try? JSONEncoder().encode(diagnostics)
+    }
+    // Legacy fallback path — only reached if a future code path forgets to
+    // populate `analysis.diagnostics`. Mirrors the original scalar-only
+    // blob shape so existing pipelines keep getting partial signal.
     let alternatives: [MLDiagnostics.SpeciesAlternative]? = analysis.speciesAlternatives.isEmpty
       ? nil
       : analysis.speciesAlternatives.map {
@@ -2294,7 +2300,7 @@ final class CatchChatViewModel: ObservableObject {
     let versions: MLDiagnostics.ModelVersions? = analysis.modelVersion.map {
       MLDiagnostics.ModelVersions(lengthRegressor: $0)
     }
-    let diagnostics = MLDiagnostics(
+    let fallback = MLDiagnostics(
       speciesConfidence: analysis.speciesConfidence,
       lifecycleStageConfidence: analysis.lifecycleStageConfidence,
       sexConfidence: analysis.sexConfidence,
@@ -2302,7 +2308,7 @@ final class CatchChatViewModel: ObservableObject {
       speciesAlternatives: alternatives,
       modelVersions: versions
     )
-    return try? JSONEncoder().encode(diagnostics)
+    return try? JSONEncoder().encode(fallback)
   }
 
   /// Trim + nil-coalesce so empty strings never leak into the snapshot.
