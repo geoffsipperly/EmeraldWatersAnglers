@@ -56,6 +56,12 @@ struct CatchPhotoAnalysis {
   /// Top-1 softmax probability from the ViTFishSex classifier. Nil when the sex
   /// model returned no prediction.
   let sexConfidence: Float?
+  /// On-device ML provenance snapshot — confidences, raw model outputs, multi-
+  /// model versions, stage timings, MediaPipe landmarks, EXIF. Populated by
+  /// `CatchPhotoAnalyzer.analyze`; `CatchChatViewModel.makeCatchSnapshot`
+  /// encodes it to JSON for storage on `CatchReport.mlDiagnostics` and ships
+  /// it under `initialAnalysis.mlDiagnostics` at upload time.
+  let diagnostics: MLDiagnostics?
 
   init(
     riverName: String?,
@@ -70,7 +76,8 @@ struct CatchPhotoAnalysis {
     speciesAlternatives: [SpeciesCandidate] = [],
     speciesConfidence: Float? = nil,
     lifecycleStageConfidence: Float? = nil,
-    sexConfidence: Float? = nil
+    sexConfidence: Float? = nil,
+    diagnostics: MLDiagnostics? = nil
   ) {
     self.riverName = riverName
     self.species = species
@@ -85,6 +92,7 @@ struct CatchPhotoAnalysis {
     self.speciesConfidence = speciesConfidence
     self.lifecycleStageConfidence = lifecycleStageConfidence
     self.sexConfidence = sexConfidence
+    self.diagnostics = diagnostics
   }
 }
 
@@ -172,6 +180,16 @@ final class CatchPhotoAnalyzer {
     image: UIImage,
     location: CLLocation?
   ) async -> CatchPhotoAnalysis {
+    // ML-provenance bookkeeping. Each stage records its own wall-clock time;
+    // raw model outputs and derived geometry land in their own locals and
+    // get assembled into the `MLDiagnostics` blob at the end of `analyze`.
+    // Doing it this way keeps the changes additive — the existing analysis
+    // path is unchanged, we just keep around what it was already throwing on
+    // the floor.
+    let analyzeStartedAt = Date()
+    var stageTimings: [MLDiagnostics.StageTiming] = []
+    var regressorRawInches: Double?
+
     // 1. Location detection: check both river spines and water body polygons,
     //    pick whichever is closer when both match.
     var riverDisplay: String?
@@ -199,10 +217,14 @@ final class CatchPhotoAnalyzer {
     }
 
     // 2. YOLO detection (run first so we can crop for species/sex)
+    let yoloStartedAt = Date()
     let detection = runDetector(on: image)
+    stageTimings.append(.init(stage: "yolo", ms: Date().timeIntervalSince(yoloStartedAt) * 1000))
 
     // 3. Species via ViT (on full image)
+    let vitStartedAt = Date()
     let vitResult = runViT(on: image)
+    stageTimings.append(.init(stage: "vitSpecies", ms: Date().timeIntervalSince(vitStartedAt) * 1000))
 
     let speciesText: String?
     var detectedSpeciesLabel: String? = nil
@@ -264,16 +286,20 @@ final class CatchPhotoAnalyzer {
     }
 
     // 4. Sex via ViTFishSex (on full image)
+    let sexStartedAt = Date()
     let sexResult: (label: String, confidence: Float)? = if #available(iOS 16.0, *) {
       runSexClassifier(on: image)
     } else {
       nil
     }
+    stageTimings.append(.init(stage: "vitSex", ms: Date().timeIntervalSince(sexStartedAt) * 1000))
     let sexText: String? = if let s = sexResult { "Sex (model): \(s.label)" } else { "Unknown" }
     let sexConfidence: Float? = sexResult?.confidence
 
     // 5. Hand pose detection via MediaPipe
+    let handStartedAt = Date()
     let handMeasurement = detectHand(on: image)
+    stageTimings.append(.init(stage: "handLandmarker", ms: Date().timeIntervalSince(handStartedAt) * 1000))
 
     // 6. Length estimation
     var lengthText: String? = "Length estimate not available (photo estimate failed)"
@@ -359,7 +385,14 @@ final class CatchPhotoAnalyzer {
       let useRegressorForSpecies = !Self.regressorBypassSpecies.contains(detectedSpeciesLabel ?? "")
 
       // Always log regressor prediction for future training data
-      if AppEnvironment.shared.useLengthRegressor, let predicted = predictLength(from: fv) {
+      let regressorStartedAt = Date()
+      let predicted = AppEnvironment.shared.useLengthRegressor ? predictLength(from: fv) : nil
+      stageTimings.append(.init(stage: "lengthRegressor", ms: Date().timeIntervalSince(regressorStartedAt) * 1000))
+      if let predicted {
+        // Surface raw regressor output for MLDiagnostics — captures cases where
+        // the regressor wants to overshoot the global envelope or the species
+        // biological range. Useful for retraining and for tuning the clamp.
+        regressorRawInches = predicted
         let clamped = max(
           AppEnvironment.shared.fishMinLengthInches,
           min(predicted, AppEnvironment.shared.fishMaxLengthInches)
@@ -399,6 +432,37 @@ final class CatchPhotoAnalyzer {
       AppLogging.log("Detector did not return any fish box above confidence/shape thresholds.", level: .warn, category: .ml)
     }
 
+    // Assemble the ML provenance blob shipped under `initialAnalysis.mlDiagnostics`
+    // at upload time. Only fields with real signal land — nil fields are omitted
+    // from the encoded JSON downstream so the JSONB column stays lean.
+    stageTimings.append(.init(stage: "total", ms: Date().timeIntervalSince(analyzeStartedAt) * 1000))
+    let alternativesForDiagnostics: [MLDiagnostics.SpeciesAlternative]? = speciesAlternatives.isEmpty
+      ? nil
+      : speciesAlternatives.map {
+          MLDiagnostics.SpeciesAlternative(label: $0.label, confidence: $0.confidence, isPrimary: $0.isPrimary)
+        }
+    let fishAspect: Double? = detection.fishBox.flatMap { box in
+      box.height > 0 ? Double(box.width / box.height) : nil
+    }
+    let personFishOverlap: Double? = Self.boxOverlapRatio(
+      fish: detection.fishBox, person: detection.personBox
+    )
+    let diagnostics = MLDiagnostics(
+      speciesConfidence: speciesRootConfidence,
+      lifecycleStageConfidence: lifecycleStageConfidence,
+      sexConfidence: sexConfidence,
+      lengthAtSpeciesCap: lengthAtSpeciesCap,
+      regressorBypassed: Self.regressorBypassSpecies.contains(detectedSpeciesLabel ?? ""),
+      speciesAlternatives: alternativesForDiagnostics,
+      regressorRawInches: regressorRawInches,
+      yoloFishConfidence: detection.fishBox?.confidence,
+      yoloPersonConfidence: detection.personBox?.confidence,
+      fishBoxAspectRatio: fishAspect,
+      personFishOverlapRatio: personFishOverlap,
+      modelVersions: modelVersionsSnapshot(),
+      stageTimingsMs: stageTimings
+    )
+
     return CatchPhotoAnalysis(
       riverName: riverDisplay,
       species: speciesText,
@@ -411,8 +475,61 @@ final class CatchPhotoAnalyzer {
       speciesAlternatives: speciesAlternatives,
       speciesConfidence: speciesRootConfidence,
       lifecycleStageConfidence: lifecycleStageConfidence,
-      sexConfidence: sexConfidence
+      sexConfidence: sexConfidence,
+      diagnostics: diagnostics
     )
+  }
+
+  /// Intersection-over-fish-area for two YOLO boxes (640×640 pixel space).
+  /// Returns 0 when boxes are disjoint, 1 when fish is fully inside person,
+  /// nil when either box is missing. Proxy for grip occlusion in
+  /// `MLDiagnostics.personFishOverlapRatio`.
+  private static func boxOverlapRatio(fish: NormalizedBox?, person: NormalizedBox?) -> Double? {
+    guard let fish, let person, fish.width > 0, fish.height > 0 else { return nil }
+    let fishMinX = fish.xCenter - fish.width / 2
+    let fishMaxX = fish.xCenter + fish.width / 2
+    let fishMinY = fish.yCenter - fish.height / 2
+    let fishMaxY = fish.yCenter + fish.height / 2
+    let personMinX = person.xCenter - person.width / 2
+    let personMaxX = person.xCenter + person.width / 2
+    let personMinY = person.yCenter - person.height / 2
+    let personMaxY = person.yCenter + person.height / 2
+    let interW = max(0, min(fishMaxX, personMaxX) - max(fishMinX, personMinX))
+    let interH = max(0, min(fishMaxY, personMaxY) - max(fishMinY, personMinY))
+    let interArea = interW * interH
+    let fishArea = fish.width * fish.height
+    return Double(interArea / fishArea)
+  }
+
+  // MARK: - Model version metadata
+
+  /// Returns `nil` when no model loaded successfully (rare — implies the
+  /// bundle is broken). Otherwise emits a `ModelVersions` with one slot
+  /// per pipeline model; per-model slots are `nil` when that specific
+  /// model didn't load or its CoreML metadata doesn't include a version
+  /// string. The autogenerated `best`/`ViTFishSex` wrapper classes expose
+  /// the underlying `MLModel` as `.model`, so a single
+  /// `modelDescription.metadata[.versionString]` read works for every model.
+  /// Falls back to the model's `.description` so models exported without an
+  /// explicit version (older training runs) still produce something
+  /// grep-able rather than vanishing.
+  private func modelVersionsSnapshot() -> MLDiagnostics.ModelVersions? {
+    func readVersion(_ md: [MLModelMetadataKey: Any]?) -> String? {
+      if let v = md?[.versionString] as? String, !v.isEmpty { return v }
+      if let d = md?[.description] as? String, !d.isEmpty { return d }
+      return nil
+    }
+    let versions = MLDiagnostics.ModelVersions(
+      yolo: readVersion(detectorModel?.model.modelDescription.metadata),
+      vitSpecies: readVersion(coreMLModel?.modelDescription.metadata),
+      vitSex: readVersion(Self._sexModel?.model.modelDescription.metadata),
+      lengthRegressor: CatchPhotoAnalyzer._lengthRegressorVersion
+    )
+    if versions.yolo == nil, versions.vitSpecies == nil,
+       versions.vitSex == nil, versions.lengthRegressor == nil {
+      return nil
+    }
+    return versions
   }
 
   /// Splits a ViT label like `"steelhead_holding"` into `(root: "steelhead",
