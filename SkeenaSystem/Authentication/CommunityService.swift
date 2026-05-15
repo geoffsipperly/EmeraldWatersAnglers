@@ -236,9 +236,25 @@ final class CommunityService: ObservableObject {
                 // Validate cached selection or leave nil so picker is shown
                 if let cachedId = self.activeCommunityId {
                     // Validate the cached selection still exists
-                    if fetched.contains(where: { $0.communityId == cachedId }) {
-                        // Refresh role, type, and config in case they changed
-                        if let membership = fetched.first(where: { $0.communityId == cachedId }) {
+                    if let membership = fetched.first(where: { $0.communityId == cachedId }) {
+                        if !membership.isActive && cachedId == self.defaultCommunityId {
+                            // Cached active is the user's default but the membership
+                            // has been deactivated (e.g. by an admin/guide). Clear
+                            // the active selection so the user lands on the picker
+                            // and can switch to another active community instead of
+                            // being trapped on InactiveMemberView. Keep
+                            // `defaultCommunityId` so a future reactivation auto-
+                            // routes back to this community on next launch.
+                            AppLogging.log("[CommunityService] Cached community \(cachedId) is the default but membership inactive — clearing active, keeping default for re-activation", level: .info, category: .community)
+                            self.activeCommunityId = nil
+                            self.activeRole = nil
+                            self.activeCommunityTypeId = nil
+                            self.activeCommunityTypeName = nil
+                            self.activeCommunityConfig = .default
+                            self.isMemberActive = true
+                            persistActiveState()
+                        } else {
+                            // Refresh role, type, and config in case they changed
                             self.activeRole = membership.role
                             self.activeCommunityTypeId = membership.communities.communityTypeId
                             self.activeCommunityTypeName = membership.communities.communityTypes?.name
@@ -265,8 +281,13 @@ final class CommunityService: ObservableObject {
                         AppLogging.log("[CommunityService] Cached community no longer valid — showing picker for \(fetched.count) communities", level: .info, category: .community)
                     }
                 } else if let defaultId = self.defaultCommunityId,
-                          fetched.contains(where: { $0.communityId == defaultId }) {
-                    // No active selection but user has a valid default — auto-select it
+                          let defaultMembership = fetched.first(where: { $0.communityId == defaultId }),
+                          defaultMembership.isActive {
+                    // No active selection but user has a valid default — auto-select it.
+                    // The isActive guard prevents trapping the user on InactiveMemberView
+                    // when an admin/guide has deactivated their membership in the default
+                    // community; falls through to the picker below so they can choose
+                    // another community where their membership is still active.
                     AppLogging.log("[CommunityService] Auto-selecting default community: id=\(defaultId)", level: .info, category: .community)
                     self.setActiveCommunity(id: defaultId)
                 } else if fetched.count == 1, let only = fetched.first {
@@ -275,11 +296,18 @@ final class CommunityService: ObservableObject {
                     self.setActiveCommunity(id: only.communityId)
                     self.setDefaultCommunity(id: only.communityId)
                 } else {
-                    // No cached selection and no valid default — show picker
+                    // No cached selection and no auto-selectable default — show picker.
+                    // Two reasons the default branch above can fall through here:
+                    //  - The user is no longer a member (default not in fetched) → clear.
+                    //  - The user is a member but their membership is inactive → KEEP
+                    //    the default so an admin reactivation auto-routes on next launch.
                     if let defaultId = self.defaultCommunityId {
-                        // Default exists but user is no longer a member — clear it
-                        AppLogging.log("[CommunityService] Default community \(defaultId) no longer valid — clearing", level: .info, category: .community)
-                        self.clearDefaultCommunity()
+                        if fetched.contains(where: { $0.communityId == defaultId }) {
+                            AppLogging.log("[CommunityService] Default community \(defaultId) membership inactive — showing picker, keeping default for re-activation", level: .info, category: .community)
+                        } else {
+                            AppLogging.log("[CommunityService] Default community \(defaultId) no longer valid — clearing", level: .info, category: .community)
+                            self.clearDefaultCommunity()
+                        }
                     }
                     AppLogging.log("[CommunityService] No cached selection — \(fetched.count) communities available, showing picker", level: .info, category: .community)
                 }
