@@ -1248,4 +1248,103 @@ final class CommunityServiceTests: XCTestCase {
     XCTAssertNil(memberIdParam,
                  "Should not include member_id query parameter when nil")
   }
+
+  // MARK: - Tests: Inactive membership in default community routes to picker
+
+  /// When a user's membership in their default community has been deactivated
+  /// (admin/guide flipped `user_communities.is_active` to false), the auto-
+  /// select-default branch must NOT activate that membership — otherwise the
+  /// user lands on InactiveMemberView with no way to switch to a community
+  /// where they're still active. Default stays in place so a future
+  /// reactivation auto-routes back here without the user having to pick again.
+  func testFetchMemberships_inactiveDefaultMembership_showsPickerKeepsDefault() async {
+    setAccessToken("valid-token")
+    // Default is c-1 but user's membership in it has been deactivated.
+    // c-2 is still active and selectable.
+    let m1 = makeSingleMembership(communityId: "c-1", communityName: "Default Lodge", role: "guide", code: "DEF111", isActive: true, memberIsActive: false)
+    let m2 = makeSingleMembership(communityId: "c-2", communityName: "Alt Lodge", role: "angler", code: "ALT222", isActive: true, memberIsActive: true)
+    let data = makeMembershipsJSON([m1, m2])
+
+    MockURLProtocol.requestHandler = { request in
+      guard let url = request.url else { throw URLError(.badURL) }
+      if url.path.contains("/rest/v1/user_communities") {
+        return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+      }
+      return (HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!, nil)
+    }
+
+    let svc = CommunityService.shared
+    svc.setDefaultCommunity(id: "c-1")
+    svc.clear() // logout — drops active state, default survives by design
+
+    await svc.fetchMemberships()
+
+    XCTAssertNil(svc.activeCommunityId,
+                 "Inactive default must NOT auto-select — user should land on the picker")
+    XCTAssertEqual(svc.defaultCommunityId, "c-1",
+                   "Default must persist so admin reactivation auto-routes on next launch")
+    XCTAssertEqual(svc.memberships.count, 2,
+                   "Picker should still show both memberships (the inactive one stays visible so the user understands why they were routed here)")
+  }
+
+  /// Variant: user's CACHED active community is also their default, and their
+  /// membership in it has been deactivated since last launch. The cached-path
+  /// must clear the active selection so the user lands on the picker instead
+  /// of InactiveMemberView. Default is preserved for reactivation.
+  func testFetchMemberships_cachedActiveIsInactiveDefault_clearsActiveKeepsDefault() async {
+    setAccessToken("valid-token")
+    let m1 = makeSingleMembership(communityId: "c-1", communityName: "Default Lodge", role: "guide", code: "DEF111", isActive: true, memberIsActive: false)
+    let m2 = makeSingleMembership(communityId: "c-2", communityName: "Alt Lodge", role: "angler", code: "ALT222", isActive: true, memberIsActive: true)
+    let data = makeMembershipsJSON([m1, m2])
+
+    MockURLProtocol.requestHandler = { request in
+      guard let url = request.url else { throw URLError(.badURL) }
+      if url.path.contains("/rest/v1/user_communities") {
+        return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+      }
+      return (HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!, nil)
+    }
+
+    let svc = CommunityService.shared
+    // Simulate prior state: user had this as both default AND currently active.
+    svc.setDefaultCommunity(id: "c-1")
+    UserDefaults.standard.set("c-1", forKey: "CommunityService.activeCommunityId")
+    UserDefaults.standard.set("guide", forKey: "CommunityService.activeRole")
+
+    await svc.fetchMemberships()
+
+    XCTAssertNil(svc.activeCommunityId,
+                 "Inactive default must NOT remain the active community — should clear to land on picker")
+    XCTAssertEqual(svc.defaultCommunityId, "c-1",
+                   "Default must persist so admin reactivation auto-routes on next launch")
+    XCTAssertTrue(svc.isMemberActive,
+                  "isMemberActive should be reset to true after clearing — otherwise AppRootView's !isMemberActive branch still renders InactiveMemberView")
+  }
+
+  /// Sanity: when the default membership IS active, the existing auto-select
+  /// behavior must still fire (no regression on the happy path).
+  func testFetchMemberships_activeDefaultMembership_stillAutoSelects() async {
+    setAccessToken("valid-token")
+    let m1 = makeSingleMembership(communityId: "c-1", communityName: "Default Lodge", role: "guide", code: "DEF111", isActive: true, memberIsActive: true)
+    let m2 = makeSingleMembership(communityId: "c-2", communityName: "Alt Lodge", role: "angler", code: "ALT222", isActive: true, memberIsActive: true)
+    let data = makeMembershipsJSON([m1, m2])
+
+    MockURLProtocol.requestHandler = { request in
+      guard let url = request.url else { throw URLError(.badURL) }
+      if url.path.contains("/rest/v1/user_communities") {
+        return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+      }
+      return (HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!, nil)
+    }
+
+    let svc = CommunityService.shared
+    svc.setDefaultCommunity(id: "c-1")
+    svc.clear()
+
+    await svc.fetchMemberships()
+
+    XCTAssertEqual(svc.activeCommunityId, "c-1",
+                   "Active default with active membership must auto-select as before")
+    XCTAssertTrue(svc.isMemberActive)
+  }
 }
